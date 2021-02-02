@@ -2,34 +2,14 @@
 #include <librpma.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "utils.h"
 
-const char* addr = "127.0.0.1";
-const char* port = "8042";
+char* hostname = "127.0.0.1";
+char* port = "8042";
 
-const char* usage_string = "USAGE: ./test_server <address> <port>\n";
+const char* usage_string = "USAGE: ./test_server <hostname> <port>\n";
 
 int main(int argc, char** argv) {
-    if (argc == 1) {
-        ask:
-        printf("No IP address or port given. Use localhost, port 8042? [y/n] ");
-        unsigned char answer = fgetc(stdin);
-        printf("\n");
-        if (!(answer == 'y' || answer == 'Y')){
-            if (answer == 'n' || answer == 'N'){
-                fputs(usage_string, stderr);
-                return 1;
-            }
-            else
-                goto ask;
-        }
-    } else if (argc == 3) {
-        addr = argv[1];
-        port = argv[2];
-    } else {
-        fputs(usage_string, stderr);
-        return 1;
-    }
-
     struct rpma_peer* peer = NULL;
     struct ibv_context* ibv_ctx = NULL;
     struct rpma_ep* endpoint = NULL;
@@ -39,8 +19,10 @@ int main(int argc, char** argv) {
     struct rpma_conn* connection;
     enum rpma_conn_event event;
 
+    if (parseargs(argc, argv))
+        return -1;
 
-    switch (rpma_utils_get_ibv_context(addr, RPMA_UTIL_IBV_CONTEXT_LOCAL, &ibv_ctx)) {
+    switch (rpma_utils_get_ibv_context(hostname, RPMA_UTIL_IBV_CONTEXT_LOCAL, &ibv_ctx)) {
         case RPMA_E_INVAL:
             fprintf(stderr, "Invalid arguments: Cannot get IBV context\n");
             return -1;
@@ -73,11 +55,11 @@ int main(int argc, char** argv) {
             return -1;
     }
 
-    if (rpma_ep_listen(peer, addr, port, &endpoint)) {
-        fprintf(stderr, "Can not listen on address %s, port %s\n", addr, port);
+    if (rpma_ep_listen(peer, hostname, port, &endpoint)) {
+        fprintf(stderr, "Can not listen on %s, port %s\n", hostname, port);
         return -1;
     }
-	printf("Listening on address %s, port %s. Waiting for connection request...\n", addr, port);
+	printf("Listening on %s, port %s. Waiting for connection request...\n", hostname, port);
 
     /* Wait for connection request */
     if (rpma_ep_next_conn_req(endpoint, config, &request) < 0) {
@@ -108,6 +90,7 @@ int main(int argc, char** argv) {
         }
     }
     printf("Client connected!\n");
+
 
 
     return 0;
