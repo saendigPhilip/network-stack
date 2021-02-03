@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "utils.h"
+#include "client_server_utils.h"
 
 const char* usage_string = "USAGE: ./test_client <address> <port>\n";
 char* hostname = "127.0.0.1";
@@ -17,7 +17,6 @@ int main(int argc, char** argv){
     struct rpma_conn_cfg* config = NULL;
     struct rpma_conn_req* request = NULL;
     struct rpma_conn* connection = NULL;
-    enum rpma_conn_event event;
 
     if (rpma_conn_req_new(peer, hostname, port, config, &request) < 0){
         fprintf(stderr, "Error creating connection request\n");

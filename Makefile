@@ -2,15 +2,15 @@
 CFLAGS=-O2 -g -Wall -Wextra -lrpma
 
 .PHONY: all
-all: test_server test_client
-test_server: test_server.c utils.c utils.h
+all: simple_server simple_client
+simple_server: simple_server.c client_server_utils.c client_server_utils.h
 	$(CC) -o $@ $^ $(CFLAGS)
 
-test_client: test_client.c utils.c utils.h
+simple_client: simple_client.c client_server_utils.c client_server_utils.h
 	$(CC) -o $@ $^ $(CFLAGS)
 
 
 .PHONY: clean
 clean:
-	rm -f test_server test_client
+	rm -f simple_server simple_client
 

@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include "utils.h"
+#include "client_server_utils.h"
 
 char* hostname = "127.0.0.1";
 char* port = "8042";
@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
     if (establish_connection(connection) < 0)
         return -1;
 
-    printf("Client connected!\n")
+    printf("Client connected!\n");
 
 
 

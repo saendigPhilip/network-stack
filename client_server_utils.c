@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "utils.h"
+#include "client_server_utils.h"
 
 /**
  * Parses the arguments. If arguments are invalid, either -1 is returned or the user
