@@ -10,11 +10,12 @@ const char* usage_string = "USAGE: ./test_server <hostname> <port>\n";
 struct rpma_peer* peer = NULL;
 
 int main(int argc, char** argv) {
+    int ret = -1;
     if (parseargs(argc, argv))
-        return -1;
+        return ret;
 
     if (initialize_peer())
-        return -1;
+        return ret;
 
     struct rpma_ep* endpoint = NULL;
     struct rpma_conn_cfg* config = NULL;
@@ -28,24 +29,25 @@ int main(int argc, char** argv) {
 
     if (rpma_ep_listen(peer, hostname, port, &endpoint)) {
         fprintf(stderr, "Can not listen on %s, port %s\n", hostname, port);
-        return -1;
+        goto free_peer;
     }
 	printf("Listening on %s, port %s. Waiting for connection request...\n", hostname, port);
 
     /* Wait for connection request */
     if (rpma_ep_next_conn_req(endpoint, config, &request) < 0) {
         fprintf(stderr, "Something went wrong while accepting client request\n");
-        return -1;
+        goto shutdown_endpoint;
     }
 
-    /* Accept client, do not send any private data */
+    /* Accept client, send data */
     if (rpma_conn_req_connect(&request, &private_data, &connection) < 0) {
         fprintf(stderr, "Could not connect to client\n");
-        return -1;
+        goto shutdown_endpoint;
     }
 
-    if (establish_connection(connection) < 0)
-        return -1;
+    if (establish_connection(connection) < 0) {
+        goto free_connection;
+    }
 
     printf("Client connected!\n");
 
@@ -56,24 +58,29 @@ int main(int argc, char** argv) {
     printf("Disconnecting...\n");
     if (rpma_conn_disconnect(connection) < 0){
         fprintf(stderr, "Error trying to disconnect\n");
-        return -1;
     }
 
-    if (wait_for_disconnect_event(connection, 1) < 0)
-        return -1;
+    (void) wait_for_disconnect_event(connection, 1);
 
-    if (rpma_conn_delete(&connection) < 0) {
-        fprintf(stderr, "Error trying to delete connection\n");
-        return -1;
-    }
-    printf("Disconnected. Shutting down server...\n");
+free_connection:
+    if (rpma_conn_delete(&connection) < 0)
+        fprintf(stderr, "Error trying to free connection structure\n");
 
-    if (rpma_ep_shutdown(&endpoint) < 0){
+    printf("Disconnected. ");
+
+shutdown_endpoint:
+    printf("Shutting down endpoint...\n");
+    if (rpma_ep_shutdown(&endpoint) < 0)
         fprintf(stderr, "Could not shut down endpoint\n");
-        return -1;
-    }
-    printf("Server shut down successfully\n");
+    else
+        printf("Endpoint shut down successfully\n");
 
-    return 0;
+free_peer:
+    if (rpma_peer_delete(&peer) < 0)
+        fprintf(stderr, "Could not free peer structure\n");
+    else
+        ret = 0;
+
+    return ret;
 }
 

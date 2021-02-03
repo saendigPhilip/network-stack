@@ -8,11 +8,12 @@ char* port = "8042";
 struct rpma_peer* peer;
 
 int main(int argc, char** argv){
+    int ret = -1;
     if (parseargs(argc, argv))
-        return -1;
+        return ret;
 
     if (initialize_peer())
-        return -1;
+        return ret;
 
     struct rpma_conn_cfg* config = NULL;
     struct rpma_conn_req* request = NULL;
@@ -22,7 +23,7 @@ int main(int argc, char** argv){
 
     if (rpma_conn_req_new(peer, hostname, port, config, &request) < 0){
         fprintf(stderr, "Error creating connection request\n");
-        return -1;
+        goto delete_peer;
     }
 
     private_data.ptr = (void*) message;
@@ -30,11 +31,11 @@ int main(int argc, char** argv){
     printf("Connecting to server at %s, port %s...\n", hostname, port);
     if (rpma_conn_req_connect(&request, &private_data, &connection) < 0) {
         fprintf(stderr, "Error while issuing connection request\n");
-        return -1;
+        goto delete_peer;
     }
 
     if (establish_connection(connection) < 0)
-        return -1;
+        goto abort_connection;
 
     printf("Connected to server!\n");
 
@@ -43,21 +44,25 @@ int main(int argc, char** argv){
     }
 
     printf("Disconnecting...\n");
-    if (wait_for_disconnect_event(connection, 1) < 0)
-        return -1;
+    (void) wait_for_disconnect_event(connection, 1);
 
-    if (rpma_conn_disconnect(connection) < 0) {
+    if (rpma_conn_disconnect(connection) < 0)
         fprintf(stderr, "Error while trying to disconnect\n");
-        return -1;
-    }
 
+abort_connection:
     if (rpma_conn_delete(&connection) < 0) {
-        fprintf(stderr, "Could not delete connection\n");
-        return -1;
+        fprintf(stderr, "Failed free connection structure\n");
+        rpma_peer_delete(&peer);
+        return ret;
     }
     printf("Disconnected\n");
 
-    return 0;
+delete_peer:
+    if (rpma_peer_delete(&peer) < 0)
+        fprintf(stderr, "Failed to free peer structure\n");
+    else
+        ret = 0;
 
+    return ret;
 }
 
