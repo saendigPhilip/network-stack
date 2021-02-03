@@ -18,4 +18,6 @@ int initialize_peer();
 
 int establish_connection(struct rpma_conn* connection);
 
+int wait_for_disconnect_event(struct rpma_conn* connection, int verbose);
+
 #endif //NETWORK_STACK_UTILS_H

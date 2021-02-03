@@ -39,6 +39,7 @@ int parseargs(int argc, char** argv){
     }
 }
 
+
 /**
  * Initializes the rpma_peer structure that is needed by both, client and server to
  * communicate via RPMA
@@ -84,6 +85,7 @@ int initialize_peer(){
     }
 }
 
+
 /**
  * Waits for the next event and checks, if it is an RPMA_CONN_ESTABLISHED event
  *
@@ -100,16 +102,58 @@ int establish_connection(struct rpma_conn* connection) {
     }
 
     if (event != RPMA_CONN_ESTABLISHED){
-        fprintf(stderr, "Connection could not be established. Error: ");
+        fprintf(stderr, "Connection could not be established. Unexpected event: ");
         switch(event){
             case RPMA_CONN_CLOSED: fprintf(stderr, "connection closed\n"); break;
             case RPMA_CONN_LOST: fprintf(stderr, "connection lost\n"); break;
             case RPMA_CONN_UNDEFINED:
             default:
-                fprintf(stderr, "undefined connection event\n"); break;
+                fprintf(stderr, "unknown connection event\n"); break;
         }
         return -1;
     }
-    printf("Client connected!\n");
+    return 0;
+}
+
+
+/**
+ * Ends a connection by waiting for the RPMA_CONN_CLOSED event and calling rpma_conn_disconnect()
+ * rpma_conn_disconnect has to be called
+ *      - by clients after calling this method
+ *      - by servers before calling this method
+ * @param connection    connection to close
+ * @param verbose       if not 0, error messages are printed to stderr
+ * @return              0  if RPMA_CONN_CLOSED event was received
+ *                      -1 if not
+ */
+int wait_for_disconnect_event(struct rpma_conn* connection, int verbose) {
+    enum rpma_conn_event event;
+    /* Wait for the "Connection Closed" event */
+    if (rpma_conn_next_event(connection, &event) < 0) {
+        if (verbose)
+            fprintf(stderr, "Error waiting for the next connection event\n");
+        return -1;
+    }
+
+    if (event != RPMA_CONN_CLOSED) {
+        if (verbose)
+            fprintf(stderr, "Connection could not be closed. Unexpected event: ");
+        switch (event) {
+            case RPMA_CONN_ESTABLISHED:
+                if (verbose)
+                    fprintf(stderr, "Connection established\n");
+                break;
+            case RPMA_CONN_LOST:
+                if (verbose)
+                    fprintf(stderr, "Connection lost\n");
+                break;
+            case RPMA_CONN_UNDEFINED:
+            default:
+                if (verbose)
+                    fprintf(stderr, "Unknown connection event\n");
+        }
+        return -1;
+    }
+
     return 0;
 }
