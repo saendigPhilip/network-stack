@@ -1,4 +1,4 @@
-# Optimize, turn on additional warnings, link with librpma
+# Optimize, make debuggable, turn on additional warnings, link with librpma
 CFLAGS=-O2 -g -Wall -Wextra -lrpma
 
 .PHONY: all
