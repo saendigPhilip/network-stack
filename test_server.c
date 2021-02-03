@@ -21,7 +21,6 @@ int main(int argc, char** argv) {
     struct rpma_conn_req* request = NULL;
     // struct rpma_conn_private_data private;
     struct rpma_conn* connection;
-    enum rpma_conn_event event;
 
     if (rpma_ep_listen(peer, hostname, port, &endpoint)) {
         fprintf(stderr, "Can not listen on %s, port %s\n", hostname, port);
@@ -41,23 +40,10 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    /* Wait for the "Connection established" event */
-    if (rpma_conn_next_event(connection, &event) < 0){
-        fprintf(stderr, "Could not establish connection\n");
+    if (establish_connection(connection) < 0)
         return -1;
-    }
 
-    if (event != RPMA_CONN_ESTABLISHED){
-        fprintf(stderr, "Connection could not be established. Error: ");
-        switch(event){
-            case RPMA_CONN_CLOSED: fprintf(stderr, "connection closed\n"); break;
-            case RPMA_CONN_LOST: fprintf(stderr, "connection lost\n"); break;
-            case RPMA_CONN_UNDEFINED:
-            default:
-                fprintf(stderr, "undefined connection event\n"); break;
-        }
-    }
-    printf("Client connected!\n");
+    printf("Client connected!\n")
 
 
 

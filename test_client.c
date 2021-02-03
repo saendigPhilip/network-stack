@@ -14,6 +14,25 @@ int main(int argc, char** argv){
     if (initialize_peer())
         return -1;
 
+    struct rpma_conn_cfg* config = NULL;
+    struct rpma_conn_req* request = NULL;
+    struct rpma_conn* connection = NULL;
+    enum rpma_conn_event event;
 
+    if (rpma_conn_req_new(peer, hostname, port, config, &request) < 0){
+        fprintf(stderr, "Error creating connection request\n");
+        return -1;
+    }
+
+    printf("Connecting to server at %s, port %s...\n", hostname, port);
+    if (rpma_conn_req_connect(&request, NULL, &connection) < 0) {
+        fprintf(stderr, "Error while issuing connection request\n");
+        return -1;
+    }
+
+    if (establish_connection(connection) < 0)
+        return -1;
+
+    printf("Connected to server!\n");
 }
 

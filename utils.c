@@ -1,6 +1,16 @@
 #include <stdio.h>
 #include "utils.h"
 
+/**
+ * Parses the arguments. If arguments are invalid, either -1 is returned or the user
+ * is asked whether to choose default values
+ * Sets the variables hostname and port
+ *
+ * @param hostname      Location where the hostname will be stored
+ * @param port          Int-Pointer to where the port will be stored
+ * @return              0  on success
+ *                      -1 if parsing the arguments failed
+ */
 int parseargs(int argc, char** argv){
     if (argv == NULL || argc == 0)
         return -2;
@@ -29,6 +39,13 @@ int parseargs(int argc, char** argv){
     }
 }
 
+/**
+ * Initializes the rpma_peer structure that is needed by both, client and server to
+ * communicate via RPMA
+ *
+ * @return  0  on success
+ *          -1 if some error occurs and the peer structure can't be initialized
+ */
 int initialize_peer(){
     /* ibv_ctx can be local because it's not needed after initialization */
     struct ibv_context* ibv_ctx;
@@ -65,4 +82,34 @@ int initialize_peer(){
             printf("Could not create peer structure. Unknown error\n");
             return -1;
     }
+}
+
+/**
+ * Waits for the next event and checks, if it is an RPMA_CONN_ESTABLISHED event
+ *
+ * @param connection    Connection structure on which the event is obtained
+ * @return              0  on success
+ *                      -1 if an error occures
+ */
+int establish_connection(struct rpma_conn* connection) {
+    enum rpma_conn_event event;
+    /* Wait for the "Connection established" event */
+    if (rpma_conn_next_event(connection, &event) < 0){
+        fprintf(stderr, "Could not establish connection\n");
+        return -1;
+    }
+
+    if (event != RPMA_CONN_ESTABLISHED){
+        fprintf(stderr, "Connection could not be established. Error: ");
+        switch(event){
+            case RPMA_CONN_CLOSED: fprintf(stderr, "connection closed\n"); break;
+            case RPMA_CONN_LOST: fprintf(stderr, "connection lost\n"); break;
+            case RPMA_CONN_UNDEFINED:
+            default:
+                fprintf(stderr, "undefined connection event\n"); break;
+        }
+        return -1;
+    }
+    printf("Client connected!\n");
+    return 0;
 }
