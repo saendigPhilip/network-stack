@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "client_server_utils.h"
 
 /**
@@ -91,7 +93,7 @@ int initialize_peer(){
  *
  * @param connection    Connection structure on which the event is obtained
  * @return              0  on success
- *                      -1 if an error occures
+ *                      -1 if an error occurs
  */
 int establish_connection(struct rpma_conn* connection) {
     enum rpma_conn_event event;
@@ -156,4 +158,29 @@ int wait_for_disconnect_event(struct rpma_conn* connection, int verbose) {
     }
 
     return 0;
+}
+
+/**
+ * Aligned malloc, mostly taken from examples from librpma:
+ * https://github.com/pmem/rpma/blob/master/examples/common/common-conn.c
+ *
+ * @param size  size of the allocated memory
+ * @return      Pointer to allocated memory (NULL, if something went wrong)
+ */
+void* malloc_aligned(size_t size){
+    long pagesize = sysconf(_SC_PAGESIZE);
+    if (pagesize < 0) {
+        perror("sysconf");
+        return NULL;
+    }
+
+    /* allocate a page size aligned local memory pool */
+    void *mem;
+    int ret = posix_memalign(&mem, (size_t)pagesize, size);
+    if (ret) {
+        (void) fprintf(stderr, "posix_memalign: %s\n", strerror(ret));
+        return NULL;
+    }
+
+    return mem;
 }
