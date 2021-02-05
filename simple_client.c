@@ -18,7 +18,8 @@ void communicate(
         struct rpma_conn* connection, struct rpma_mr_local* mem_local, char* local_buf,
         struct rpma_mr_remote* shared_remote, size_t remote_size) {
 
-    if (!(connection && mem_local && local_buf && shared_remote)){
+    char* user_input = malloc(remote_size);
+    if (!(user_input && connection && mem_local && local_buf && shared_remote)){
         fprintf(stderr, "Can't communicate!\n");
         goto end_communication;
     }
@@ -33,8 +34,8 @@ void communicate(
            "Any other message will be sent to the peer\n",
            update_string, termination_string);
 
-    while(strcmp(fgets(local_buf, remote_size, stdin), termination_string)) {
-        if (strcmp(local_buf, update_string) == 0) {
+    while(strcmp(fgets(user_input, remote_size, stdin), termination_string)) {
+        if (strcmp(user_input, update_string) == 0) {
             if (rpma_read(connection, mem_local, 0, shared_remote, 0, remote_size,
                           RPMA_F_COMPLETION_ALWAYS, NULL) < 0) {
                 fprintf(stderr, "Error while reading from server\n");
@@ -52,6 +53,7 @@ void communicate(
             } else
                 puts(local_buf);
         } else {
+            strcpy(local_buf, user_input);
             if (rpma_write(connection, shared_remote, 0, mem_local, 0, remote_size,
                            RPMA_F_COMPLETION_ALWAYS, NULL) < 0) {
                 fprintf(stderr, "Error while writing to remote memory\n");
@@ -62,6 +64,7 @@ void communicate(
 
 end_communication:
     puts("Ending communication\n");
+    free(user_input);
     return;
 }
 

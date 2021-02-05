@@ -31,7 +31,7 @@ void communicate(char* shared, size_t shared_size) {
            update_string, termination_string);
 
     while(strcmp(fgets(user_input, shared_size, stdin), termination_string)) {
-        if (strcmp(fgets(user_input, shared_size, stdin), update_string) == 0)
+        if (strcmp(user_input, update_string) == 0)
             puts(shared);
         else
             strcpy(shared, user_input);
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
     struct rpma_conn* connection;
     char* shared = NULL;
     size_t shared_size = 1024;
-    int usage = RPMA_MR_USAGE_READ_DST | RPMA_MR_USAGE_WRITE_DST;
+    int usage = RPMA_MR_USAGE_READ_DST | RPMA_MR_USAGE_WRITE_DST | RPMA_MR_USAGE_WRITE_SRC;
 
     struct rpma_conn_private_data private_data;
     struct common_data data;
