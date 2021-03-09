@@ -1,21 +1,48 @@
-#include "common.h"
+#include "Server.h"
 
-erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
-/**
- * Request handler for incoming send requests
- * Checks freshness and checksum
- * Then, writes data from the client to the specified address
- * TODO: implement
- * */
-void req_handler_send(erpc::ReqHandle *req_handle, void *) {
+Server *server = nullptr;
+
+erpc::Rpc<erpc::CTransport> Server::*rpc_host = nullptr;
+erpc::Nexus Server::*nexus;
+
+
+Server::Server(std::string hostname, uint16_t udp_port) {
+    std::string server_uri = hostname + ":" + std::to_string(udp_port);
+    nexus = new erpc::Nexus(server_uri, 0, 0);
+    nexus->register_req_func(RDMA_RECV, req_handler_recv);
+    /* TODO: Uncomment when implemented */
+    // nexus->register_req_func(RDMA_SEND, req_handler_send);
+
+    rpc_host = new erpc::Rpc<erpc::CTransport>(nexus, nullptr, 0, nullptr);
+    if (!rpc_host)
+        fprintf(stderr, "Failed to host server\n");
 }
 
+Server::~Server() {
+    delete rpc_host;
+}
+
+erpc::Rpc<erpc::CTransport> *Server::get_rpc_host() {
+    return rpc_host;
+}
+
+
 /**
- * Request handler for incoming receive requests
- * Checks freshness and checksum
- * Then, transfers data at the specified address to the client
- * Not finished yet: No encryption, no authenticity control
- * */
+* Request handler for incoming send requests
+* Checks freshness and checksum
+* Then, writes data from the client to the specified address
+* TODO: implement
+* */
+/* void req_handler_send(erpc::ReqHandle *req_handle, void *) {
+
+} */
+
+/**
+* Request handler for incoming receive requests
+* Checks freshness and checksum
+* Then, transfers data at the specified address to the client
+* Not finished yet: No encryption, no authenticity control
+* */
 void req_handler_recv(erpc::ReqHandle *req_handle, void *) {
     const erpc::MsgBuffer *incoming_buffer = req_handle->get_req_msgbuf();
     struct rdma_message request;
@@ -42,12 +69,13 @@ void req_handler_recv(erpc::ReqHandle *req_handle, void *) {
         return;
     }
 
-    request.seq_op = be64toh(((uint64_t*) request_data)[0]);
-    request.length = be64toh(((uint64_t*) request_data)[1]);
+    /* Convert header fields to network byte order: */
+    request.seq_op = be64toh(((uint64_t *) request_data)[0]);
+    request.length = be64toh(((uint64_t *) request_data)[1]);
     request.payload = ((char *) request_data) + 16;
 
     unsigned int op = (unsigned int) (request.seq_op & 0x3);
-    uint64_t seq = request.seq_op & ~(uint64_t) 0x3;
+    uint64_t seq = request.seq_op & ~(uint64_t )0x3;
 
     if (op != RDMA_RECV) {
         fprintf(stderr, "Wrong operation\n");
@@ -80,18 +108,20 @@ void req_handler_recv(erpc::ReqHandle *req_handle, void *) {
 
     /* Create and enqueue the response: */
     response_size = MIN_MSG_LEN + request.length;
-    rpc_host->resize_msg_buffer(&response, response_size);
+    server->get_rpc_host()->resize_msg_buffer(&response, response_size);
     ((uint64_t *) response.buf)[0] = htobe64((seq + 4) | RDMA_RECV);
     ((uint64_t *) response.buf)[1] = htobe64(outgoing_data_size);
     (void *) memcpy(((uint8_t *) response.buf) + 16, outgoing_data, outgoing_data_size);
     if (calculate_hash(response.buf, outgoing_data_size + 16, response.buf + outgoing_data_size + 16)) {
-        rpc_host->enqueue_response(req_handle, &response);
+        server->get_rpc_host()->enqueue_response(req_handle, &response);
     }
 
-end_req_handler_recv:
+    end_req_handler_recv:
     free(outgoing_data);
+    /* QUESTION: When can we/ do we have to free the message buffer? */
 }
 
+/*
 void req_handler(erpc::ReqHandle *req_handle, void *) {
     auto &resp = req_handle->pre_resp_msgbuf;
     rpc_host->resize_msg_buffer(&resp, kMsgSize);
@@ -99,36 +129,10 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
 
     rpc_host->enqueue_response(req_handle, &resp);
 }
+*/
 
-
-erpc::Rpc<erpc::CTransport> *host_server(std::string hostname, unsigned int port) {
-    std::string server_uri = kServerHostname + ":" + std::to_string(kUDPPort);
-    erpc::Nexus *nexus = nullptr;
-    nexus = new erpc::Nexus(server_uri, 0, 0);
-    if (!nexus) {
-        fprintf(stderr, "Failed to host server\n");
-        return nullptr;
-    }
-    nexus->register_req_func(RDMA_RECV, req_handler_recv);
-    nexus->register_req_func(RDMA_SEND, req_handler_send);
-
-    rpc_host = new erpc::Rpc<erpc::CTransport>(nexus, nullptr, 0, nullptr);
-    if (!rpc_host)
-        fprintf(stderr, "Failed to host server\n");
-    return rpc_host;
-}
-
-void shutdown_server(erpc::Rpc<erpc::CTransport> *server){
-    // delete server->nexus;
-    delete server;
-}
 
 int main() {
-    std::string server_uri = kServerHostname + ":" + std::to_string(kUDPPort);
-    erpc::Nexus nexus(server_uri, 0, 0);
-    nexus.register_req_func(RDMA_RECV, req_handler_recv);
-    nexus.register_req_func(RDMA_SEND, req_handler_send);
-
-    rpc_host = new erpc::Rpc<erpc::CTransport>(&nexus, nullptr, 0, nullptr);
-    rpc_host->run_event_loop(100000);
+    server = new Server(kServerHostname, kUDPPort);
+    server->get_rpc_host()->run_event_loop(100000);
 }

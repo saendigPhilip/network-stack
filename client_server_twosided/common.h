@@ -1,4 +1,5 @@
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <stdio.h>
 #include "rpc.h"
@@ -9,7 +10,7 @@
  * | Seq, OP (8B) | payload length (8B) | payload (address/data) | SHA256-Hash (32B) |
  * +--------------+---------------------+------------------------+-------------------+
  */
-/* Struct is not (yet) for sending directly */
+/* Struct is not for sending directly */
 struct rdma_message{
     uint64_t seq_op;
     size_t length;
@@ -23,8 +24,7 @@ static constexpr uint8_t RDMA_SEND = 2;
 /* 	
 Length of Hash: 256 bit (SHA256) 
 Length of Sequence number: 64 bit
-Length of PMEM Address: 64 bit
-Length of Data to read/write: 64 bit
+Length of Data size to read/write: 64 bit
 */
 static constexpr size_t HASH_LEN = 32, SEQ_LEN = 8, SIZE_LEN = 8;
 static constexpr size_t MIN_MSG_LEN = HASH_LEN + SEQ_LEN + SIZE_LEN;

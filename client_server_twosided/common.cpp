@@ -58,8 +58,6 @@ bool check_hash(const void *msg, size_t len) {
  * Returns true, if the sequence number is valid, and false if it was already encountered
  * */
 bool add_sequence_number(uint64_t sequence_number) {
-    if (sequence_number == 0)
-        return false;
     if (!sequence_numbers) {
         sequence_numbers = new std::set<uint64_t>;
         sequence_numbers->insert(sequence_number);
