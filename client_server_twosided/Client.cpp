@@ -6,23 +6,46 @@ erpc::Rpc<erpc::CTransport> Client::*client_rpc = nullptr;
 erpc::Nexus Client::*nexus = nullptr;
 
 /* TODO: Map from Sequence numbers to buffers for multiple requests */
-/* TODO: Use data structure for multiple sessions */
+/* TODO: Use data structure for multiple sessions + context */
 int session_nr;
 
 /* TODO: There has to be a better solution for passing the client to cont_func */
-void cont_func(void *, void *) { printf("%s\n", client->get_resp()->buf); }
+/* Note: cont_func is the continuation callback.
+ * A message can be re-identified with the help of a tag
+ * -> Possibility to provide asynchronous and synchronous send and recv calls
+ * */
+/* void cont_func(void *context, void *tag) { */
+void cont_func(void *, void*) {
+    /* TODO: Get request + parameters by tag and context */
+    printf("%s\n", client->get_resp()->buf);
+}
 
-void sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {}
+/* sm = Session management. Is invoked if a session is created or destroyed */
+/* void sm_handler(int session, erpc::SmEventType event, erpc::SmErrType error, void *context) { */
+void sm_handler(int, erpc::SmEventType event, erpc::SmErrType, void *) {
+    /* TODO: Handle cases, consider errors */
+    switch(event) {
+        case erpc::SmEventType::kConnected: break;
+        case erpc::SmEventType::kConnectFailed: break;
+        case erpc::SmEventType::kDisconnected: break;
+        case erpc::SmEventType::kDisconnectFailed: break;
+        default: break;
+    }
+}
 
 Client::Client(std::string client_hostname, uint16_t udp_port) {
     std::string client_uri = client_hostname + ":" + std::to_string(udp_port);
     nexus = new erpc::Nexus(client_uri, 0, 0);
     if (RAND_status() != 1) {
         if (RAND_poll() != 1) {
-            /* TODO: Handle this error (exception?) */
+            /* TODO: Handle this error (with an exception?) */
             fprintf(stderr, "Couldn't initialize RNG\n");
         }
     }
+    /* Context is passed to user callbacks by the event loop */
+    void *context = nullptr;
+    uint8_t port_index = 0;
+    client_rpc = new erpc::Rpc<erpc::CTransport>(nexus, context, port_index, sm_handler);
 }
 
 Client::~Client() {
@@ -36,8 +59,8 @@ int Client::connect(std::string server_hostname, unsigned int udp_port, size_t t
     /* TODO: Can we use the id? */
     session_nr = client_rpc->create_session(server_uri, 0);
     if (session_nr < 0) {
-        fprintf(stderr, "Error: %s. Could not establish session with server at %s",
-                strerror(-session_nr), server_uri);
+        std::cout << "Error: " << strerror(-session_nr) <<
+            " Could not establish session with server at " << server_uri << std::endl;
         return session_nr;
     }
     for (size_t i = 0; i < try_iterations && !client_rpc->is_connected(session_nr); i++)
@@ -48,6 +71,14 @@ int Client::connect(std::string server_hostname, unsigned int udp_port, size_t t
     }
     else
         return session_nr;
+}
+
+/**
+ * Destroys a session with a server
+ * @return 0 on success, negative errno if the session can't be disconnected
+ */
+int Client::disconnect() {
+    return client_rpc->destroy_session(session_nr);
 }
 
 /**

@@ -18,6 +18,7 @@ public:
     Client(std::string client_hostname, uint16_t udp_port);
     ~Client();
     int connect(std::string server_hostname, unsigned int udp_port, size_t try_iterations);
+    int disconnect();
     int recv(char *address, size_t address_size, size_t length, unsigned int refresh_timeout);
     erpc::MsgBuffer *get_resp();
 

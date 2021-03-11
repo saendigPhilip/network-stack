@@ -1,7 +1,9 @@
+#include <iostream>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <stdio.h>
+
 #include "rpc.h"
 #include "nexus.h"
 
