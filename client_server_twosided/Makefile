@@ -10,14 +10,14 @@ error:
 	@echo "Please choose one of the following targets: infiniband, raw, dpdk, clean"
 	@exit 2
 infiniband:
-	g++ $(FLAGS) -std=c++11 -o server Server.cpp common.cpp common.h -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true
-	g++ $(FLAGS) -std=c++11 -o client Client.cpp common.cpp common.h -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true
-raw:                                                
-	g++ $(FLAGS) -std=c++11 -o server Server.cpp common.cpp common.h -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_RAW=true
-	g++ $(FLAGS) -std=c++11 -o client Client.cpp common.cpp common.h -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_RAW=true
-dpdk:                                              
-	g++ $(FLAGS) -std=c++11 -o server Server.cpp common.cpp common.h -isystem ../src -I /usr/local/include/dpdk -L ../build $(LIBS) -ldpdk -DERPC_DPDK=true -march=native
-	g++ $(FLAGS) -std=c++11 -o client Client.cpp common.cpp common.h -isystem ../src -I /usr/local/include/dpdk -L ../build $(LIBS) -ldpdk -DERPC_DPDK=true -march=native
+	g++ $(FLAGS) -std=c++11 -o server Server.cpp Server.h common.cpp common.h -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true
+	g++ $(FLAGS) -std=c++11 -o client Client.cpp Client.h common.cpp common.h -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true
+raw:                                                                          
+	g++ $(FLAGS) -std=c++11 -o server Server.cpp Server.h common.cpp common.h -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_RAW=true
+	g++ $(FLAGS) -std=c++11 -o client Client.cpp Client.h common.cpp common.h -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_RAW=true
+dpdk:                                                                         
+	g++ $(FLAGS) -std=c++11 -o server Server.cpp Server.h common.cpp common.h -isystem ../src -I /usr/local/include/dpdk -L ../build $(LIBS) -ldpdk -DERPC_DPDK=true -march=native
+	g++ $(FLAGS) -std=c++11 -o client Client.cpp Client.h common.cpp common.h -isystem ../src -I /usr/local/include/dpdk -L ../build $(LIBS) -ldpdk -DERPC_DPDK=true -march=native
 clean:
 	rm server client
 
