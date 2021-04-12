@@ -1,9 +1,12 @@
 #include "Client.h"
 
+erpc::Nexus *nexus;
 erpc::Rpc<erpc::CTransport> *client_rpc = nullptr;
 
 erpc::MsgBuffer req;
 erpc::MsgBuffer resp;
+
+bool initialized = false;
 
 /* TODO: Map from Sequence numbers to buffers for multiple requests */
 /* TODO: Use data structure for multiple sessions + context */
@@ -15,22 +18,22 @@ struct incoming_value{
     erpc::MsgBuffer *response;
 };
 
-/* TODO: There has to be a better solution for passing the client to cont_func */
 /* Note: cont_func is the continuation callback.
  * A message can be re-identified with the help of a tag
  * -> Possibility to provide asynchronous and synchronous put and get calls
  * */
 /* void cont_func(void *context, void *tag) { */
-void cont_func(void *, void *tag) {
+void verbose_cont_func(void *, void *tag) {
     /* TODO: Get request + parameters by tag and context */
     struct incoming_value *val = (struct incoming_value *)tag;
     if (!val)
         return;
+    puts(val->value);
 }
 
 /* sm = Session management. Is invoked if a session is created or destroyed */
 /* void sm_handler(int session, erpc::SmEventType event, erpc::SmErrType error, void *context) { */
-void sm_handler(int, erpc::SmEventType event, erpc::SmErrType, void *) {
+void verbose_sm_handler(int, erpc::SmEventType event, erpc::SmErrType error, void *) {
     /* TODO: Handle cases, consider errors */
     switch(event) {
         case erpc::SmEventType::kConnected:
@@ -44,6 +47,15 @@ void sm_handler(int, erpc::SmEventType event, erpc::SmErrType, void *) {
         default:
             cerr << "Unknown event type" << endl; break;
     }
+    switch(error) {
+        case erpc::SmErrType::kNoError:
+            break;
+        default: cerr << "Error while initializing session: " << error << endl;
+    }
+}
+
+void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
+
 }
 
 int initialize_client(std::string client_hostname, uint16_t udp_port) {
@@ -56,14 +68,7 @@ int initialize_client(std::string client_hostname, uint16_t udp_port) {
             return -1;
         }
     }
-    /* Context is passed to user callbacks by the event loop */
-    void *context = nullptr;
-    /* TODO: Increase port_index for multiple clients? */
-    uint8_t port_index = 0;
-    client_rpc = new erpc::Rpc<erpc::CTransport>(&nexus, context, port_index, sm_handler);
-    if (!client_rpc) {
-        return -1;
-    }
+    initialized = true;
     return 0;
 }
 
@@ -72,41 +77,55 @@ int initialize_client(std::string client_hostname, uint16_t udp_port) {
  * @return 0 on success, negative errno if the session can't be disconnected
  */
 int disconnect() {
-    /* TODO: What about freeing Nexus and the message buffers? */
-    return client_rpc->destroy_session(session_nr);
+    int ret = client_rpc->destroy_session(session_nr);
+    delete client_rpc;
+    client_rpc = nullptr;
+    return ret;
 }
 
 
+/**
+ * Connects to a server at server_hostname:udp_port
+ * Tries to connect with given number of iterations
+ * @return negative value if an error occurs. Otherwise the eRPC session number is returned
+ */
 int connect(std::string server_hostname, unsigned int udp_port, size_t try_iterations) {
+    if (!initialized) {
+        if (initialize_client(kClientHostname, kUDPPort)) {
+            cerr << "Failed to initialize client!" << endl;
+            return -1;
+        }
+    }
     std::string server_uri = server_hostname + ":" + std::to_string(udp_port);
-    /* TODO: Can we use the id? */
+    if (client_rpc) {
+        cout << "Already connecting. Disconnecting old connection" << endl;
+        (void) disconnect();
+    }
+    client_rpc = new erpc::Rpc(&nexus, nullptr, 0, empty_handler);
+
     session_nr = client_rpc->create_session(server_uri, 0);
     if (session_nr < 0) {
-        std::cout << "Error: " << strerror(-session_nr) <<
-            " Could not establish session with server at " << server_uri << std::endl;
+        cout << "Error: " << strerror(-session_nr) <<
+            " Could not establish session with server at " << server_uri << endl;
         return session_nr;
     }
     for (size_t i = 0; i < try_iterations && !client_rpc->is_connected(session_nr); i++)
         client_rpc->run_event_loop_once();
     if (!client_rpc->is_connected(session_nr)) {
-        cerr << "Could not reach the server within " << try_iterations << " tries";
-        return session_nr + 1;
+        cerr << "Could not reach the server within " << try_iterations << " tries" << endl;
+        return -1;
     }
     else
         return session_nr;
 }
 
-void free_client() {
-    /* TODO: What about nexus? */
-    delete client_rpc;
-}
 
 /**
  * @param key Server address to read from
  * @param key_len Size of address
  * @return 0 on success, -1 if something went wrong, TODO: Return codes?
  */
-int get(char *key, size_t key_len, size_t expected_value_len, void *value, void *callback(),
+int get_from_server(const char *key, size_t key_len, size_t expected_value_len, void *value, void *callback(),
         unsigned int timeout=100) {
     if (!key)
         return -1;
@@ -151,16 +170,11 @@ int get(char *key, size_t key_len, size_t expected_value_len, void *value, void 
         goto end_get;
     }
 
-    /* Fill the tag that is passed to the callback function: */
+    /* Fill the tag that is passed to the callback function TODO: integrate
     tag->callback = callback;
     tag->value = value;
-    tag->response = &resp;
+    tag->response = &resp; */
 
-    /* TODO: Can we use the session number as the sequence number?
-     *  Would require a little extra effort to calculate
-     *  the hash, but it would maybe simplify the protocol
-     *
-     * */
     free(req_plaintext);
     client_rpc->enqueue_request(session_nr, 0, &req, &resp, cont_func, (void *)tag);
     client_rpc->run_event_loop(timeout);
@@ -193,4 +207,20 @@ int main() {
 
     delete rpc;
     */
+    if (connect(ip, kUDPPort, 10000)) {
+        cerr << "Failed to connect to server" << endl;
+
+        return -1;
+    }
+    char* key = "Test";
+    size_t key_len = 5;
+    size_t buf_size = 2048;
+    char* buf = (char *)malloc(buf_size);
+    size_t timeout = 1000;
+
+    if (get_from_server("Test", 5, 1024, buf, &verbose_cont_func, timeout)){
+        cerr << "get_from_server() failed..." << endl;
+        return -1;
+    }
+    return disconnect();
 }

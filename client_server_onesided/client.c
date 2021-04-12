@@ -25,7 +25,7 @@ void communicate(
     }
     char termination_string[] = "END\n";
     char update_string[] = "UPD\n";
-    struct rpma_completion completion;
+        struct rpma_completion completion;
 
     printf("Type\n%s"
            "to update message buffer.\n"
@@ -66,6 +66,10 @@ end_communication:
     puts("Ending communication\n");
     free(user_input);
     return;
+}
+
+int get(void* key, size_t key_len, void* value, size_t* value) {
+
 }
 
 int main(int argc, char** argv){

@@ -18,7 +18,8 @@ unsigned char *kv_get(const char* key, size_t *data_len);
  */
 int host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis) {
     std::string server_uri = hostname + ":" + std::to_string(udp_port);
-    nexus = new erpc::Nexus(server_uri, 0, 0);
+    if (!nexus)
+        nexus = new erpc::Nexus(server_uri, 0, 0);
 
     if (RAND_status() != 1) {
         if (RAND_poll() != 1) {
@@ -213,8 +214,7 @@ end_get:
     return data;
 }
 
-
-int main() {
+int test_encryption() {
     int ret = -1;
     FILE* ciphertext_file = NULL;
     FILE* tag_file = NULL;
@@ -254,7 +254,7 @@ int main() {
         cout << "Plaintext after en- and decryption: " << (char *) plaintext2 << endl;
     }
 
-end_main:
+    end_main:
     free(ciphertext);
     free(plaintext2);
     if (ciphertext_file) {
@@ -264,4 +264,17 @@ end_main:
         fclose(tag_file);
     }
     return ret;
+
+}
+
+
+int main() {
+    int ret = -1;
+    std::string ip = "192.168.2.113";
+    if (host_server(ip, kUDPPort, 100000)) {
+        cerr << "Failed to host server" << endl;
+        return ret;
+    }
+
+
 }

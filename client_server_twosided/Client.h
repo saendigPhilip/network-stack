@@ -7,7 +7,8 @@
 int connect(std::string server_hostname, unsigned int udp_port, size_t try_iterations);
 int disconnect();
 void free_client();
-int get(char *address, size_t address_size, size_t length, unsigned int refresh_timeout);
+int get_from_server(const char *key, size_t key_len, size_t expected_value_length, void* value, void *callback(),
+        unsigned int timeout);
 
 
 void cont_func(void *, void *);
