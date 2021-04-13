@@ -67,6 +67,9 @@ struct key_value_data {
 
 int initialize_peer(const char *ip, int server);
 
+int setup_encryption(const unsigned char *enc_key, size_t key_length,
+        size_t max_value_size);
+
 void *alligned_malloc(size_t size);
 
 int establish_connection(struct rpma_conn *connection);

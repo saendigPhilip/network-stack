@@ -112,11 +112,12 @@ err_setup_kv_store:
  * @param port Port to listen on
  * @param shared_region Persistent Memory region to share, must be aligned to pagesize
  * @param shared_region_size Size of the shared Persistent Memory region
+ * @param max_val_size Maximum size a value can have
  * @param enc_key Key that should be used for encryption and decryption of the
  *          shared memory region. Must not be freed while encryption and
- *          decryption operations are performed
+ *          decryption operations are performed. If it is NULL, it is assumed
+ *          that the KV-store is not encrypted
  * @param enc_key_length Length of enc_key
- * @param max_val_size Maximum size a value can have
  * @return 0 on success, -1 otherwise
  */
 int host_server(const char *ip, const char *port,
@@ -133,15 +134,15 @@ int host_server(const char *ip, const char *port,
         PRINT_ERR("Could not register memory region");
         goto end_host_server;
     }
-    ep_data.enc_key = enc_key;
-    ep_data.enc_key_length = enc_key_length;
+
+    if (0 > setup_encryption(enc_key, enc_key_length, max_val_size))
+        goto end_host_server;
 
     if (rpma_ep_listen(ep_data.peer, ip, port, &(ep_data.endpoint))) {
         PRINT_ERR("Cannot listen on specified hostname/port");
     }
     else {
         key_store_local = shared_region;
-        ep_data.block_size = VALUE_ENTRY_SIZE(max_val_size);
         ret = 0;
     }
 

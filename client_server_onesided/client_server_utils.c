@@ -67,6 +67,36 @@ int initialize_peer(const char *ip, int server){
     }
 }
 
+/**
+ * Determines whether the KV-store is encrypted according to the key
+ * @param enc_key If NULL, it is assumed that the KV-store is not encrypted
+ *          Otherwise, it is assumed that it has been encrypted with this key
+ * @param key_length Length of the key. Must be at least 16
+ * @param max_value_size ep_data.blocksize is set according to this parameter.
+ *          If the KV-store is encrypted, it is set to
+ *          VALUE_ENTRY_SIZE(max_value_size),
+ *          otherwise it is set to max_value_size
+ * @return 0 on success, -1 if key_length < 16 and enc_key is not NULL
+ */
+int setup_encryption(const unsigned char *enc_key, size_t key_length,
+        size_t max_value_size) {
+    ep_data.enc_key = enc_key;
+    if (enc_key) {
+        if (key_length < 16) {
+            PRINT_ERR("Invalid key length specified");
+            return -1;
+        }
+        ep_data.block_size = VALUE_ENTRY_SIZE(max_value_size);
+    }
+    else {
+        PRINT_INFO("Warning: No key specified. "
+                   "No encryption/decryption is performed");
+        ep_data.block_size = max_value_size;
+    }
+    ep_data.enc_key_length = key_length;
+    return 0;
+}
+
 
 /**
  * Aligned malloc
@@ -213,8 +243,7 @@ int init_crypt(EVP_CIPHER_CTX *aes_ctx,
     /* Set IV length: */
     if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_IVLEN, IV_SIZE, NULL)){
         PRINT_ERR("Failed to set IV length");
-        ERR_print_errors_fp(stderr);
-        return -1;
+                return -1;
     }
 
     /* Set Key length: */
@@ -227,8 +256,7 @@ int init_crypt(EVP_CIPHER_CTX *aes_ctx,
     if (1 != EVP_CipherUpdate(
             aes_ctx, NULL, &length, info->key, (int) info->key_size)) {
         PRINT_ERR("Could not add key as aad");
-        ERR_print_errors_fp(stderr);
-        return -1;
+                return -1;
     }
 
     /* Add Address as additional authenticated data: */
@@ -250,7 +278,8 @@ int init_crypt(EVP_CIPHER_CTX *aes_ctx,
  * Afterwards, additional associated data is added in the following order:
  *  1. The key
  *  2. The address
- * @param encryption_key Key to use for encryption
+ * If the key in ep_data is NULL, no encryption is performed. Instead the
+ * new value is copied to encrypted memory if these pointers are not the same
  * @param info Filled-in local_key_info struct
  * @param new_value Value to encrypt
  * @param encrypted_entry Pointer to memory location where encrypted data
@@ -265,6 +294,13 @@ int encrypt_key_value_data(
     if (!(info && encrypted_entry)){
                 PRINT_ERR("Invalid parameters");
         return -1;
+    }
+
+    if (!ep_data.enc_key) {
+        /* No encryption is performed: */
+        if (encrypted_entry != new_value)
+            (void)memcpy(encrypted_entry, new_value, ep_data.block_size);
+        return 0;
     }
 
     int ret = -1;
@@ -287,8 +323,7 @@ int encrypt_key_value_data(
     if (1 != EVP_EncryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL,
             ep_data.enc_key, pos_encrypted_entry)){
                 PRINT_ERR("Failed to initialize encryption");
-        ERR_print_errors_fp(stderr);
-        goto end_encrypt;
+                goto end_encrypt;
     }
     pos_encrypted_entry += IV_SIZE;
 
@@ -301,8 +336,7 @@ int encrypt_key_value_data(
             (unsigned char*)&(info->sequence_number),
             (int) sizeof(info->sequence_number))) {
                 PRINT_ERR("Failed to encrypt sequence number");
-        ERR_print_errors_fp(stderr);
-        goto end_encrypt;
+                goto end_encrypt;
     }
     pos_encrypted_entry += (size_t)length;
 
@@ -311,16 +345,14 @@ int encrypt_key_value_data(
             aes_ctx, pos_encrypted_entry, &length, new_value,
             ep_data.block_size - MIN_VALUE_SIZE)) {
                 PRINT_ERR("Failed to encrypt value");
-        ERR_print_errors_fp(stderr);
-        goto end_encrypt;
+                goto end_encrypt;
     }
     pos_encrypted_entry += (size_t)length;
 
     /* Write final encrypted data: */
     if (1 != EVP_EncryptFinal_ex(aes_ctx, pos_encrypted_entry, &length)) {
                 PRINT_ERR("Could not write final encrypted data");
-        ERR_print_errors_fp(stderr);
-        goto end_encrypt;
+                goto end_encrypt;
     }
     pos_encrypted_entry += (size_t)length;
 
@@ -328,8 +360,7 @@ int encrypt_key_value_data(
     if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_GET_TAG, MAC_SIZE,
             pos_encrypted_entry)) {
                 PRINT_ERR("Could not write tag");
-        ERR_print_errors_fp(stderr);
-        goto end_encrypt;
+                goto end_encrypt;
     }
     ret = 0;
 
@@ -355,7 +386,9 @@ inline int check_seq_number(struct local_key_info* info, uint64_t new_seq_number
  * Decrypts the value entry in the ciphertext using additionally stored
  * information in the structure local_key_info.
  * Checks the sequence number according to local_key_info
- * @param decryption_key The key to use for decryption
+ * If the key in ep_data is NULL or if the key length is below 16, no encryption
+ * is performed. Instead, the ciphertext is copied to data->value, if data->value
+ * is not the same as ciphertext
  * @param ciphertext The ciphertext with the key to decrypt
  * @param ciphertext_size The size of the ciphertext. Must be at least MIN_VALUE_SIZE
  *          Values with length 0 are supported
@@ -369,9 +402,22 @@ int decrypt_key_value_data(
            unsigned char *ciphertext, size_t ciphertext_size,
            struct local_key_info *info, struct key_value_data *data) {
 
-    if (!(ep_data.enc_key && ep_data.enc_key_length >= 16 && ciphertext && info &&
-            data && ciphertext_size >= MIN_VALUE_SIZE)) {
+    if (!(ciphertext && info && data && ciphertext_size >= MIN_VALUE_SIZE)) {
+        return -1;
+    }
+
+    if (!ep_data.enc_key) {
+        /* No decryption is performed: */
+        if (!data->value) {
+            data->value = malloc(ciphertext_size);
+            if (!data->value) {
+                PRINT_ERR("Memory allocation failure");
                 return -1;
+            }
+        }
+        if (data->value != ciphertext)
+            (void)memcpy(data->value, ciphertext, ciphertext_size);
+        return 0;
     }
 
     int ret = -1;
@@ -388,8 +434,7 @@ int decrypt_key_value_data(
     /* Initialize decryption and set IV (located at the beginning of the ciphertext) */
     if (1 != EVP_DecryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL,
             ep_data.enc_key, pos_ciphertext)){
-        ERR_print_errors_fp(stderr);
-        goto end_decrypt;
+                goto end_decrypt;
     }
     pos_ciphertext += IV_SIZE;
 
@@ -397,7 +442,6 @@ int decrypt_key_value_data(
     if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_TAG, MAC_SIZE,
             ciphertext + ciphertext_size - MAC_SIZE)) {
         PRINT_ERR("Error while setting authentication tag");
-        ERR_print_errors_fp(stderr);
         goto end_decrypt;
     }
 
@@ -410,8 +454,7 @@ int decrypt_key_value_data(
             pos_ciphertext, sizeof(data->sequence_number))
             || length != sizeof(data->sequence_number)){
                 PRINT_ERR("Error while decrypting sequence number");
-        ERR_print_errors_fp(stderr);
-        goto end_decrypt;
+                goto end_decrypt;
     }
     pos_ciphertext += (size_t)length;
 
@@ -435,8 +478,7 @@ int decrypt_key_value_data(
             aes_ctx, data->value, &length, pos_ciphertext, value_size)
             || length < 0 || (size_t)length != value_size) {
                 PRINT_ERR("Error while decrypting value");
-        ERR_print_errors_fp(stderr);
-        goto end_decrypt;
+                goto end_decrypt;
     }
     pos_value = (unsigned char *)data->value + (size_t)length;
 
@@ -444,8 +486,7 @@ finish_decryption:
     /* Finish decryption: */
     if (1 != EVP_DecryptFinal_ex(aes_ctx, pos_value, &length)){
                 PRINT_ERR("Error: Could not verify authentication tag");
-        ERR_print_errors_fp(stderr);
-        goto end_decrypt;
+                goto end_decrypt;
     }
     if (info->sequence_number != data->sequence_number) {
         PRINT_ERR("Wrong sequence number");
@@ -478,7 +519,7 @@ void *onesided_get(unsigned char *(*read_function)(size_t),
         struct local_key_info *info, void *value) {
 
     if (!(ep_data.memory_region)) {
-        PRINT_ERR("Invalid parameter!");
+        PRINT_ERR("Invalid parameter");
         return NULL;
     }
 
@@ -513,8 +554,7 @@ void *onesided_get(unsigned char *(*read_function)(size_t),
 int onesided_put(unsigned char *ciphertext_buf, int (*write_function)(size_t),
         const struct local_key_info *info, const void *new_value) {
 
-    if (!(ep_data.enc_key && ep_data.enc_key_length >= 16 && ciphertext_buf &&
-            write_function && info && new_value)) {
+    if (!(ciphertext_buf && write_function && info && new_value)) {
         PRINT_ERR("onesided_put: Invalid parameter!");
     }
 

@@ -13,12 +13,7 @@ size_t shared_remote_size;
 
 
 
-int setup_local_buffer(size_t max_value_size) {
-    ep_data.block_size =
-            max_value_size ? VALUE_ENTRY_SIZE(max_value_size) : DEFAULT_LOCAL_SIZE;
-
-    ep_data.memory_region_size = ep_data.block_size;
-
+int setup_local_buffer() {
     /* Provide a local buffer for RDMA */
     local_buf = (unsigned char*) malloc_aligned(ep_data.memory_region_size);
     if (!local_buf) {
@@ -70,12 +65,13 @@ int rdma_client_connect(const char *ip, const char *port,
     if (initialize_peer(ip, 0))
         return -1;
 
+    if (0 > setup_encryption(enc_key, enc_key_length, max_val_size))
+        return -1;
+    ep_data.memory_region_size = ep_data.block_size;
+
     if (0 > setup_local_buffer(max_val_size)) {
         return -1;
     }
-    ep_data.enc_key = enc_key;
-    ep_data.enc_key_length = enc_key_length;
-
     /* Create a new connection request and connect: */
     if (0 > rpma_conn_req_new(ep_data.peer,
             ip, port, ep_data.config, &request)){
