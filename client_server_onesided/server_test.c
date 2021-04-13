@@ -8,10 +8,6 @@
 #include "onesided_server.h"
 
 
-
-char *ip = "127.0.0.1";
-char *port = "8042";
-
 unsigned char* test_kv_store = NULL;
 size_t test_kv_store_size;
 
@@ -44,7 +40,7 @@ int get_function(const char *key, char *value) {
     if (!info)
         return -1;
 
-    if (!server_get(key_do_not_use, info, value))
+    if (!server_get(info, value))
         return -1;
     else
         return 0;
@@ -58,7 +54,7 @@ int put_function(const char *key, const char *value) {
     if (!info)
         return -1;
 
-    return server_put(key_do_not_use, info, value);
+    return server_put(info, value);
 }
 
 
@@ -70,8 +66,9 @@ int main(int argc, char **argv) {
 
     /* Set up KV-Store: */
     unsigned char *test_kv_store = setup_kv_store(
-            key_do_not_use, test_kv_store_init, TEST_NUM_KV_ENTRIES,
-            TEST_MAX_VALUE_SIZE, &test_kv_store_size, local_key_infos);
+            key_do_not_use, sizeof(key_do_not_use), test_kv_store_init,
+            TEST_NUM_KV_ENTRIES, TEST_MAX_VALUE_SIZE, &test_kv_store_size,
+            local_key_infos);
     if (!test_kv_store) {
         PRINT_ERR("Failed to set up KV store");
         return ret;
@@ -79,7 +76,7 @@ int main(int argc, char **argv) {
 
     printf("Setting up server at %s:%s\n", ip, port);
     if (0 > host_server(ip, port, test_kv_store, test_kv_store_size,
-            VALUE_ENTRY_SIZE(TEST_MAX_VALUE_SIZE))) {
+            TEST_MAX_VALUE_SIZE, key_do_not_use, sizeof(key_do_not_use))) {
         PRINT_ERR("Could not set up server");
         goto end_server_main;
     }

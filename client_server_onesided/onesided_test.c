@@ -17,6 +17,10 @@ static size_t keys[TEST_NUM_KV_ENTRIES] = {
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 };
 
+char *ip = "127.0.0.1";
+char *port = "8042";
+
+
 /*
  * Struct shared between client and server.
  * Should be exchanged in an initial handshake and definitely NOT be static

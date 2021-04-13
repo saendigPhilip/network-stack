@@ -52,11 +52,16 @@ int setup_local_buffer(size_t max_value_size) {
  * Connects to an rpma-Server at ip:port
  * @param ip Hostname of the Server
  * @param port Port for communication
+ * @param enc_key Key to use for encryption/decryption with AES_128_GCM.
+ *          Must not be freed as long as encryption/decryption operations
+ *          (with get/put) are performed
+ * @param enc_key_length Length of Key for AES_128_GCM
  * @param max_val_size The maximum size of a value in the KV-Store
  *          If it is 0, DEFAULT_LOCAL_SIZE bytes are allocated.
  * @return 0 if a connection could be established, -1 otherwise
  */
-int rdma_client_connect(const char *ip, const char *port, size_t max_val_size) {
+int rdma_client_connect(const char *ip, const char *port,
+        const unsigned char *enc_key, size_t enc_key_length, size_t max_val_size) {
     int ret = -1;
     struct rpma_conn_req *request = NULL;
     struct rpma_conn_private_data remote_private_data;
@@ -68,6 +73,8 @@ int rdma_client_connect(const char *ip, const char *port, size_t max_val_size) {
     if (0 > setup_local_buffer(max_val_size)) {
         return -1;
     }
+    ep_data.enc_key = enc_key;
+    ep_data.enc_key_length = enc_key_length;
 
     /* Create a new connection request and connect: */
     if (0 > rpma_conn_req_new(ep_data.peer,
@@ -167,16 +174,14 @@ unsigned char *rdma_read_from_server(size_t src_offset) {
 
 /**
  * Gets a value from a key. A connection has to be initialized in advance
- * @param decryption_key Key to use for decryption
  * @param info Pointer to structure with information that is needed to get the
  *          value from the server
  * @param value Pointer to a sufficiently big memory region at which the value
  *          should be stored. If value is NULL, memory for the value is allocated
  * @return Pointer to the location where the value is stored
  */
-void *rdma_get(const unsigned char *decryption_key,
-        struct local_key_info *info, void *value) {
-    return onesided_get(decryption_key, rdma_read_from_server, info, value);
+void *rdma_get(struct local_key_info *info, void *value) {
+    return onesided_get(rdma_read_from_server, info, value);
 }
 
 /* Directly writes a message from the local message buffer to the server */
@@ -208,15 +213,20 @@ int rdma_write_to_server(size_t offset) {
     return 0;
 }
 
-
-int rdma_put(
-        const unsigned char *encryption_key,
-        struct local_key_info *info,
-        const void *new_value) {
-
+/**
+ * Puts a new value for a certain key to the remote KV-store
+ * @param info Structure containing information about the Key
+ *          Sequence number gets updated
+ * @param new_value New value to be inserted for the key from info
+ * @return 0 on success, -1 otherwise
+ */
+int rdma_put(struct local_key_info *info, const void *new_value) {
     info->sequence_number++;
-    return onesided_put(encryption_key, local_buf, rdma_write_to_server, info,
-            new_value);
+    if (0 > onesided_put(local_buf, rdma_write_to_server, info, new_value)) {
+        info->sequence_number--;
+        return -1;
+    }
+    return 0;
 }
 
 

@@ -199,6 +199,49 @@ int get_sequence_number(uint64_t *seq) {
 }
  */
 
+/*
+ * A method that has to be called after aes_ctx was created
+ * Performs the operations that encryption and decryption have in common:
+ *  - Sets the IV length
+ *  - Sets the Key length
+ *  - Adds additional authenticated data
+ */
+int init_crypt(EVP_CIPHER_CTX *aes_ctx,
+        const struct local_key_info *info) {
+
+    int length;
+    /* Set IV length: */
+    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_IVLEN, IV_SIZE, NULL)){
+        PRINT_ERR("Failed to set IV length");
+        ERR_print_errors_fp(stderr);
+        return -1;
+    }
+
+    /* Set Key length: */
+    if (1 != EVP_CIPHER_CTX_set_key_length(aes_ctx, ep_data.enc_key_length)) {
+        PRINT_ERR("Failed to set Key length");
+        return -1;
+    }
+
+    /* Add Key as additional authenticated data: */
+    if (1 != EVP_CipherUpdate(
+            aes_ctx, NULL, &length, info->key, (int) info->key_size)) {
+        PRINT_ERR("Could not add key as aad");
+        ERR_print_errors_fp(stderr);
+        return -1;
+    }
+
+    /* Add Address as additional authenticated data: */
+    if (1 != EVP_CipherUpdate(
+            aes_ctx, NULL, &length, (unsigned char*) &(info->value_offset),
+            sizeof(info->value_offset))) {
+        PRINT_ERR("Could not add address as aad");
+        return -1;
+    }
+
+    return 0;
+}
+
 
 /**
  * Encrypts a value along with its context and writes the encrypted data to the
@@ -215,7 +258,7 @@ int get_sequence_number(uint64_t *seq) {
  *        Must provide VALUE_ENTRY_SIZE(data->value_size) bytes of space
  * @return 0 on success, -1 on failure
  */
-int encrypt_key_value_data(const unsigned char *encryption_key,
+int encrypt_key_value_data(
         const struct local_key_info *info,
         const void *new_value, unsigned char *encrypted_entry){
 
@@ -241,37 +284,16 @@ int encrypt_key_value_data(const unsigned char *encryption_key,
     }
 
     /* Initialize Encryption; IV is at pos_encrypted_entry */
-    if (1 != EVP_EncryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL, encryption_key,
-            pos_encrypted_entry)){
+    if (1 != EVP_EncryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL,
+            ep_data.enc_key, pos_encrypted_entry)){
                 PRINT_ERR("Failed to initialize encryption");
-        ERR_print_errors_fp(stderr);
-        goto end_encrypt;
-    }
-
-    /* Set IV length: */
-    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_IVLEN, IV_SIZE, NULL)){
-                PRINT_ERR("Failed to set IV length");
         ERR_print_errors_fp(stderr);
         goto end_encrypt;
     }
     pos_encrypted_entry += IV_SIZE;
 
-    /* Add Key as additional authenticated data: */
-    if (1 != EVP_EncryptUpdate(
-            aes_ctx, NULL, &length, info->key, (int) info->key_size)) {
-                PRINT_ERR("Could not add key as aad");
-        ERR_print_errors_fp(stderr);
+    if (0 > init_crypt(aes_ctx, info))
         goto end_encrypt;
-    }
-
-    /* Add Address as additional authenticated data: */
-    if (1 != EVP_EncryptUpdate(
-            aes_ctx, NULL, &length, (unsigned char*) &(info->value_offset),
-            sizeof(info->value_offset))) {
-                PRINT_ERR("Could not add address as aad");
-        ERR_print_errors_fp(stderr);
-        goto end_encrypt;
-    }
 
     /* Encrypt sequence number: */
     if (1 != EVP_EncryptUpdate(
@@ -343,11 +365,12 @@ inline int check_seq_number(struct local_key_info* info, uint64_t new_seq_number
  * @param data struct to store decrypted data in
  * @return 0 on success, -1 on error
  */
-int decrypt_key_value_data(const unsigned char *decryption_key,
+int decrypt_key_value_data(
            unsigned char *ciphertext, size_t ciphertext_size,
            struct local_key_info *info, struct key_value_data *data) {
 
-    if (!(decryption_key && ciphertext && info && data && ciphertext_size >= MIN_VALUE_SIZE)) {
+    if (!(ep_data.enc_key && ep_data.enc_key_length >= 16 && ciphertext && info &&
+            data && ciphertext_size >= MIN_VALUE_SIZE)) {
                 return -1;
     }
 
@@ -356,22 +379,15 @@ int decrypt_key_value_data(const unsigned char *decryption_key,
     size_t value_size = ciphertext_size - MIN_VALUE_SIZE;
     unsigned char *pos_value = NULL;
     int to_free = 0;
+    int length;
 
     EVP_CIPHER_CTX *aes_ctx = EVP_CIPHER_CTX_new();
-    if (!aes_ctx){
-                return -1;
-    }
+    if (!aes_ctx)
+        return -1;
 
     /* Initialize decryption and set IV (located at the beginning of the ciphertext) */
-    if (1 != EVP_DecryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL, decryption_key,
-                                pos_ciphertext)){
-                ERR_print_errors_fp(stderr);
-        goto end_decrypt;
-    }
-
-    /* Set the length of the IV: */
-    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_IVLEN, IV_SIZE, NULL)){
-                PRINT_ERR("Error while setting IV length");
+    if (1 != EVP_DecryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL,
+            ep_data.enc_key, pos_ciphertext)){
         ERR_print_errors_fp(stderr);
         goto end_decrypt;
     }
@@ -379,27 +395,14 @@ int decrypt_key_value_data(const unsigned char *decryption_key,
 
     /* Set the authentication tag (located at the end of the ciphertext): */
     if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_TAG, MAC_SIZE,
-                                 ciphertext + ciphertext_size - MAC_SIZE)) {
-                PRINT_ERR("Error while setting authentication tag");
+            ciphertext + ciphertext_size - MAC_SIZE)) {
+        PRINT_ERR("Error while setting authentication tag");
         ERR_print_errors_fp(stderr);
         goto end_decrypt;
     }
 
-    /* Add Key as additional authenticated data: */
-    int length;
-    if (1 != EVP_DecryptUpdate(aes_ctx, NULL, &length, info->key, info->key_size)) {
-                PRINT_ERR("Error while adding Key as aad");
-        ERR_print_errors_fp(stderr);
+    if (0 > init_crypt(aes_ctx, info))
         goto end_decrypt;
-    }
-
-    /* Add offset as additional authenticated data: */
-    if (1 != EVP_DecryptUpdate(aes_ctx, NULL, &length,
-            (unsigned char*) &(info->value_offset), sizeof(info->value_offset))) {
-                PRINT_ERR("Error while adding Address as aad");
-        ERR_print_errors_fp(stderr);
-        goto end_decrypt;
-    }
 
     /* Decrypt sequence number: */
     if (1 != EVP_DecryptUpdate(
@@ -471,11 +474,10 @@ end_decrypt:
  *          should be stored. If value is NULL, memory for the value is allocated
  * @return Pointer to the location where the value is stored
  */
-void *onesided_get(const unsigned char *decryption_key,
-        unsigned char *(*read_function)(size_t),
+void *onesided_get(unsigned char *(*read_function)(size_t),
         struct local_key_info *info, void *value) {
 
-    if (!(decryption_key && info && ep_data.memory_region)) {
+    if (!(ep_data.memory_region)) {
         PRINT_ERR("Invalid parameter!");
         return NULL;
     }
@@ -490,8 +492,7 @@ void *onesided_get(const unsigned char *decryption_key,
     if (!ciphertext)
         return NULL;
 
-    if (0 > decrypt_key_value_data(
-            decryption_key, ciphertext, ep_data.block_size, info, &data))
+    if (0 > decrypt_key_value_data(ciphertext, ep_data.block_size, info, &data))
         return NULL;
 
     return data.value;
@@ -509,17 +510,16 @@ void *onesided_get(const unsigned char *decryption_key,
  * @param new_value New value to encrypt and insert at the specified address
  * @return 0 on success, -1 otherwise
  */
-int onesided_put(const unsigned char *encryption_key,
-        unsigned char *ciphertext_buf,
-        int (*write_function)(size_t),
+int onesided_put(unsigned char *ciphertext_buf, int (*write_function)(size_t),
         const struct local_key_info *info, const void *new_value) {
 
-    if (!(encryption_key && ciphertext_buf && write_function && info && new_value)) {
+    if (!(ep_data.enc_key && ep_data.enc_key_length >= 16 && ciphertext_buf &&
+            write_function && info && new_value)) {
         PRINT_ERR("onesided_put: Invalid parameter!");
     }
 
     /* Encrypt the message and store the data in the local memory region: */
-    if (0 > encrypt_key_value_data(encryption_key, info, new_value, ciphertext_buf))
+    if (0 > encrypt_key_value_data(info, new_value, ciphertext_buf))
         return -1;
 
     /* Write the data with the write method that was passed: */

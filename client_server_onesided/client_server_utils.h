@@ -50,6 +50,8 @@ struct endpoint_data {
     struct rpma_conn_cfg *config;
     struct rpma_conn *connection;
     size_t block_size;
+    const unsigned char *enc_key;
+    size_t enc_key_length;
 };
 extern struct endpoint_data ep_data;
 
@@ -75,14 +77,18 @@ void free_endpoint_data();
 
 int get_sequence_number(uint64_t *seq);
 
-void *onesided_get(const unsigned char *decryption_key,
+void *onesided_get(
         unsigned char *(*read_function)(size_t),
-        struct local_key_info *info, void *value);
+        struct local_key_info *info,
+        void *value
+);
 
-int onesided_put(const unsigned char *encryption_key,
+int onesided_put(
         unsigned char *ciphertext_buf,
         int (*write_function)(size_t),
-        const struct local_key_info *info, const void *new_value);
+        const struct local_key_info *info,
+        const void *new_value
+);
 
 
 #endif //NETWORK_STACK_UTILS_H

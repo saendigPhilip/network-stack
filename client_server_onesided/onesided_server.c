@@ -46,7 +46,6 @@ int register_shared_memory_region(unsigned char *shared, size_t shared_size) {
     ret = 0;
 
 end_register:
-
     if (ret) {
         if (0 > rpma_mr_dereg(&(ep_data.memory_region)))
             PRINT_ERR("Error de-registering memory region");
@@ -71,10 +70,10 @@ int server_write(size_t address) {
  * @param value_size (Fixed) size of each of the values
  * @param kv_store_size If not NULL, the size of the KV-Store is stored there
  * @param infos Information about where to place the values.
- *      TODO: This is horrible -> Change, so that infos are returned and don't need to be provided
+ *      TODO: Find a solution for efficiently storing the infos
  * @return pointer to the encrypted keystore on success, NULL otherwise
  */
-unsigned char *setup_kv_store(const unsigned char *encryption_key,
+unsigned char *setup_kv_store(const unsigned char *enc_key, size_t enc_key_length,
         void* kv_store_plain, size_t num_values, size_t value_size,
         size_t* kv_store_size, struct local_key_info* infos) {
 
@@ -86,8 +85,10 @@ unsigned char *setup_kv_store(const unsigned char *encryption_key,
         return NULL;
     }
     ep_data.block_size = VALUE_ENTRY_SIZE(value_size);
+    ep_data.enc_key = enc_key;
+    ep_data.enc_key_length = enc_key_length;
     for (size_t i = 0; i < num_values; i++) {
-        if (0 > onesided_put(encryption_key,
+        if (0 > onesided_put(
                 ((uint8_t *)kv_store_enc) + i * VALUE_ENTRY_SIZE(value_size),
                 server_write, infos + i,
                 ((uint8_t *)kv_store_plain) + i * value_size))
@@ -106,15 +107,21 @@ err_setup_kv_store:
 
 /**
  * Registers a persistent memory region for Remote Direct Memory Access
+ * Recommended: Call setup_kv_store before
  * @param ip IP-Address to listen on
  * @param port Port to listen on
  * @param shared_region Persistent Memory region to share, must be aligned to pagesize
  * @param shared_region_size Size of the shared Persistent Memory region
- * @param block_size Size of a memory block in shared_region
+ * @param enc_key Key that should be used for encryption and decryption of the
+ *          shared memory region. Must not be freed while encryption and
+ *          decryption operations are performed
+ * @param enc_key_length Length of enc_key
+ * @param max_val_size Maximum size a value can have
  * @return 0 on success, -1 otherwise
  */
-int host_server(const char *ip, const char *port, void *shared_region,
-        size_t shared_region_size, size_t block_size) {
+int host_server(const char *ip, const char *port,
+        void *shared_region, size_t shared_region_size, size_t max_val_size,
+        const unsigned char *enc_key, size_t enc_key_length) {
     int ret = -1;
 
     if (initialize_peer(ip, 1)) {
@@ -126,13 +133,15 @@ int host_server(const char *ip, const char *port, void *shared_region,
         PRINT_ERR("Could not register memory region");
         goto end_host_server;
     }
+    ep_data.enc_key = enc_key;
+    ep_data.enc_key_length = enc_key_length;
 
     if (rpma_ep_listen(ep_data.peer, ip, port, &(ep_data.endpoint))) {
         PRINT_ERR("Cannot listen on specified hostname/port");
     }
     else {
         key_store_local = shared_region;
-        ep_data.block_size = block_size;
+        ep_data.block_size = VALUE_ENTRY_SIZE(max_val_size);
         ret = 0;
     }
 
@@ -146,17 +155,12 @@ unsigned char *server_read(size_t offset) {
     return (unsigned char *)key_store_local + offset;
 }
 
-void* server_get(const unsigned char *decryption_key,
-        struct local_key_info *info, void *value) {
-    return onesided_get(decryption_key, server_read, info, value);
+void *server_get(struct local_key_info *info, void *value) {
+    return onesided_get(server_read, info, value);
 }
 
-int server_put(const unsigned char *encryption_key,
-        struct local_key_info* info,
-        const void *new_value) {
-
-    return onesided_put(encryption_key,
-            (unsigned char *)key_store_local + info->value_offset,
+int server_put(struct local_key_info *info, const void *new_value) {
+    return onesided_put((unsigned char *)key_store_local + info->value_offset,
             server_write, info, new_value);
 }
 
