@@ -1,27 +1,37 @@
 //
 // Created by philip on 02.02.21.
 //
-#include <librpma.h>
-
 #ifndef NETWORK_STACK_UTILS_H
 #define NETWORK_STACK_UTILS_H
 
-extern const char* usage_string;
-extern char* hostname;
-extern char* port;
+#include <librpma.h>
 
-extern struct rpma_peer* peer;
+#include "onesided_global.h"
 
 
-/*
- *
- *
- * Limited by the maximum length of the private data
- * for rdma_connect() in case of RDMA_PS_TCP (56 bytes).
- */
+
+
 #define DESCRIPTORS_MAX_SIZE 24
 
-/* structure from librpma:
+#define DEBUG
+
+#ifdef DEBUG
+#define PRINT_ERR(string) fprintf(stderr, "%s\n", (string))
+#define PRINT_INFO(string) puts((string))
+#else
+#define PRINT_ERR(string)
+#define PRINT_INFO(string)
+#endif // DEBUG
+
+
+extern const char *usage_string;
+extern char *hostname;
+extern char *port;
+
+extern struct rpma_peer *peer;
+
+
+/* persistent memory address structure from librpma:
  * https://github.com/pmem/rpma/blob/master/examples/common/common-conn.h
  */
 struct common_data {
@@ -32,15 +42,47 @@ struct common_data {
     char descriptors[DESCRIPTORS_MAX_SIZE];
 };
 
+struct endpoint_data {
+    struct rpma_peer *peer;
+    struct rpma_ep *endpoint;
+    struct rpma_mr_local *memory_region;
+    size_t memory_region_size;
+    struct rpma_conn_cfg *config;
+    struct rpma_conn *connection;
+    size_t block_size;
+};
+extern struct endpoint_data ep_data;
 
-int parseargs(int argc, char** argv);
 
-int initialize_peer();
+struct key_value_data {
+    uint64_t sequence_number;
+    void *key;
+    size_t key_size;
+    void *value;
+    size_t value_offset;
+};
 
-int establish_connection(struct rpma_conn* connection);
 
-int wait_for_disconnect_event(struct rpma_conn* connection, int verbose);
+int initialize_peer(const char *ip, int server);
 
-void* malloc_aligned(size_t size);
+void *alligned_malloc(size_t size);
+
+int establish_connection(struct rpma_conn *connection);
+
+int wait_for_disconnect_event();
+
+void free_endpoint_data();
+
+int get_sequence_number(uint64_t *seq);
+
+void *onesided_get(const unsigned char *decryption_key,
+        unsigned char *(*read_function)(size_t),
+        struct local_key_info *info, void *value);
+
+int onesided_put(const unsigned char *encryption_key,
+        unsigned char *ciphertext_buf,
+        int (*write_function)(size_t),
+        const struct local_key_info *info, const void *new_value);
+
 
 #endif //NETWORK_STACK_UTILS_H

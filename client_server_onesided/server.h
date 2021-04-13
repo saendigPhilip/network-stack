@@ -1,8 +1,0 @@
-//
-// Created by philip on 05.04.21.
-//
-
-#ifndef CLIENT_SERVER_ONESIDED_SERVER_H
-#define CLIENT_SERVER_ONESIDED_SERVER_H
-
-#endif //CLIENT_SERVER_ONESIDED_SERVER_H
