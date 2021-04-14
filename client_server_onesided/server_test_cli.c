@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "onesided_test.h"
+#include "onesided_test_cli.h"
 #include "onesided_server.h"
 
 

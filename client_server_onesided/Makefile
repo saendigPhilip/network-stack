@@ -1,33 +1,46 @@
-# Make debuggable, turn on additional warnings, link with librpma, openssl
-CFLAGS=-g -Wall -Wextra -Wpedantic -lrpma -lssl -lcrypto
-UTILS=onesided_global.h client_server_utils.c client_server_utils.h  onesided_test.c onesided_test.h
-SERVER=server_test.c onesided_server.c onesided_server.h
-CLIENT=client_test.c onesided_client.c onesided_client.h
+# Turn on additional warnings, link with librpma, openssl
+CFLAGS=-Wall -Wextra -Wpedantic -lrpma -lssl -lcrypto 
+UTILS=onesided_global.h client_server_utils.c client_server_utils.h  onesided_test_cli.c onesided_test_cli.h
+SERVER=server_test_cli.c onesided_server.c onesided_server.h onesided_test_all.c
+CLIENT=client_test_cli.c onesided_client.c onesided_client.h onesided_test_all.c
+SERVER_TEST=onesided_server.c onesided_server.h onesided_test_server.c simple_unit_test.h onesided_test_all.c
+CLIENT_TEST=onesided_client.c onesided_client.h onesided_test_client.c simple_unit_test.h onesided_test_all.c
 
-.PHONY: all clean fresh asan clean_asan fresh_asan
-all: server_test client_test
-server_test: 
-	$(CC) $(SERVER) $(UTILS) -o $@ $^ $(CFLAGS)
+.PHONY: all clean_cli fresh_cli test clean_test fresh_test test_asan clean_test_asan fresh_test_asan
+all: server_test_cli client_test_cli
+server_test_cli: 
+	$(CC) $(SERVER) $(UTILS) -o $@ $^ -g $(CFLAGS)
 
-client_test: 
-	$(CC) $(CLIENT) $(UTILS) -o $@ $^ $(CFLAGS)
+client_test_cli: 
+	$(CC) $(CLIENT) $(UTILS) -o $@ $^ -g $(CFLAGS)
 
-clean:
-	rm -f server_test client_test
+clean_cli:
+	rm -f server_test_cli client_test_cli
 
-fresh: clean
+fresh_cli: clean_cli
 	$(MAKE) all
 
-asan: server_test_asan client_test_asan
-server_test_asan:
-	$(CC) $(SERVER) $(UTILS) -o $@ $^ $(CFLAGS) -fsanitize=address
 
-client_test_asan: 
-	$(CC) $(CLIENT) $(UTILS) -o $@ $^ $(CFLAGS) -fsanitize=address
+test: server_test client_test
+server_test:
+	$(CC) $(SERVER_TEST) $(UTILS) -o $@ $^ -O2 $(CFLAGS)
 
-clean_asan:
-	rm -f server_test_asan client_test_asan
+client_test:
+	$(CC) $(CLIENT_TEST) $(UTILS) -o $@ $^ -O2 $(CFLAGS)
 
-fresh_asan: clean_asan
-	$(MAKE) asan
+clean_test:
+	rm -f server_test client_test
+
+fresh_test: clean_test
+	$(MAKE) test
+
+
+test_asan:
+	$(CC) $(TEST) $(UTILS) -o $@ $^ $(CFLAGS) -g -fsanitize=address
+
+clean_test_asan:
+	rm -f test_asan
+
+fresh_test_asan: clean_test_asan
+	$(MAKE) test_asan
 
