@@ -11,8 +11,6 @@
 char *ip = "127.0.0.1";
 char *port = "8042";
 
-struct timespec start_time;
-struct timespec end_time;
 
 
 long timediff() {
@@ -114,7 +112,8 @@ int perform_test_get(
         printf("Iteration %u of %u\r", i + 1, iterations);
         fflush(stdout);
         for (uint64_t j = 0; j < num_accesses; j++) {
-            info = (struct local_key_info *) test_key_infos + (size_t) rand();
+            info = (struct local_key_info *) test_key_infos +
+                    ((size_t) rand() % TEST_KV_NUM_ENTRIES);
 
             (void) clock_gettime(CLOCK_MONOTONIC, &start_time);
             get_dest = get_function(info, (void *) result_buf);

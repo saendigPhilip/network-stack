@@ -15,7 +15,7 @@
 
 #define TEST_ENC_KEY_SIZE 16
 #define TEST_KV_MAX_VAL_SIZE (0x400 - MIN_VALUE_SIZE)
-#define TEST_KV_NUM_ENTRIES 0x8000
+#define TEST_KV_NUM_ENTRIES 0x400
 
 #define TEST_KV_PLAIN_SIZE (TEST_KV_MAX_VAL_SIZE * TEST_KV_NUM_ENTRIES)
 #define TEST_KV_ENC_SIZE \
@@ -23,8 +23,13 @@
 
 
 extern char *ip, *port;
-static const uint64_t num_accesses = 0x10 * TEST_KV_NUM_ENTRIES;
+static const uint64_t num_accesses = TEST_KV_NUM_ENTRIES;
 static const uint32_t iterations = 8;
+
+struct timespec start_time;
+struct timespec end_time;
+
+long timediff();
 
 static const unsigned char test_enc_key[TEST_ENC_KEY_SIZE] =
         {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
