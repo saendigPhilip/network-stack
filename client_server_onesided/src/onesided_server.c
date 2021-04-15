@@ -65,6 +65,9 @@ int server_write(size_t address) {
 
 /**
  * Sets up an encrypted KV-store from an unencrypted one
+ * @param kv_store_dest If not NULL, memory region where to store encrypted data
+ * @param kv_store_dest_size Size of kv_store_dest. Must be at least
+ *          num_values * VALUE_ENTRY_SIZE(value_size)
  * @param keystore_plain Keystore data in plaintext
  * @param num_values Number of values in the keystore
  * @param value_size (Fixed) size of each of the values
@@ -74,15 +77,26 @@ int server_write(size_t address) {
  * @return pointer to the encrypted keystore on success, NULL otherwise
  */
 unsigned char *setup_kv_store(const unsigned char *enc_key, size_t enc_key_length,
+        unsigned char *kv_store_dest, size_t kv_store_dest_size,
         void* kv_store_plain, size_t num_values, size_t value_size,
         size_t* kv_store_size, struct local_key_info* infos) {
 
     ep_data.memory_region_size = num_values * VALUE_ENTRY_SIZE(value_size);
-    unsigned char *kv_store_enc =
-            (unsigned char*)malloc_aligned(ep_data.memory_region_size);
-    if (!kv_store_enc) {
-        puts("Memory allocation failure");
-        return NULL;
+    unsigned char *kv_store_enc;
+    if (!kv_store_dest) {
+        kv_store_enc =
+                (unsigned char *) malloc_aligned(ep_data.memory_region_size);
+        if (!kv_store_enc) {
+            puts("Memory allocation failure");
+            return NULL;
+        }
+    }
+    else {
+        kv_store_enc = kv_store_dest;
+        if (kv_store_dest_size < ep_data.memory_region_size) {
+            PRINT_ERR("Not enough memory in array passed to setup_kv_store");
+            return NULL;
+        }
     }
     ep_data.block_size = VALUE_ENTRY_SIZE(value_size);
     ep_data.enc_key = enc_key;
@@ -100,7 +114,8 @@ unsigned char *setup_kv_store(const unsigned char *enc_key, size_t enc_key_lengt
     return kv_store_enc;
 
 err_setup_kv_store:
-    free(kv_store_enc);
+    if (!kv_store_dest)
+        free(kv_store_enc);
     return NULL;
 }
 

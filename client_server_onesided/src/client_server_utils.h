@@ -74,7 +74,6 @@ void *alligned_malloc(size_t size);
 
 int establish_connection(struct rpma_conn *connection);
 
-int wait_for_disconnect_event();
 
 void free_endpoint_data();
 

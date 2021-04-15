@@ -13,10 +13,12 @@
 int rdma_client_connect(const char *ip, const char *port,
         const unsigned char *enc_key, size_t enc_key_length, size_t max_val_size);
 
-void rdma_disconnect();
-
 void *rdma_get(struct local_key_info *info, void *value);
 
 int rdma_put(struct local_key_info *info, const void *new_value);
+
+int wait_for_disconnect_event();
+
+void rdma_disconnect();
 
 #endif //CLIENT_SERVER_ONESIDED_CLIENT_H

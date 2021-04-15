@@ -7,11 +7,11 @@
 
 #include "onesided_global.h"
 
-
 unsigned char *setup_kv_store(
         const unsigned char *enc_key, size_t enc_key_length,
-        void* kv_store_plain, size_t num_values, size_t value_size,
-        size_t* kv_store_size, struct local_key_info* infos);
+        unsigned char *kv_store_dest, size_t kv_store_dest_size,
+        void *kv_store_plain, size_t num_values, size_t value_size,
+        size_t *kv_store_size, struct local_key_info* infos);
 
 int host_server(const char *ip, const char *port,
         void *shared_region, size_t shared_region_size, size_t max_val_size,
@@ -22,6 +22,9 @@ int accept_client();
 void* server_get(struct local_key_info *info, void *value);
 
 int server_put(struct local_key_info* info, const void *new_value);
+
+/* TODO: Find a better solution for this */
+int wait_for_disconnect_event();
 
 void shutdown_rdma_server(void);
 

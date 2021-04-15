@@ -1,8 +1,8 @@
+#include <libpmem.h>
 #include <openssl/rand.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <time.h>
 
 #include "onesided_server.h"
 #include "onesided_test_all.h"
@@ -11,66 +11,14 @@
 #define HOST_SERVER_SUCCESS (void *)0
 #define HOST_SERVER_FAILED (void *)1
 
-unsigned char test_kv_plain[TEST_KV_NUM_ENTRIES][TEST_KV_MAX_VAL_SIZE];
+const char *kv_plain_path = ".test_kv_store";
+unsigned char *test_kv_plain;
+size_t test_kv_plain_size;
+
+const char *kv_enc_path = ".test_kv_store_enc";
 unsigned char *test_kv_enc;
 size_t test_kv_enc_size;
-struct local_key_info test_key_infos[TEST_KV_NUM_ENTRIES];
-struct timespec start_time;
-struct timespec end_time;
 
-/*
-char *get_hex(uint8_t *bytes, size_t length) {
-    char *out = (char *)malloc(length * 2 * sizeof(char) + 1);
-    if (!out)
-        return out;
-
-    for (size_t i = 0; i < length; i++) {
-        sprintf(out + 2 * i, "%02x", bytes[i]);
-    }
-    return out;
-}
-*/
-
-size_t min(size_t a, size_t b) {
-    return a < b ? a : b;
-}
-
-long timediff() {
-    return (end_time.tv_sec - start_time.tv_sec) * 1000000000 +
-        end_time.tv_nsec - start_time.tv_nsec;
-}
-
-void value_from_key(void *value, const void *key, size_t key_len) {
-    size_t to_copy;
-    for (size_t i = 0; i < TEST_KV_MAX_VAL_SIZE; i += to_copy) {
-        to_copy = min(key_len, TEST_KV_MAX_VAL_SIZE - i);
-        memcpy(value, key, to_copy);
-        value = (void *) ((uint8_t *)value + to_copy);
-    }
-}
-
-int setup_local_key_info(size_t value_entry_size) {
-    int seq_set;
-    void *buf;
-    for (size_t i = 0; i < TEST_KV_NUM_ENTRIES; i++) {
-        buf = malloc(sizeof(size_t));
-        seq_set = RAND_bytes((unsigned char *)&(test_key_infos[i].sequence_number),
-                sizeof(test_key_infos[i].sequence_number));
-        if (!(buf && 1 == seq_set)) {
-            PRINT_ERR("Could not initialize local_key_info structures");
-            for (size_t j = 0; j < i; j++)
-                free(test_key_infos[i].key);
-            return -1;
-        }
-        /* We're using the index as key: */
-        *((size_t *)buf) = i;
-        test_key_infos[i].key = buf;
-        test_key_infos[i].key_size = sizeof(size_t);
-        test_key_infos[i].value_offset = i * value_entry_size;
-    }
-
-    return 0;
-}
 
 void free_local_key_info() {
     for (size_t i = 0; i < TEST_KV_NUM_ENTRIES; i++)
@@ -81,7 +29,7 @@ void free_local_key_info() {
  * Thread.
  * Joins the server thread and returns 0 on success or -1 otherwise
  */
-int connect_client_server(unsigned char *enc_key) {
+int connect_client_server(const unsigned char *enc_key) {
     const unsigned char *kv_store;
     size_t shared_size;
     if (enc_key) { /* -> KV-store is encrypted */
@@ -100,15 +48,99 @@ int connect_client_server(unsigned char *enc_key) {
     return 0;
 }
 
+/* Generates value entries and writes them to dest */
+void generate_value_entries(void *dest) {
+    for (size_t i = 0; i < TEST_KV_NUM_ENTRIES; i++){
+        value_from_key(dest, (void *)&(i), sizeof(size_t));
+    }
+}
+
+void unmap_plain() {
+    if (test_kv_plain)
+        (void)pmem_unmap(test_kv_plain, test_kv_plain_size);
+}
+
+void unmap_enc() {
+    if (test_kv_enc)
+        (void)pmem_unmap(test_kv_enc, test_kv_enc_size);
+}
+
+int create_kv_plain_file() {
+    test_kv_plain = (unsigned char *)pmem_map_file(kv_plain_path,
+            TEST_KV_PLAIN_SIZE, PMEM_FILE_CREATE, 0666,
+            &test_kv_plain_size, NULL);
+    if (!test_kv_plain || test_kv_plain_size < TEST_KV_PLAIN_SIZE) {
+        unmap_plain();
+        fprintf(stderr, "Failed to create file %s\n", kv_plain_path);
+        return -1;
+    }
+    generate_value_entries(test_kv_plain);
+    return 0;
+}
+
+int create_kv_enc_file() {
+    test_kv_enc = (unsigned char *) pmem_map_file(kv_enc_path, TEST_KV_ENC_SIZE,
+            PMEM_FILE_CREATE, 0666, &test_kv_enc_size, NULL);
+    if (!test_kv_enc || test_kv_enc_size < TEST_KV_ENC_SIZE) {
+        unmap_enc();
+        fprintf(stderr, "Failed to create file %s\n", kv_enc_path);
+        return -1;
+    }
+    if (!setup_kv_store(test_enc_key, (size_t) TEST_ENC_KEY_SIZE,
+            test_kv_enc, TEST_KV_ENC_SIZE, (void *) test_kv_plain,
+            TEST_KV_NUM_ENTRIES, TEST_KV_MAX_VAL_SIZE,
+            &test_kv_enc_size, test_key_infos)) {
+
+        unmap_enc();
+        return -1;
+    }
+    return 0;
+}
+
+/* Creates the encrypted and unencrypted keystore file */
+int create_kv_store_files() {
+    if (0 > create_kv_plain_file())
+        return -1;
+    if (0 > create_kv_enc_file()) {
+        unmap_plain();
+        return -1;
+    }
+    return 0;
+}
+
+int setup_kv_stores() {
+    printf("Trying to read keystore file at %s\n", kv_plain_path);
+    test_kv_plain = (unsigned char *)pmem_map_file(kv_plain_path, 0, 0, 0,
+            &test_kv_plain_size, NULL);
+    if (!test_kv_plain || test_kv_plain_size < TEST_KV_PLAIN_SIZE) {
+        printf("Could not read KV-store at %s. "
+               "Creating new plain and encrypted KV-store\n", kv_plain_path);
+        unmap_plain();
+        if (0 > create_kv_store_files()) {
+            PRINT_ERR("Failed to create KV-store files");
+            return -1;
+        }
+        else
+            return 0;
+    }
+    printf("Trying to read encrypted keystore file at %s\n", kv_enc_path);
+    test_kv_enc = (unsigned char *) pmem_map_file(kv_enc_path, 0, 0, 0,
+            &test_kv_enc_size, NULL);
+    if (!test_kv_enc || test_kv_enc_size < TEST_KV_PLAIN_SIZE) {
+        printf("Could not read encrypted KV-store at %s. "
+               "Creating new encrypted KV-store\n", kv_enc_path);
+        unmap_enc();
+        return create_kv_enc_file();
+    }
+    else
+        return 0;
+}
+
 int test_init_all(int argc, char **argv) {
     if (0 > parseargs(argc, argv))
         return -1;
 
-    /* Generate value entries from keys: */
-    for (size_t i = 0; i < TEST_KV_NUM_ENTRIES; i++){
-        value_from_key((void *)test_kv_plain[i], (void *)&(i), sizeof(size_t));
-    }
-    return 0;
+    return setup_kv_stores();
 }
 
 int test_init_plain() {
@@ -123,23 +155,12 @@ void test_cleanup_plain() {
 }
 
 int test_init_enc() {
-    /* Generate random key: */
-    if (1 != RAND_bytes((unsigned char *)test_enc_key, TEST_ENC_KEY_SIZE)) {
-        PRINT_ERR("Could not generate random key");
-        return -1;
-    }
-
     /* Set up the local_key_info structures: */
     if (0 > setup_local_key_info(VALUE_ENTRY_SIZE(TEST_KV_MAX_VAL_SIZE)))
         return -1;
 
-    /* Set up the KV store by encrypting the structures: */
-    test_kv_enc = setup_kv_store(test_enc_key, (size_t)TEST_ENC_KEY_SIZE,
-            (void *)test_kv_plain, TEST_KV_NUM_ENTRIES, TEST_KV_MAX_VAL_SIZE,
-            &test_kv_enc_size, test_key_infos);
-
     if (!test_kv_enc) {
-        PRINT_ERR("Failed to set up KV store");
+        PRINT_ERR("No encrypted KV store set up");
         goto err_test_init_enc;
     }
 
@@ -159,45 +180,6 @@ void test_cleanup_enc() {
 }
 
 
-/*
- * Performs num_access local get-operations iterations times and prints a summary
- * Returns 0 on succes, -1 on failure
- */
-int perform_test_local(int random_access, uint32_t iterations,
-        uint64_t num_accesses) {
-    unsigned char result_buf[TEST_KV_MAX_VAL_SIZE];
-    unsigned char correct_val_buf[TEST_KV_MAX_VAL_SIZE];
-    void *get_dest;
-    size_t index;
-    long total_time = 0;
-    struct local_key_info *info;
-    for (unsigned int i = 0; i < iterations; i++) {
-        for (uint64_t j = 0; j < num_accesses; j++) {
-            index = (random_access ? (size_t) rand() : j) % TEST_KV_NUM_ENTRIES;
-            info = (struct local_key_info *) test_key_infos + index;
-
-            (void) clock_gettime(CLOCK_MONOTONIC, &start_time);
-            get_dest = server_get(info, (void *) result_buf);
-            (void) clock_gettime(CLOCK_MONOTONIC, &end_time);
-
-            if (!get_dest || get_dest != result_buf)
-                return -1;
-            value_from_key(correct_val_buf, info->key, info->key_size);
-
-            if (0 != memcmp((void *) get_dest,
-                    (void *) correct_val_buf, TEST_KV_MAX_VAL_SIZE))
-                return -1;
-
-            total_time += timediff();
-        }
-    }
-    double average_time = (double)total_time /
-            ((double)iterations * (double)num_accesses);
-    printf("\nTotal time: %ld ns\nAverage time per access: %f ns\n",
-            total_time, average_time);
-    return 0;
-}
-
 int main(int argc, char **argv) {
     int ret = -1;
 
@@ -212,36 +194,38 @@ int main(int argc, char **argv) {
      * perform operations normally on both sides as server and client
      * communicate asynchronously
      */
-    uint64_t num_accesses = 0x40 * TEST_KV_NUM_ENTRIES;
-    uint32_t iterations = 16;
-    BEGIN_TEST_DELIMITER("Server serial access time without encryption");
-    EXPECT_EQUAL(0, perform_test_local(0, iterations, num_accesses));
-    END_TEST_DELIMITER();
 
     BEGIN_TEST_DELIMITER("Server random access time without encryption");
-    EXPECT_EQUAL(0, perform_test_local(1, iterations, num_accesses));
+    EXPECT_EQUAL(0, perform_test_get(server_get, iterations,
+            num_accesses));
     END_TEST_DELIMITER();
 
+    PRINT_INFO("Client tests can be executed now. Client may connect");
+    if (0 > accept_client()) {
+        test_cleanup_plain();
+        return -1;
+    }
+
+    wait_for_disconnect_event();
     test_cleanup_plain();
 
 
     if (0 > test_init_enc())
         return -1;
 
-    BEGIN_TEST_DELIMITER("Server serial access time with encryption");
-    EXPECT_EQUAL(0, perform_test_local(0, iterations, num_accesses));
-    END_TEST_DELIMITER();
+    if (0 > accept_client()) {
+        test_cleanup_enc();
+        return -1;
+    }
+
+    wait_for_disconnect_event();
 
     BEGIN_TEST_DELIMITER("Server random access time with encryption");
-    EXPECT_EQUAL(0, perform_test_local(1, iterations, num_accesses));
+    EXPECT_EQUAL(0, perform_test_get(server_get, iterations,
+            num_accesses));
     END_TEST_DELIMITER();
 
-
-    /*
-     * if (!connect_client_server(NULL)) ...
-     */
-
     PRINT_TEST_SUMMARY();
-    test_cleanup_plain();
+    test_cleanup_enc();
     exit(ret);
 }
