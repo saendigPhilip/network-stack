@@ -76,7 +76,8 @@ int server_write(size_t address) {
  *      TODO: Find a solution for efficiently storing the infos
  * @return pointer to the encrypted keystore on success, NULL otherwise
  */
-unsigned char *setup_kv_store(const unsigned char *enc_key, size_t enc_key_length,
+unsigned char *setup_kv_store(
+        const unsigned char *enc_key, size_t enc_key_length,
         unsigned char *kv_store_dest, size_t kv_store_dest_size,
         void* kv_store_plain, size_t num_values, size_t value_size,
         size_t* kv_store_size, struct local_key_info* infos) {
