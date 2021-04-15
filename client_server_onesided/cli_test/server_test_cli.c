@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
 
     /* Set up KV-Store: */
     unsigned char *test_kv_store = setup_kv_store(
-            key_do_not_use, sizeof(key_do_not_use), test_kv_store_init,
+            key_do_not_use, sizeof(key_do_not_use), NULL, 0, test_kv_store_init,
             TEST_NUM_KV_ENTRIES, TEST_MAX_VALUE_SIZE, &test_kv_store_size,
             local_key_infos);
     if (!test_kv_store) {
