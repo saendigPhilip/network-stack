@@ -11,6 +11,8 @@
 #define HOST_SERVER_SUCCESS (void *)0
 #define HOST_SERVER_FAILED (void *)1
 
+#define USE_PMEM
+
 const char *kv_plain_path = ".test_kv_store_plain";
 unsigned char *test_kv_plain = NULL;
 size_t test_kv_plain_size;
