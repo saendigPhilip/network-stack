@@ -182,7 +182,7 @@ int get_from_server(const char *key, size_t key_len, size_t expected_value_len,
 
     if (0 != encrypt(req_plaintext, req_plaintext_len, req.buf, IV_LEN,
                 key_do_not_use, req.buf + req_ciphertext_len - MAC_LEN, MAC_LEN,
-                NULL, 0, req.buf + IV_LEN)) {
+                req.buf + IV_LEN)) {
         goto end_get;
     }
 

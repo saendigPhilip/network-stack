@@ -46,7 +46,6 @@ int encrypt(
         unsigned char *iv, size_t iv_len,
         const unsigned char *key,
         unsigned char *tag, size_t tag_len,
-        const unsigned char *aad, size_t aad_len,
         unsigned char *ciphertext){
 
     int ret = -1;
@@ -91,16 +90,6 @@ int encrypt(
     } else
         encrypted_bytes = (size_t)length;
 
-    /* Support additional authenticated data: */
-    if (aad) {
-        if (1 != EVP_EncryptUpdate(
-                aes_ctx, NULL, NULL, aad, (int) aad_len)) {
-            cerr << ERR_ENC << endl;
-            ERR_print_errors_fp(stderr);
-            goto end_encrypt;
-        }
-    }
-
     /* Write final encrypted data: */
     if (1 != EVP_EncryptFinal_ex(aes_ctx, ciphertext + encrypted_bytes, &length)){
         cerr << ERR_ENC << endl;
@@ -143,7 +132,6 @@ int decrypt(
         const unsigned char *iv, size_t iv_len,
         const unsigned char *key,
         unsigned char *tag, size_t tag_len,
-        const unsigned char *aad, size_t aad_len,
         unsigned char *plaintext) {
 
     int ret = -1;
@@ -187,15 +175,6 @@ int decrypt(
         goto end_decrypt;
     } else
         decrypted_bytes += length;
-
-    /* Support additional authenticated data: */
-    if (aad) {
-        if (1 != EVP_DecryptUpdate(aes_ctx, nullptr, nullptr, aad, aad_len)) {
-            cerr << ERR_DEC << endl;
-            ERR_print_errors_fp(stderr);
-            goto end_decrypt;
-        }
-    }
 
     /* Finish decryption: */
     if (1 != EVP_DecryptFinal_ex(aes_ctx, plaintext + decrypted_bytes, &length)){

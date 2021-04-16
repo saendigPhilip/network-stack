@@ -104,7 +104,7 @@ void send_response_get(erpc::ReqHandle *req_handle, struct rdma_req *req) {
     /* TODO: Make encryption and decryption a bit prettier and less modifiable */
     if (0 != encrypt(resp, resp_len, (unsigned char *)resp_buffer.buf, IV_LEN,
                      key_do_not_use, resp_buffer.buf + resp_len + MIN_MSG_LEN - MAC_LEN,
-                     MAC_LEN, NULL, 0, resp_buffer.buf + IV_LEN)) {
+                     MAC_LEN, resp_buffer.buf + IV_LEN)) {
 
         rpc_host->free_msg_buffer(resp_buffer);
         goto end_req_handler_get;
@@ -140,7 +140,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
         return;
     }
     if (0 != decrypt(req_msg, req_msg_len, iv_do_not_use, sizeof(iv_do_not_use),
-                 key_do_not_use, req_msg + req_msg_len - 12, 12, NULL, 0, plaintext)) {
+                 key_do_not_use, req_msg + req_msg_len - 12, 12, plaintext)) {
         goto end_req_handler;
     }
 
@@ -249,12 +249,12 @@ int test_encryption() {
     }
 
     encrypt((unsigned char *)plaintext, plaintext_size, iv, sizeof(iv_do_not_use),
-            key_do_not_use, tag, tag_size, NULL, 0, ciphertext);
+            key_do_not_use, tag, tag_size, ciphertext);
     fwrite((void *)ciphertext, 1, plaintext_size, ciphertext_file);
     fwrite((void *)tag, 1, tag_size, tag_file);
 
     decrypt(ciphertext, plaintext_size, iv, sizeof(iv_do_not_use),
-            key_do_not_use, tag, tag_size, NULL, 0, plaintext2);
+            key_do_not_use, tag, tag_size, plaintext2);
 
     if (0 != memcmp((void *)plaintext, (void *)plaintext2, plaintext_size)) {
         cerr << "En- or decryption doesn't work correctly yet..." << endl;

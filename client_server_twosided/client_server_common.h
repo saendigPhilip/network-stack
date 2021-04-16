@@ -56,7 +56,6 @@ int encrypt(
         unsigned char *iv, size_t iv_len,
         const unsigned char *key,
         unsigned char *tag, size_t tag_len,
-        const unsigned char *aad, size_t aad_len,
         unsigned char *ciphertext);
 
 int decrypt(
@@ -64,7 +63,6 @@ int decrypt(
         const unsigned char *iv, size_t iv_len,
         const unsigned char *key,
         unsigned char *tag, size_t tag_len,
-        const unsigned char *aad, size_t aad_len,
         unsigned char *plaintext);
 
 #endif // RDMA_COMMON_METHODS
