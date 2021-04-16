@@ -5,8 +5,8 @@
 #   * If DTRANSPORT=infiniband, use `make infiniband`
 LIBS = -lerpc -lpthread -lnuma -ldl -lssl -lcrypto
 FLAGS = -g -Wall -Wextra
-SERVER = Server.cpp
-CLIENT = Client.cpp
+SERVER = Server.cpp server_test.cpp
+CLIENT = Client.cpp client_test.cpp
 COMMON = client_server_common.cpp
 
 error:

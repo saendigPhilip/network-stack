@@ -1,11 +1,17 @@
-#include "client_server_common.h"
 #include <endian.h>
 #include <openssl/crypto.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/sha.h>
 #include <set>
+#include <stdio.h>
 #include <string.h>
 
-std::set<uint64_t> *sequence_numbers;
+#include "client_server_common.h"
 
+
+std::set<uint64_t> *sequence_numbers;
 
 /* *
  * Checks if a sequence number was already encountered by maintaining a set with

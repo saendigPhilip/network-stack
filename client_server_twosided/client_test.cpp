@@ -19,7 +19,8 @@ int main() {
     delete rpc;
     */
     const char *ip = "192.168.0.0";
-    if (connect(ip, kUDPPort, 10000)) {
+    const uint16_t standard_udp_port = 31850;
+    if (connect(ip, standard_udp_port, 10000)) {
         cerr << "Failed to connect to server" << endl;
 
         return -1;

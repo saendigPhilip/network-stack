@@ -1,16 +1,11 @@
-#include <iostream>
-using namespace std;
-#include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#include <openssl/sha.h>
-#include <stdio.h>
-
-#include "rpc.h"
-#include "nexus.h"
-
 #ifndef RDMA_COMMON_METHODS
 #define RDMA_COMMON_METHODS
+
+#include <iostream>
+using namespace std;
+
+
+// #define DEBUG
 
 const char ERR_ENC[] = "Error: Something went wrong while encrypting";
 const char ERR_DEC[] = "Error: Something went wrong while decrypting";

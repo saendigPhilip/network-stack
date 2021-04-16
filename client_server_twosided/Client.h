@@ -1,7 +1,8 @@
-#include "client_server_common.h"
 #ifndef RDMA_CLIENT
 #define RDMA_CLIENT
 
+#include <iostream>
+using namespace std;
 
 
 int connect(std::string server_hostname, unsigned int udp_port,
@@ -15,8 +16,8 @@ int get_from_server(const char *key, size_t key_len,
 int disconnect();
 void free_client();
 
-// void cont_func(void *, void *);
-void get_response_handler(int, erpc::SmEventType, erpc::SmErrType, void *);
+void verbose_cont_func(void *, void *);
+// void get_response_handler(int, erpc::SmEventType, erpc::SmErrType, void *);
 
 #endif //RDMA_CLIENT
 

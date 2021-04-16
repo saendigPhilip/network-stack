@@ -1,7 +1,19 @@
-#include "Server.h"
+#include <openssl/rand.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/unistd.h>
+
+#include "client_server_common.h"
+
+#ifdef DEBUG
+#include "../src/rpc.h"
+#include "../src/nexus.h"
+#else
+#include "rpc.h"
+#include "nexus.h"
+#endif // DEBUG
+
+#include "Server.h"
 
 erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
 erpc::Nexus *nexus = nullptr;
@@ -268,11 +280,3 @@ end_main:
 }
 
 
-int main() {
-    int ret = -1;
-    std::string ip = "192.168.2.113";
-    if (host_server(ip, kUDPPort, 100000)) {
-        cerr << "Failed to host server" << endl;
-        return ret;
-    }
-}
