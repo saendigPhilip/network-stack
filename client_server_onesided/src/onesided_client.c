@@ -131,37 +131,40 @@ end_rdma_client_connect:
 
 
 unsigned char *rdma_read_from_server(size_t src_offset) {
-    int ret = -1;
     struct rpma_completion completion;
 
-    for (int i = 0; ret; i++) {
-        if (i == 3) {
-            PRINT_ERR("Failed reading from server!");
-            return NULL;
-        }
-        ret = rpma_read(ep_data.connection,
-                ep_data.memory_region, 0, shared_remote,
-                src_offset, ep_data.block_size, RPMA_F_COMPLETION_ALWAYS, NULL);
+    if (0 > rpma_read(ep_data.connection,
+            ep_data.memory_region, 0, shared_remote,
+            src_offset, ep_data.block_size, RPMA_F_COMPLETION_ALWAYS, NULL)){
+        PRINT_ERR("rpma_read failed");
+    }
 
-        /*
-         * TODO: rpma_read is not blocking.
-         *  So we could let the user decide, when he wants to get the read results
-         */
-        if (0 > rpma_conn_completion_wait(ep_data.connection)) {
-            PRINT_ERR("Error while waiting for read completion");
+    /*
+     * TODO: rpma_read is not blocking.
+     *  So we could let the user decide, when he wants to get the read results
+     */
+    if (0 > rpma_conn_completion_wait(ep_data.connection)) {
+        PRINT_ERR("Error while waiting for read completion");
+        return NULL;
+    }
+    if (0 > rpma_conn_completion_get(ep_data.connection, &completion)) {
+        PRINT_ERR("Could not get completion for read operation");
+        return NULL;
+    }
+    if (completion.op != RPMA_OP_READ) {
+        PRINT_ERR("Unexpected operation");
+        return NULL;
+    }
+    if (completion.op_status != IBV_WC_SUCCESS) {
+        PRINT_ERR("Read operation was not successful");
+        enum rpma_conn_event event;
+        if (0 > rpma_conn_next_event(ep_data.connection, &event)) {
+            PRINT_ERR("Could not obtain connection event");
             return NULL;
         }
-        if (0 > rpma_conn_completion_get(ep_data.connection, &completion)) {
-            PRINT_ERR("Could not get completion for read operation");
+        if (event == RPMA_CONN_CLOSED || event == RPMA_CONN_LOST) {
+            PRINT_ERR("Connection closed by host");
             return NULL;
-        }
-        if (completion.op != RPMA_OP_READ) {
-            PRINT_ERR("Unexpected operation");
-            return NULL;
-        }
-        if (completion.op_status != IBV_WC_SUCCESS) {
-            PRINT_ERR("Read operation was not successful. Retrying");
-            ret = -1;
         }
     }
     return local_buf;
