@@ -96,6 +96,14 @@ int setup_local_key_info(size_t value_entry_size) {
     return 0;
 }
 
+void free_local_key_info() {
+    for (size_t i = 0; i < TEST_KV_NUM_ENTRIES; i++) {
+        free(test_key_infos[i].key);
+        test_key_infos[i].key = NULL;
+    }
+}
+
+
 /*
  * Performs num_access get-operations iterations times and prints a summary
  * Returns 0 on success, -1 on failure

@@ -22,7 +22,7 @@
 
 
 #define END_TEST_DELIMITER() \
-    printf("\n\n----------Finished testing %s----------\n\n", test_name)
+    printf("\n----------Finished testing %s----------\n\n", test_name)
 
 #define PRINT_TEST_SUMMARY() printf("\n\n\n" \
     "Finished Testing\n" \

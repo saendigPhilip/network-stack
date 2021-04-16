@@ -15,7 +15,7 @@
 
 #define TEST_ENC_KEY_SIZE 16
 #define TEST_KV_MAX_VAL_SIZE (0x400 - MIN_VALUE_SIZE)
-#define TEST_KV_NUM_ENTRIES 0x400
+#define TEST_KV_NUM_ENTRIES 0x8000
 
 #define TEST_KV_PLAIN_SIZE (TEST_KV_MAX_VAL_SIZE * TEST_KV_NUM_ENTRIES)
 #define TEST_KV_ENC_SIZE \
@@ -24,7 +24,7 @@
 
 extern char *ip, *port;
 static const uint64_t num_accesses = TEST_KV_NUM_ENTRIES;
-static const uint32_t iterations = 8;
+static const uint32_t iterations = 16;
 
 struct timespec start_time;
 struct timespec end_time;
@@ -40,6 +40,8 @@ int parseargs(int argc, char **argv);
 void value_from_key(void *value, const void *key, size_t key_len);
 
 int setup_local_key_info(size_t value_entry_size);
+
+void free_local_key_info();
 
 int perform_test_get(
         void *(get_function)(struct local_key_info *, void *),

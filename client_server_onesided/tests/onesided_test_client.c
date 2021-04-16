@@ -28,7 +28,7 @@ int perform_test_put() {
             info = (struct local_key_info *) test_key_infos +
                     ((size_t) rand() % TEST_KV_NUM_ENTRIES);
             /* Create a new random value: */
-            for (size_t i = 0; i < TEST_KV_MAX_VAL_SIZE; i += 4) {
+            for (size_t i = 0; i < TEST_KV_MAX_VAL_SIZE / 4; i++) {
                 ((int32_t *)new_val_buf)[i] = rand();
             }
 
@@ -83,10 +83,12 @@ int test_init_enc() {
 
 void test_cleanup_plain() {
     rdma_disconnect();
+    free_local_key_info();
 }
 
 void test_cleanup_enc() {
     rdma_disconnect();
+    free_local_key_info();
 }
 
 int main(int argc, char **argv) {
@@ -96,11 +98,16 @@ int main(int argc, char **argv) {
     if (0 > test_init_plain())
         return -1;
 
-    BEGIN_TEST_DELIMITER("Client random access time without encryption");
+
+    BEGIN_TEST_DELIMITER("Client put random access time without encryption");
+    EXPECT_EQUAL(0, perform_test_put(rdma_get, iterations, num_accesses));
+    END_TEST_DELIMITER();
+
+    BEGIN_TEST_DELIMITER("Client get random access time without encryption");
     EXPECT_EQUAL(0, perform_test_get(rdma_get, iterations, num_accesses));
     END_TEST_DELIMITER();
 
-    rdma_disconnect();
+    test_cleanup_plain();
 
     do {
         sleep(5);
@@ -111,7 +118,11 @@ int main(int argc, char **argv) {
     if (0 > test_init_enc())
         return -1;
 
-    BEGIN_TEST_DELIMITER("Client random access time with encryption");
+    BEGIN_TEST_DELIMITER("Client put random access time with encryption");
+    EXPECT_EQUAL(0, perform_test_put(rdma_get, iterations, num_accesses));
+    END_TEST_DELIMITER();
+
+    BEGIN_TEST_DELIMITER("Client get random access time with encryption");
     EXPECT_EQUAL(0, perform_test_get(rdma_get, iterations, num_accesses));
     END_TEST_DELIMITER();
 

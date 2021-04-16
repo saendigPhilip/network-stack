@@ -1,5 +1,5 @@
 # Turn on additional warnings, link with librpma, openssl, libpmem
-CFLAGS=-g -Wall -Wextra -Wpedantic -lrpma -lssl -lcrypto -lpmem 
+CFLAGS=-O2 -Wall -Wextra -Wpedantic -lrpma -lssl -lcrypto -lpmem 
 SRC_DIR=../src/
 
 UTILS=$(SRC_DIR)client_server_utils.c 

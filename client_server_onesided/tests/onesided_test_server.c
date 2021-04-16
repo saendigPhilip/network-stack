@@ -22,13 +22,6 @@ unsigned char *test_kv_enc = NULL;
 size_t test_kv_enc_size;
 
 
-void free_local_key_info() {
-    for (size_t i = 0; i < TEST_KV_NUM_ENTRIES; i++) {
-        free(test_key_infos[i].key);
-        test_key_infos[i].key = NULL;
-    }
-}
-
 /* Starts a Thread for the server and connects with a client in the current
  * Thread.
  * Joins the server thread and returns 0 on success or -1 otherwise
@@ -187,6 +180,12 @@ err_test_init_plain:
     return -1;
 }
 
+void test_cleanup_plain() {
+    free_local_key_info();
+    shutdown_rdma_server();
+}
+
+
 int test_init_enc() {
     /* Set up the local_key_info structures: */
     if (0 > setup_local_key_info(VALUE_ENTRY_SIZE(TEST_KV_MAX_VAL_SIZE)))
@@ -215,10 +214,6 @@ err_test_init_enc:
     return -1;
 }
 
-void test_cleanup_plain() {
-    free_local_key_info();
-    shutdown_rdma_server();
-}
 
 void test_cleanup_enc() {
 #ifdef USE_PMEM
@@ -255,6 +250,7 @@ int main(int argc, char **argv) {
         test_cleanup_plain();
         return -1;
     }
+    PRINT_INFO("Client connected. Waiting for client to finish his tests");
 
     wait_for_disconnect_event();
     test_cleanup_plain();
@@ -266,17 +262,19 @@ int main(int argc, char **argv) {
     if (0 > test_init_enc())
         return -1;
 
-    if (0 > accept_client()) {
-        test_cleanup_enc();
-        return -1;
-    }
-
-    wait_for_disconnect_event();
-
     BEGIN_TEST_DELIMITER("Server random access time with encryption");
     EXPECT_EQUAL(0, perform_test_get(server_get, iterations,
             num_accesses));
     END_TEST_DELIMITER();
+
+    PRINT_INFO("Client tests can be executed now. Client may connect");
+    if (0 > accept_client()) {
+        test_cleanup_enc();
+        return -1;
+    }
+    PRINT_INFO("Client connected. Waiting for client to finish his tests");
+
+    wait_for_disconnect_event();
 
     PRINT_TEST_SUMMARY();
     test_cleanup_enc();
