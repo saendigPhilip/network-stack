@@ -11,7 +11,7 @@
 #define HOST_SERVER_SUCCESS (void *)0
 #define HOST_SERVER_FAILED (void *)1
 
-const char *kv_plain_path = ".test_kv_store";
+const char *kv_plain_path = ".test_kv_store_plain";
 unsigned char *test_kv_plain = NULL;
 size_t test_kv_plain_size;
 
@@ -36,11 +36,11 @@ int connect_client_server(const unsigned char *enc_key) {
     size_t shared_size;
     if (enc_key) { /* -> KV-store is encrypted */
         kv_store = test_kv_enc;
-        shared_size = test_kv_enc_size;
+        shared_size = TEST_KV_ENC_SIZE;
     }
     else { /* -> KV-store is not encrypted */
         kv_store = (unsigned char *)test_kv_plain;
-        shared_size = sizeof(test_kv_plain);
+        shared_size = TEST_KV_PLAIN_SIZE;
     }
 
     if (0 > host_server(ip, port, (void *)kv_store, shared_size,
@@ -98,6 +98,9 @@ int setup_kv_plain_file() {
     return -1;
 }
 
+/*
+ * Does the same as setup_kv_plain_file, only with an encrypted KV-store
+ */
 int setup_kv_enc_file() {
     printf("Trying to read encrypted keystore file at %s\n", kv_enc_path);
     test_kv_enc = (unsigned char *) pmem_map_file(kv_enc_path, 0, 0, 0,
@@ -125,20 +128,47 @@ int setup_kv_enc_file() {
     return -1;
 }
 
+int setup_kv_plain() {
+#ifdef USE_PMEM
+    return setup_kv_plain_file();
+#else
+    test_kv_plain = malloc_aligned(TEST_KV_PLAIN_SIZE);
+    if (!test_kv_plain)
+        return -1;
+    generate_value_entries(test_kv_plain);
+    return 0;
+#endif
+}
+
+int setup_kv_enc() {
+#ifdef USE_PMEM
+    return setup_kv_enc_file();
+#else
+    test_kv_enc = malloc_aligned(TEST_KV_ENC_SIZE);
+    if (!test_kv_enc)
+        return -1;
+    if (test_kv_enc !=
+            setup_kv_store(test_enc_key, (size_t) TEST_ENC_KEY_SIZE,
+                    test_kv_enc, TEST_KV_ENC_SIZE, (void *) test_kv_plain,
+                    TEST_KV_NUM_ENTRIES, TEST_KV_MAX_VAL_SIZE,
+                    &test_kv_enc_size, test_key_infos)) {
+        free(test_kv_enc);
+        return -1;
+    }
+    return 0;
+#endif
+}
+
 
 int test_init_all(int argc, char **argv) {
     return parseargs(argc, argv);
 }
 
-void test_cleanup_plain() {
-    free_local_key_info();
-    shutdown_rdma_server();
-}
 
 int test_init_plain() {
     if (0 > setup_local_key_info(TEST_KV_MAX_VAL_SIZE))
         return -1;
-    if (0 > setup_kv_plain_file())
+    if (0 > setup_kv_plain())
         goto err_test_init_plain;
     if (0 > connect_client_server(NULL))
         goto err_test_init_plain;
@@ -146,7 +176,12 @@ int test_init_plain() {
 
 err_test_init_plain:
     free_local_key_info();
+#ifdef USE_PMEM
     unmap_enc();
+#else
+    free(test_kv_plain);
+    test_kv_plain = NULL;
+#endif
     return -1;
 }
 
@@ -155,7 +190,7 @@ int test_init_enc() {
     if (0 > setup_local_key_info(VALUE_ENTRY_SIZE(TEST_KV_MAX_VAL_SIZE)))
         return -1;
 
-    if (0 > setup_kv_enc_file()) {
+    if (0 > setup_kv_enc()) {
         goto err_test_init_enc;
     }
 
@@ -166,14 +201,33 @@ int test_init_enc() {
 
 err_test_init_enc:
     free_local_key_info();
+#ifdef USE_PMEM
     unmap_plain();
     unmap_enc();
+#else
+    free(test_kv_plain);
+    test_kv_plain = NULL;
+    free(test_kv_enc);
+    test_kv_enc = NULL;
+#endif
     return -1;
 }
 
+void test_cleanup_plain() {
+    free_local_key_info();
+    shutdown_rdma_server();
+}
+
 void test_cleanup_enc() {
+#ifdef USE_PMEM
     unmap_plain();
     unmap_enc();
+#else
+    free(test_kv_plain);
+    test_kv_plain = NULL;
+    free(test_kv_enc);
+    test_kv_enc = NULL;
+#endif
     free_local_key_info();
     shutdown_rdma_server();
 }
@@ -188,11 +242,6 @@ int main(int argc, char **argv) {
     if (0 > test_init_plain()) {
         exit(-1);
     }
-    /*
-     * The server and the client are connected now and we should be able to
-     * perform operations normally on both sides as server and client
-     * communicate asynchronously
-     */
 
     BEGIN_TEST_DELIMITER("Server random access time without encryption");
     EXPECT_EQUAL(0, perform_test_get(server_get, iterations,
