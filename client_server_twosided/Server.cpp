@@ -10,9 +10,9 @@ void req_handler(erpc::ReqHandle *, void *);
 void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 void req_handler_put(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 
-unsigned char *kv_get(const char* key, size_t *data_len);
-// int kv_put(const unsigned char* key, size_t key_len, unsigned char *value, size_t value_len);
-// int kv_delete(const unsigned char* key, size_t key_len);
+unsigned char *kv_get(const char *key, size_t *data_len);
+// int kv_put(const unsigned char *key, size_t key_len, unsigned char *value, size_t value_len);
+// int kv_delete(const unsigned char *key, size_t key_len);
 
 /* Hosts an RPC server
  */
@@ -182,13 +182,13 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
 */
 
 /* Dummy method for testing: We interpret the key as a filename and read from the according file */
-unsigned char *kv_get(const char* key, size_t *data_length) {
+unsigned char *kv_get(const char *key, size_t *data_length) {
     if (!(key && data_length)) {
         return nullptr;
     }
 
     unsigned char *data;
-    FILE* file = fopen(key, "rb");
+    FILE *file = fopen(key, "rb");
     if (!file) {
         cerr << "Could not open " << key << endl;
         return nullptr;
@@ -216,10 +216,10 @@ end_get:
 
 int test_encryption() {
     int ret = -1;
-    FILE* ciphertext_file = NULL;
-    FILE* tag_file = NULL;
-    unsigned char* ciphertext = NULL;
-    unsigned char* plaintext2 = NULL;
+    FILE *ciphertext_file = NULL;
+    FILE *tag_file = NULL;
+    unsigned char *ciphertext = NULL;
+    unsigned char *plaintext2 = NULL;
 
     unsigned char tag[16];
     unsigned char iv[16];
@@ -252,9 +252,10 @@ int test_encryption() {
         cout << "Seems like the encryption and decryption works" << endl;
         cout << "Original Plaintext: " << plaintext << endl;
         cout << "Plaintext after en- and decryption: " << (char *) plaintext2 << endl;
+        ret = 0;
     }
 
-    end_main:
+end_main:
     free(ciphertext);
     free(plaintext2);
     if (ciphertext_file) {
@@ -264,7 +265,6 @@ int test_encryption() {
         fclose(tag_file);
     }
     return ret;
-
 }
 
 
@@ -275,6 +275,4 @@ int main() {
         cerr << "Failed to host server" << endl;
         return ret;
     }
-
-
 }

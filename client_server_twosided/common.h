@@ -57,19 +57,19 @@ static constexpr size_t kMsgSize = 4096;
 int add_sequence_number(uint64_t sequence_number);
 
 int encrypt(
-        const unsigned char* plaintext, size_t plaintext_len,
-        unsigned char* iv, size_t iv_len,
-        const unsigned char* key,
-        unsigned char* tag, size_t tag_len,
-        const unsigned char* aad, size_t aad_len,
-        unsigned char* ciphertext);
+        const unsigned char *plaintext, size_t plaintext_len,
+        unsigned char *iv, size_t iv_len,
+        const unsigned char *key,
+        unsigned char *tag, size_t tag_len,
+        const unsigned char *aad, size_t aad_len,
+        unsigned char *ciphertext);
 
 int decrypt(
-        const unsigned char* ciphertext, size_t ciphertext_len,
-        const unsigned char* iv, size_t iv_len,
-        const unsigned char* key,
-        unsigned char* tag, size_t tag_len,
-        const unsigned char* aad, size_t aad_len,
-        unsigned char* plaintext);
+        const unsigned char *ciphertext, size_t ciphertext_len,
+        const unsigned char *iv, size_t iv_len,
+        const unsigned char *key,
+        unsigned char *tag, size_t tag_len,
+        const unsigned char *aad, size_t aad_len,
+        unsigned char *plaintext);
 
 #endif // RDMA_COMMON_METHODS

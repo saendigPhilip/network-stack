@@ -36,12 +36,12 @@ int add_sequence_number(uint64_t sequence_number) {
  * Returns 0 on success and a negative value if something went wrong
  */
 int encrypt(
-        const unsigned char* plaintext, size_t plaintext_len,
-        unsigned char* iv, size_t iv_len,
-        const unsigned char* key,
-        unsigned char* tag, size_t tag_len,
-        const unsigned char* aad, size_t aad_len,
-        unsigned char* ciphertext){
+        const unsigned char *plaintext, size_t plaintext_len,
+        unsigned char *iv, size_t iv_len,
+        const unsigned char *key,
+        unsigned char *tag, size_t tag_len,
+        const unsigned char *aad, size_t aad_len,
+        unsigned char *ciphertext){
 
     int ret = -1;
     int length;
@@ -57,7 +57,7 @@ int encrypt(
         return -1;
     }
 
-    EVP_CIPHER_CTX* aes_ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX *aes_ctx = EVP_CIPHER_CTX_new();
     if (!aes_ctx){
         cerr << ERR_ENC << endl;
         return -1;
@@ -133,12 +133,12 @@ end_encrypt:
  * returns 0, if the plaintext could be decrypted successfully and a negative value otherwise
  */
 int decrypt(
-        const unsigned char* ciphertext, size_t ciphertext_len,
-        const unsigned char* iv, size_t iv_len,
-        const unsigned char* key,
-        unsigned char* tag, size_t tag_len,
-        const unsigned char* aad, size_t aad_len,
-        unsigned char* plaintext) {
+        const unsigned char *ciphertext, size_t ciphertext_len,
+        const unsigned char *iv, size_t iv_len,
+        const unsigned char *key,
+        unsigned char *tag, size_t tag_len,
+        const unsigned char *aad, size_t aad_len,
+        unsigned char *plaintext) {
 
     int ret = -1;
     size_t decrypted_bytes = 0;
@@ -147,7 +147,7 @@ int decrypt(
         return -1;
     }
 
-    EVP_CIPHER_CTX* aes_ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX *aes_ctx = EVP_CIPHER_CTX_new();
     if (!aes_ctx){
         cerr << ERR_DEC << endl;
         return -1;

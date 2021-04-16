@@ -28,7 +28,7 @@ void verbose_cont_func(void *, void *tag) {
     struct incoming_value *val = (struct incoming_value *)tag;
     if (!val)
         return;
-    puts(val->value);
+    puts((char *)val->value);
 }
 
 /* sm = Session management. Is invoked if a session is created or destroyed */
@@ -50,7 +50,7 @@ void verbose_sm_handler(int, erpc::SmEventType event, erpc::SmErrType error, voi
     switch(error) {
         case erpc::SmErrType::kNoError:
             break;
-        default: cerr << "Error while initializing session: " << error << endl;
+        default: cerr << "Error while initializing session" << endl;
     }
 }
 
@@ -83,6 +83,10 @@ int disconnect() {
     return ret;
 }
 
+void cont_func(void *, void*) {
+
+}
+
 
 /**
  * Connects to a server at server_hostname:udp_port
@@ -98,10 +102,11 @@ int connect(std::string server_hostname, unsigned int udp_port, size_t try_itera
     }
     std::string server_uri = server_hostname + ":" + std::to_string(udp_port);
     if (client_rpc) {
-        cout << "Already connecting. Disconnecting old connection" << endl;
+        cout << "Already connected. Disconnecting old connection" << endl;
         (void) disconnect();
     }
-    client_rpc = new erpc::Rpc(&nexus, nullptr, 0, empty_handler);
+    client_rpc = new erpc::Rpc<erpc::CTransport>(
+            nexus, nullptr, 0, empty_sm_handler, 0);
 
     session_nr = client_rpc->create_session(server_uri, 0);
     if (session_nr < 0) {
@@ -125,8 +130,8 @@ int connect(std::string server_hostname, unsigned int udp_port, size_t try_itera
  * @param key_len Size of address
  * @return 0 on success, -1 if something went wrong, TODO: Return codes?
  */
-int get_from_server(const char *key, size_t key_len, size_t expected_value_len, void *value, void *callback(),
-        unsigned int timeout=100) {
+int get_from_server(const char *key, size_t key_len, size_t expected_value_len,
+        void *value, void (callback)(void *, void *), unsigned int timeout=100) {
     if (!key)
         return -1;
 
@@ -171,23 +176,23 @@ int get_from_server(const char *key, size_t key_len, size_t expected_value_len, 
     }
 
     /* Fill the tag that is passed to the callback function TODO: integrate
-    tag->callback = callback;
-    tag->value = value;
-    tag->response = &resp; */
+        tag->callback = callback;
+        tag->value = value;
+        tag->response = &resp; */
 
-    free(req_plaintext);
-    client_rpc->enqueue_request(session_nr, 0, &req, &resp, cont_func, (void *)tag);
-    client_rpc->run_event_loop(timeout);
-    return 0;
+        free(req_plaintext);
+        client_rpc->enqueue_request(session_nr, 0, &req, &resp, cont_func, (void *)tag);
+        client_rpc->run_event_loop(timeout);
+        return 0;
 
-    /* We only get here on failure, because req and resp belong to eRPC on success */
-end_get:
-    free(req_plaintext);
-    client_rpc->free_msg_buffer(req);
-    client_rpc->free_msg_buffer(resp);
+        /* We only get here on failure, because req and resp belong to eRPC on success */
+    end_get:
+        free(req_plaintext);
+        client_rpc->free_msg_buffer(req);
+        client_rpc->free_msg_buffer(resp);
 
-    return ret;
-}
+        return ret;
+    }
 
 int main() {
     /* erpc::Nexus nexus(client_uri, 0, 0);
@@ -207,18 +212,19 @@ int main() {
 
     delete rpc;
     */
+    const char *ip = "192.168.0.0";
     if (connect(ip, kUDPPort, 10000)) {
         cerr << "Failed to connect to server" << endl;
 
         return -1;
     }
-    char* key = "Test";
+    const char *key = "Test";
     size_t key_len = 5;
     size_t buf_size = 2048;
-    char* buf = (char *)malloc(buf_size);
+    char *buf = (char *)malloc(buf_size);
     size_t timeout = 1000;
 
-    if (get_from_server("Test", 5, 1024, buf, &verbose_cont_func, timeout)){
+    if (get_from_server(key, key_len, 1024, buf, verbose_cont_func, timeout)){
         cerr << "get_from_server() failed..." << endl;
         return -1;
     }
