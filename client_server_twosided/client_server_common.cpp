@@ -1,4 +1,4 @@
-#include "common.h"
+#include "client_server_common.h"
 #include <endian.h>
 #include <openssl/crypto.h>
 #include <set>

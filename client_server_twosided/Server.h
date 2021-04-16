@@ -1,4 +1,4 @@
-#include "common.h"
+#include "client_server_common.h"
 #ifndef RDMA_SERVER
 #define RDMA_SERVER
 
