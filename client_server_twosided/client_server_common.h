@@ -1,8 +1,9 @@
 #ifndef RDMA_COMMON_METHODS
 #define RDMA_COMMON_METHODS
 
-#define CIPHERTEXT_SIZE(payload_size) MIN_MSG_LEN + (payload_size)
-#define PAYLOAD_SIZE(ciphertext_size) (ciphertext_size) - MIN_MSG_LEN
+#define CIPHERTEXT_SIZE(payload_size) (MIN_MSG_LEN + (payload_size))
+#define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
+#define NEXT_SEQ(seq_number) ((seq_number) + 4)
 
 #include <iostream>
 using namespace std;
@@ -10,12 +11,7 @@ using namespace std;
 
 // #define DEBUG
 
-/* Request format:
- * +----------+--------------+-----------------+---------------+------------+
- * | IV (12B) | Seq, OP (8B) | key length (8B) | key [+ value] | GMAC (16B) |
- * +----------+--------------+-----------------+---------------+------------+
- *            |-----------encrypted and authenticated----------|
- */
+static constexpr uint8_t DEFAULT_REQ_TYPE = 0;
 
 static constexpr uint8_t RDMA_GET = 0b00;
 static constexpr uint8_t RDMA_PUT = 0b01;
@@ -23,11 +19,17 @@ static constexpr uint8_t RDMA_DELETE = 0b10;
 static constexpr uint8_t RDMA_ERR = 0b11;
 
 
-struct rdma_msg {
+struct rdma_msg_header {
     uint64_t seq_op;
     uint64_t key_len;
-    void *payload;
 };
+
+/* Request format:
+ * +----------+--------------+-----------------+-----------+------------+
+ * | IV (12B) | Seq, OP (8B) | key length (8B) | key/value | GMAC (16B) |
+ * +----------+--------------+-----------------+-----------+------------+
+ *            |---------encrypted and authenticated--------|
+ */
 
 /* Length of IV: 12 Byte
  * Length of GMAC Tag: 16 Byte
@@ -50,10 +52,10 @@ static constexpr size_t kMsgSize = 4096;
 // int check_hash(const void *msg, size_t len);
 int add_sequence_number(uint64_t sequence_number);
 
-int encrypt_message(const unsigned char *encryption_key,
-        const struct rdma_msg *msg, unsigned char *ciphertext, size_t payload_len);
+int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_header *header,
+        unsigned char **ciphertext, const void *payload, size_t payload_len);
 
-int decrypt_message(const unsigned char *decryption_key,
-        struct rdma_msg *msg, const unsigned char *ciphertext, size_t ciphertext_len);
+int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header *header,
+        const unsigned char *ciphertext, void **payload, size_t ciphertext_len);
 
 #endif // RDMA_COMMON_METHODS

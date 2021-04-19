@@ -31,12 +31,13 @@ int add_sequence_number(uint64_t sequence_number) {
     return -1;
 }
 
-int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg *msg,
-        unsigned char *ciphertext, size_t payload_len) {
+int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_header *header,
+        unsigned char **ciphertext, const void *payload, size_t payload_len) {
     int ret = -1;
     int length;
+    bool to_free = false;
 
-    if (!(encryption_key && msg && ciphertext)){
+    if (!(encryption_key && header && ciphertext && payload)){
         cerr << "encrypt_message: invalid parameters" << endl;
         return -1;
     }
@@ -45,23 +46,21 @@ int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg *
         cerr << "Memory allocation failure" << endl;
         return -1;
     }
-    unsigned char *ciphertext_pos = ciphertext;
-    /*
-    if (!ciphertext) {
-        ciphertext = (unsigned char *) malloc(CIPHERTEXT_SIZE(msg->key_len));
-        if (!ciphertext) {
+
+    if (!*ciphertext) {
+        *ciphertext = (unsigned char *) malloc(CIPHERTEXT_SIZE(payload_len));
+        if (!*ciphertext) {
             cerr << "Memory allocation failure" << endl;
             return -1;
         }
         to_free = true;
     }
-     */
+    unsigned char *ciphertext_pos = *ciphertext;
 
     if (1 != RAND_bytes(ciphertext_pos, IV_LEN)) {
         cerr << "encrypt_message: Could not generate IV" << endl;
         goto end_encrypt;
     }
-
 
     /* Initialize Encryption, set position of IV: */
     if (1 != EVP_EncryptInit_ex(aes_ctx,
@@ -79,7 +78,7 @@ int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg *
 
     /* Encrypt seq_op and length: */
     if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
-            (unsigned char *)&(msg->seq_op),sizeof(msg->seq_op) + sizeof(msg->key_len))) {
+            (unsigned char *)header, sizeof(struct rdma_msg_header))) {
         cerr << "Could not encrypt seq_op/key_len" << endl;
         goto end_encrypt;
     }
@@ -87,7 +86,7 @@ int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg *
 
     /* Encrypt payload: */
     if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
-            (unsigned char *)msg->payload, payload_len)) {
+            (unsigned char *)payload, payload_len)) {
         cerr << "Could not encrypt payload" << endl;
         goto end_encrypt;
     }
@@ -108,27 +107,24 @@ int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg *
     ret = 0;
 
 end_encrypt:
-    /*
     if (to_free && ret)
-        free(ciphertext);
-    */
+        free(*ciphertext);
 
     EVP_CIPHER_CTX_free(aes_ctx);
     return ret;
 }
 
-int decrypt_message(const unsigned char *decryption_key, struct rdma_msg *msg,
-        const unsigned char *ciphertext, size_t ciphertext_len) {
+int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header *header,
+        const unsigned char *ciphertext, void **payload, size_t ciphertext_len) {
 
     int ret = -1;
-    if (!(decryption_key && msg && ciphertext && ciphertext_len >= MIN_MSG_LEN)) {
+    if (!(decryption_key && header && ciphertext && payload && ciphertext_len >= MIN_MSG_LEN)) {
         cerr << "decrypt_message: Invalid parameters" << endl;
         return -1;
     }
     int expected_payload_len = PAYLOAD_SIZE(ciphertext_len);
     size_t bytes_decrypted = 0;
     bool to_free = false;
-    int seq_op_length_len = sizeof(msg->seq_op) + sizeof(msg->key_len);
     int length;
 
     EVP_CIPHER_CTX *aes_ctx = EVP_CIPHER_CTX_new();
@@ -158,12 +154,12 @@ int decrypt_message(const unsigned char *decryption_key, struct rdma_msg *msg,
     bytes_decrypted += IV_LEN;
 
     /* Decrypt seq_op and length: */
-    if (1 != EVP_DecryptUpdate(aes_ctx, (unsigned char *) &(msg->seq_op),
-            &length,ciphertext + bytes_decrypted, seq_op_length_len)) {
+    if (1 != EVP_DecryptUpdate(aes_ctx, (unsigned char *) header,
+            &length, ciphertext + bytes_decrypted, sizeof(struct rdma_msg_header))) {
         cerr << "Could not decrypt seq/op/length" << endl;
         goto end_decrypt;
     }
-    if (length != seq_op_length_len) {
+    if (length != sizeof(struct rdma_msg_header)) {
         cerr << "Seq_Op and length were not completely written to struct" << endl;
         goto end_decrypt;
     }
@@ -171,23 +167,23 @@ int decrypt_message(const unsigned char *decryption_key, struct rdma_msg *msg,
 
     /* Decrypt payload, support payloads with length 0: */
     length = 0;
-    if (expected_payload_len != 0) {
-        if (!(msg->payload)) {
-            msg->payload = malloc((size_t) expected_payload_len);
-            if (!(msg->payload)) {
+    if (expected_payload_len >= 0) {
+        if (!*payload) {
+            *payload = malloc((size_t) expected_payload_len);
+            if (!*payload) {
                 cerr << "Memory allocation failure" << endl;
                 goto end_decrypt;
             }
             to_free = true;
         }
-        if (1 != EVP_DecryptUpdate(aes_ctx, (unsigned char *) msg->payload, &length,
+        if (1 != EVP_DecryptUpdate(aes_ctx, (unsigned char *) *payload, &length,
                 ciphertext + bytes_decrypted, expected_payload_len)) {
             cerr << "Could not decrypt payload" << endl;
             goto end_decrypt;
         }
     }
     /* Finish decryption: */
-    if (1 != EVP_DecryptFinal_ex(aes_ctx, (unsigned char *)msg->payload + length, &length)){
+    if (1 != EVP_DecryptFinal_ex(aes_ctx, (unsigned char *) *payload + length, &length)){
         cerr << "Could not finish decryption" << endl;
         goto end_decrypt;
     }
@@ -195,10 +191,9 @@ int decrypt_message(const unsigned char *decryption_key, struct rdma_msg *msg,
 
 end_decrypt:
     if (ret && to_free) {
-        free(msg->payload);
-        msg->payload = nullptr;
+        free(*payload);
+        *payload = nullptr;
     }
     EVP_CIPHER_CTX_free(aes_ctx);
     return ret;
-
 }

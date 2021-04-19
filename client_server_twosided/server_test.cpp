@@ -11,42 +11,41 @@ int test_encryption() {
     char plaintext[] = "The quick brown fox jumps over the lazy dog";
     size_t plaintext_size = sizeof(plaintext);
     size_t ciphertext_size = CIPHERTEXT_SIZE(plaintext_size);
-    unsigned char *ciphertext = (unsigned char *) malloc(ciphertext_size);
-    if (!ciphertext) {
-        cerr << "Memory allocation failure" << endl;
-        return -1;
-    }
-    struct rdma_msg msg = {
+    unsigned char *ciphertext = nullptr;
+    void *decrypted_payload = nullptr;
+    int header_equal, payload_equal;
+    struct rdma_msg_header header = {
             40 | RDMA_GET,
             (uint64_t) plaintext_size,
-            (void *) plaintext
     };
-    struct rdma_msg arrived_msg;
-    arrived_msg.payload = nullptr;
+    struct rdma_msg_header arrived_header;
 
-    if (0 != encrypt_message(key_do_not_use, &msg, ciphertext, plaintext_size)) {
+    if (0 != encrypt_message(key_do_not_use, &header,
+            &ciphertext, (void *) plaintext, plaintext_size)) {
         cerr << "Encryption failed" << endl;
         goto end_test_encryption;
     }
-    if (0 != decrypt_message(key_do_not_use, &arrived_msg, ciphertext, ciphertext_size)) {
+    if (0 != decrypt_message(key_do_not_use, &arrived_header, ciphertext,
+            &decrypted_payload, ciphertext_size)) {
         cerr << "Decryption failed" << endl;
         goto end_test_encryption;
     }
 
-    if (0 != memcmp((void *)&msg, (void *)&arrived_msg,
-            sizeof(msg.seq_op) + sizeof(msg.key_len))) {
+    header_equal = memcmp((void *)&header, (void *)&arrived_header, sizeof(struct rdma_msg_header));
+    payload_equal = memcmp((void *) plaintext, decrypted_payload, plaintext_size);
+    if (header_equal || payload_equal) {
         cerr << "En- or decryption doesn't work correctly yet..." << endl;
     }
     else {
         cout << "Seems like the encryption and decryption works" << endl;
         cout << "Original Plaintext: " << plaintext << endl;
-        cout << "Plaintext after en- and decryption: " << (char *) arrived_msg.payload << endl;
+        cout << "Plaintext after en- and decryption: " << (char *) decrypted_payload << endl;
         ret = 0;
     }
 
 end_test_encryption:
     free(ciphertext);
-    free(arrived_msg.payload);
+    free(decrypted_payload);
     return ret;
 }
 

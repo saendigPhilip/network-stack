@@ -23,7 +23,7 @@ void req_handler(erpc::ReqHandle *, void *);
 void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 void req_handler_put(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 
-unsigned char *kv_get(const char *key, size_t *data_len);
+unsigned char *kv_get(const void *key, size_t key_len, size_t *data_len);
 // int kv_put(const unsigned char *key, size_t key_len, unsigned char *value, size_t value_len);
 // int kv_delete(const unsigned char *key, size_t key_len);
 
@@ -73,7 +73,7 @@ void req_handler_put(erpc::ReqHandle *req_handle, struct rdma_msg *req) {
 }
 */
 
-void send_empty_response(erpc::ReqHandle *, struct rdma_msg *) {
+void send_empty_response(erpc::ReqHandle *, struct rdma_msg_header *) {
 
 }
 
@@ -81,31 +81,37 @@ void send_empty_response(erpc::ReqHandle *, struct rdma_msg *) {
 * Request handler for incoming receive requests
 * Then, transfers data at the specified address to the client
 * */
-void send_response_get(erpc::ReqHandle *req_handle, struct rdma_msg *req) {
-    unsigned char *resp;
+void send_response_get(erpc::ReqHandle *req_handle,
+        struct rdma_msg_header *header, const void *key) {
+    unsigned char *resp, *ciphertext;
     size_t resp_len;
-    erpc::MsgBuffer resp_buffer;
-    struct rdma_msg resp_msg;
 
-    /* Create and enqueue the response: */
-    resp_msg.seq_op = req->seq_op + 4;
-    resp_msg.key_len = req->key_len; /* TODO: Fit to concatenation with key */
-
-    /* Call KV-store: TODO: Maybe concatenate with key */
-    resp = kv_get((char *)req->payload, &resp_len);
+    /* Call KV-store: */
+    resp = kv_get(key, header->key_len, &resp_len);
     if (!resp) {
-        send_empty_response(req_handle, &resp_msg);
+        send_empty_response(req_handle, header);
         return;
     }
 
+    /* Reuse the request header for creating and enqueueing the response: */
+    header->seq_op = NEXT_SEQ(header->seq_op);
+    header->key_len = 0;
+    erpc::MsgBuffer resp_buffer;
+
     size_t ciphertext_size = CIPHERTEXT_SIZE(resp_len);
-    resp_buffer = rpc_host->alloc_msg_buffer(ciphertext_size);
-    if (!resp_buffer.buf) {
+    try {
+        resp_buffer = rpc_host->alloc_msg_buffer(ciphertext_size);
+    } catch (const runtime_error &) {
+        cerr << "Error allocating memory for response" << endl;
+        goto end_send_response_get;
+    }
+    ciphertext = resp_buffer.buf;
+    if (!ciphertext) {
         cerr << "Memory Allocation failure" << endl;
         goto end_send_response_get;
     }
 
-    if (0 != encrypt_message(encryption_key, &resp_msg, resp_buffer.buf, resp_len)) {
+    if (0 != encrypt_message(encryption_key, header, &ciphertext, resp, resp_len)) {
         rpc_host->free_msg_buffer(resp_buffer);
         goto end_send_response_get;
     }
@@ -118,52 +124,42 @@ end_send_response_get:
 
 /* void req_handler(erpc::ReqHandle *req_handle, void *context) */
 void req_handler(erpc::ReqHandle *req_handle, void *) {
-    struct rdma_msg req;
+    struct rdma_msg_header header;
     uint8_t op;
     const erpc::MsgBuffer *ciphertext_buf = req_handle->get_req_msgbuf();
-    if (!ciphertext_buf->buf) {
-        cerr << "Could not get ciphertext buffer" << endl;
+    unsigned char *ciphertext = (unsigned char *)ciphertext_buf->buf;
+    void *payload = nullptr;
+    if (!ciphertext) {
+        cerr << "Could not get request message buffer" << endl;
         return;
     }
-    unsigned char *ciphertext = (unsigned char *)ciphertext_buf->buf;
-    size_t ciphertext_len = ciphertext_buf->get_data_size();
-    if (ciphertext_len < MIN_MSG_LEN) {
+    size_t ciphertext_size = ciphertext_buf->get_data_size();
+    if (ciphertext_size < MIN_MSG_LEN) {
         cerr << "Message not long enough" << endl;
         return;
     }
 
-    /* The plaintext size should be the incoming size minus IV and MAC tag length */
-    req.payload = (unsigned char *)malloc(PAYLOAD_SIZE(ciphertext_len));
-    if (!req.payload) {
-        cerr << "Memory allocation failure" << endl;
-        return;
-    }
-    if (0 != decrypt_message(encryption_key, &req, ciphertext, ciphertext_len))
+    if (0 != decrypt_message(encryption_key, &header, ciphertext, &payload, ciphertext_size))
         goto end_req_handler;
 
     /* Add sequence number to known sequence numbers and check for replays: */
-    if (!add_sequence_number(req.seq_op)) {
+    if (!add_sequence_number(header.seq_op)) {
         cerr << "Invalid sequence number" << endl;
         goto end_req_handler;
     }
 
-    op = (uint8_t) (req.seq_op & 0b11);
-    /* TODO: Call handler according to op */
-    if (op == RDMA_GET) {
-        send_response_get(req_handle, &req);
-    }
-    else if (op == RDMA_PUT) {
-        cerr << "TODO: Implement" << endl;
-    }
-    else if (op == RDMA_DELETE) {
-        cerr << "TODO: Implement" << endl;
-    }
-    else {
-        cerr << "Invalid operation: " << op << endl;
+    op = (uint8_t) (header.seq_op & 0b11);
+    switch (op) {
+        case RDMA_GET: send_response_get(req_handle, &header, payload); break;
+        case RDMA_PUT:
+        case RDMA_DELETE:
+            cerr << "TODO: Implement" << endl; break;
+        default:
+            cerr << "Invalid operation: " << op << endl;
     }
 
 end_req_handler:
-    free(req.payload);
+    free(payload);
 }
 
 /*
@@ -177,20 +173,21 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
 */
 
 /* Dummy method for testing: We interpret the key as a filename and read from the according file */
-unsigned char *kv_get(const char *key, size_t *data_length) {
+unsigned char *kv_get(const void *key, size_t, size_t *data_length) {
     if (!(key && data_length)) {
         return nullptr;
     }
 
     unsigned char *data;
-    FILE *file = fopen(key, "rb");
+    char *filename = (char *) key;
+    FILE *file = fopen(filename, "rb");
     if (!file) {
         cerr << "Could not open " << key << endl;
         return nullptr;
     }
 
     struct stat key_stat;
-    if (!stat(key, &key_stat)) {
+    if (!stat(filename, &key_stat)) {
         cerr << "Could not get stats of " << key << endl;
         return nullptr;
     }
