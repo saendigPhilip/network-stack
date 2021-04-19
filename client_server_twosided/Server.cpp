@@ -17,6 +17,7 @@
 
 erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
 erpc::Nexus *nexus = nullptr;
+unsigned char *encryption_key = nullptr;
 
 void req_handler(erpc::ReqHandle *, void *);
 void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
@@ -67,120 +68,102 @@ void close_connection() {
 * Then, writes data from the client to the specified address
 * TODO: implement
 * */
-/* TODO: Do we even respond? */
 /*
-void req_handler_put(erpc::ReqHandle *req_handle, struct rdma_req *req) {
+void req_handler_put(erpc::ReqHandle *req_handle, struct rdma_msg *req) {
 }
 */
 
+void send_empty_response(erpc::ReqHandle *, struct rdma_msg *) {
+
+}
+
 /**
 * Request handler for incoming receive requests
-* Checks freshness and checksum
 * Then, transfers data at the specified address to the client
-* Not finished yet: No encryption, no authenticity control
 * */
-void send_response_get(erpc::ReqHandle *req_handle, struct rdma_req *req) {
+void send_response_get(erpc::ReqHandle *req_handle, struct rdma_msg *req) {
     unsigned char *resp;
     size_t resp_len;
     erpc::MsgBuffer resp_buffer;
-
-    /* Get the requested data, get also allocates the space for seq_op and length: */
-    resp = kv_get((char *)req->payload, &resp_len);
-    if (!resp) {
-        goto end_req_handler_get;
-    }
+    struct rdma_msg resp_msg;
 
     /* Create and enqueue the response: */
-    ((uint64_t *) resp)[0] = htobe64(req->seq + 4);
-    ((uint64_t *) resp)[1] = htobe64(resp_len);
+    resp_msg.seq_op = req->seq_op + 4;
+    resp_msg.key_len = req->key_len; /* TODO: Fit to concatenation with key */
 
-    /* TODO: This gives us flexibility for the message buffer size, but may waste resources */
-    resp_buffer = rpc_host->alloc_msg_buffer(resp_len + MIN_MSG_LEN);
-    if (!resp_buffer.buf) {
-        cerr << "Could not allocate enough memory" << endl;
-        goto end_req_handler_get;
+    /* Call KV-store: TODO: Maybe concatenate with key */
+    resp = kv_get((char *)req->payload, &resp_len);
+    if (!resp) {
+        send_empty_response(req_handle, &resp_msg);
+        return;
     }
 
-    /* TODO: Make encryption and decryption a bit prettier and less modifiable */
-    if (0 != encrypt(resp, resp_len, (unsigned char *)resp_buffer.buf, IV_LEN,
-                     key_do_not_use, resp_buffer.buf + resp_len + MIN_MSG_LEN - MAC_LEN,
-                     MAC_LEN, resp_buffer.buf + IV_LEN)) {
+    size_t ciphertext_size = CIPHERTEXT_SIZE(resp_len);
+    resp_buffer = rpc_host->alloc_msg_buffer(ciphertext_size);
+    if (!resp_buffer.buf) {
+        cerr << "Memory Allocation failure" << endl;
+        goto end_send_response_get;
+    }
 
+    if (0 != encrypt_message(encryption_key, &resp_msg, resp_buffer.buf, resp_len)) {
         rpc_host->free_msg_buffer(resp_buffer);
-        goto end_req_handler_get;
+        goto end_send_response_get;
     }
 
     rpc_host->enqueue_response(req_handle, &resp_buffer);
 
-end_req_handler_get:
+end_send_response_get:
     free(resp);
 }
 
 /* void req_handler(erpc::ReqHandle *req_handle, void *context) */
 void req_handler(erpc::ReqHandle *req_handle, void *) {
-    unsigned char *plaintext = nullptr;
-    struct rdma_req req;
-    uint64_t seq_op = 0;
-    const erpc::MsgBuffer *req_msg_buf = req_handle->get_req_msgbuf();
-    if (!req_msg_buf->buf) {
-        cerr << "Failed to handle request" << endl;
+    struct rdma_msg req;
+    uint8_t op;
+    const erpc::MsgBuffer *ciphertext_buf = req_handle->get_req_msgbuf();
+    if (!ciphertext_buf->buf) {
+        cerr << "Could not get ciphertext buffer" << endl;
         return;
     }
-    unsigned char *req_msg = (unsigned char *)req_msg_buf->buf;
-    size_t req_msg_len = req_msg_buf->get_data_size();
-    if (req_msg_len < MIN_MSG_LEN) {
+    unsigned char *ciphertext = (unsigned char *)ciphertext_buf->buf;
+    size_t ciphertext_len = ciphertext_buf->get_data_size();
+    if (ciphertext_len < MIN_MSG_LEN) {
         cerr << "Message not long enough" << endl;
         return;
     }
 
     /* The plaintext size should be the incoming size minus IV and MAC tag length */
-    plaintext = (unsigned char *)malloc(req_msg_len - MAC_LEN - IV_LEN);
-    if (!plaintext) {
+    req.payload = (unsigned char *)malloc(PAYLOAD_SIZE(ciphertext_len));
+    if (!req.payload) {
         cerr << "Memory allocation failure" << endl;
         return;
     }
-    if (0 != decrypt(req_msg, req_msg_len, iv_do_not_use, sizeof(iv_do_not_use),
-                 key_do_not_use, req_msg + req_msg_len - 12, 12, plaintext)) {
+    if (0 != decrypt_message(encryption_key, &req, ciphertext, ciphertext_len))
+        goto end_req_handler;
+
+    /* Add sequence number to known sequence numbers and check for replays: */
+    if (!add_sequence_number(req.seq_op)) {
+        cerr << "Invalid sequence number" << endl;
         goto end_req_handler;
     }
 
-    /* Convert header fields to host byte order: */
-    seq_op = be64toh(((uint64_t *) req_msg)[0]);
-    req.op = (uint8_t) (seq_op & 0x3);
-    req.seq = seq_op & ~(uint64_t )0x3;
-
-    /* Add sequence number to known sequence numbers and check for replays: */
-    if (!add_sequence_number(req.seq)) {
-        cerr << "Invalid sequence number" << endl;
-        return;
-    }
-
-    /* Check if indicated payload length matches message length: */
-    req.payload_len = be64toh(((uint64_t *) req_msg)[1]);
-    if (req.payload_len != req_msg_len - MIN_MSG_LEN) {
-        cerr << "Indicated length " << req.payload_len << "does not match expected length "
-            << req_msg_len - MIN_MSG_LEN << endl;
-        return;
-    }
-
-    req.payload = ((unsigned char *) req_msg) + 16;
-
+    op = (uint8_t) (req.seq_op & 0b11);
     /* TODO: Call handler according to op */
-    if (req.op == RDMA_GET) {
+    if (op == RDMA_GET) {
         send_response_get(req_handle, &req);
     }
-    else if (req.op == RDMA_PUT) {
+    else if (op == RDMA_PUT) {
         cerr << "TODO: Implement" << endl;
     }
-    else if (req.op == RDMA_DELETE) {
+    else if (op == RDMA_DELETE) {
         cerr << "TODO: Implement" << endl;
     }
     else {
-        cerr << "Invalid operation: " << req.op << endl;
+        cerr << "Invalid operation: " << op << endl;
     }
 
 end_req_handler:
-    free(plaintext);
+    free(req.payload);
 }
 
 /*
@@ -225,58 +208,3 @@ end_get:
     fclose(file);
     return data;
 }
-
-int test_encryption() {
-    int ret = -1;
-    FILE *ciphertext_file = NULL;
-    FILE *tag_file = NULL;
-    unsigned char *ciphertext = NULL;
-    unsigned char *plaintext2 = NULL;
-
-    unsigned char tag[16];
-    unsigned char iv[16];
-    size_t tag_size = 16;
-    size_t plaintext_size;
-    char plaintext[] = "The quick brown fox jumps over the lazy dog";
-    plaintext_size = strlen(plaintext) + 1;
-    ciphertext_file = fopen("Ciphertext", "w");
-    tag_file = fopen("Tag", "w");
-    ciphertext = (unsigned char *)malloc(plaintext_size);
-    plaintext2 = (unsigned char *)malloc(plaintext_size);
-    if (!(ciphertext_file && tag_file && ciphertext && plaintext2)) {
-        cerr << "Something went wrong" << endl;
-        goto end_main;
-    }
-
-    encrypt((unsigned char *)plaintext, plaintext_size, iv, sizeof(iv_do_not_use),
-            key_do_not_use, tag, tag_size, ciphertext);
-    fwrite((void *)ciphertext, 1, plaintext_size, ciphertext_file);
-    fwrite((void *)tag, 1, tag_size, tag_file);
-
-    decrypt(ciphertext, plaintext_size, iv, sizeof(iv_do_not_use),
-            key_do_not_use, tag, tag_size, plaintext2);
-
-    if (0 != memcmp((void *)plaintext, (void *)plaintext2, plaintext_size)) {
-        cerr << "En- or decryption doesn't work correctly yet..." << endl;
-        cout << (char *) plaintext2 << endl;
-    }
-    else {
-        cout << "Seems like the encryption and decryption works" << endl;
-        cout << "Original Plaintext: " << plaintext << endl;
-        cout << "Plaintext after en- and decryption: " << (char *) plaintext2 << endl;
-        ret = 0;
-    }
-
-end_main:
-    free(ciphertext);
-    free(plaintext2);
-    if (ciphertext_file) {
-        fclose(ciphertext_file);
-    }
-    if (tag_file) {
-        fclose(tag_file);
-    }
-    return ret;
-}
-
-

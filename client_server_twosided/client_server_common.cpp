@@ -31,166 +31,174 @@ int add_sequence_number(uint64_t sequence_number) {
     return -1;
 }
 
-/* TODO: For en- and decryption: simplify if possible (e.g. iv_len = 12, aad = NULL) */
-/**
- * Encrypts plaintext_len bytes of plaintext using AES-128-GCM
- * Additionally authenticates aad_len bytes of data
- * Generates an IV of length iv_len and writes it to iv (has to provide iv_len bytes of space)
- * Uses 16-byte key for encryption and writes the encrypted data to ciphertext
- * Ciphertext has to provide plaintext_len + 16 bytes of space
- *
- * Returns 0 on success and a negative value if something went wrong
- */
-int encrypt(
-        const unsigned char *plaintext, size_t plaintext_len,
-        unsigned char *iv, size_t iv_len,
-        const unsigned char *key,
-        unsigned char *tag, size_t tag_len,
-        unsigned char *ciphertext){
-
+int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg *msg,
+        unsigned char *ciphertext, size_t payload_len) {
     int ret = -1;
     int length;
-    size_t block_size = 16;
-    size_t encrypted_bytes = 0; /* TODO: Can be removed; only for checking */
-    if (!(plaintext && key && ciphertext)){
-        cerr << ERR_ENC << endl;
+
+    if (!(encryption_key && msg && ciphertext)){
+        cerr << "encrypt_message: invalid parameters" << endl;
         return -1;
     }
-
-    if (1 != RAND_bytes(iv, block_size)) {
-        cerr << ERR_ENC << endl;
-        return -1;
-    }
-
     EVP_CIPHER_CTX *aes_ctx = EVP_CIPHER_CTX_new();
     if (!aes_ctx){
-        cerr << ERR_ENC << endl;
+        cerr << "Memory allocation failure" << endl;
         return -1;
     }
+    unsigned char *ciphertext_pos = ciphertext;
+    /*
+    if (!ciphertext) {
+        ciphertext = (unsigned char *) malloc(CIPHERTEXT_SIZE(msg->key_len));
+        if (!ciphertext) {
+            cerr << "Memory allocation failure" << endl;
+            return -1;
+        }
+        to_free = true;
+    }
+     */
 
-    if (1 != EVP_EncryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL, key, iv)){
-        ERR_print_errors_fp(stderr);
-        cerr << ERR_ENC << endl;
+    if (1 != RAND_bytes(ciphertext_pos, IV_LEN)) {
+        cerr << "encrypt_message: Could not generate IV" << endl;
+        goto end_encrypt;
+    }
+
+
+    /* Initialize Encryption, set position of IV: */
+    if (1 != EVP_EncryptInit_ex(aes_ctx,
+            EVP_aes_128_gcm(), nullptr, encryption_key, ciphertext_pos)){
+        cerr << "encrypt_message: Could not initialize encryption of IV" << endl;
         goto end_encrypt;
     }
 
     /* Set IV length: */
-    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_IVLEN, iv_len, nullptr)){
-        ERR_print_errors_fp(stderr);
-        cerr << ERR_ENC << endl;
+    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_IVLEN, IV_LEN, nullptr)){
+        cerr << "encrypt_message: Could not set IV length" << endl;
         goto end_encrypt;
     }
+    ciphertext_pos += IV_LEN;
 
-    /* Encrypt data: */
-    if (1 != EVP_EncryptUpdate(
-            aes_ctx, ciphertext, &length, plaintext, (int) plaintext_len)){
-        cerr << ERR_ENC << endl;
-        ERR_print_errors_fp(stderr);
+    /* Encrypt seq_op and length: */
+    if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
+            (unsigned char *)&(msg->seq_op),sizeof(msg->seq_op) + sizeof(msg->key_len))) {
+        cerr << "Could not encrypt seq_op/key_len" << endl;
         goto end_encrypt;
-    } else
-        encrypted_bytes = (size_t)length;
+    }
+    ciphertext_pos += (size_t)length;
+
+    /* Encrypt payload: */
+    if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
+            (unsigned char *)msg->payload, payload_len)) {
+        cerr << "Could not encrypt payload" << endl;
+        goto end_encrypt;
+    }
+    ciphertext_pos += (size_t)length;
 
     /* Write final encrypted data: */
-    if (1 != EVP_EncryptFinal_ex(aes_ctx, ciphertext + encrypted_bytes, &length)){
-        cerr << ERR_ENC << endl;
-        ERR_print_errors_fp(stderr);
+    if (1 != EVP_EncryptFinal_ex(aes_ctx, ciphertext_pos, &length)){
+        cerr << "Could not write final encrypted data" << endl;
         goto end_encrypt;
-    } else {
-        encrypted_bytes += (size_t)length;
-        /* TODO: Debug Output. Remove after test */
-        cout << "Plaintext length: " << plaintext_len <<
-             ", Ciphertext length (encrypted): " << encrypted_bytes << endl;
     }
+    ciphertext_pos += (size_t) length;
 
     /* Write tag: */
-    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_GET_TAG, tag_len, tag)) {
-        cerr << ERR_ENC << endl;
-        ERR_print_errors_fp(stderr);
+    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_GET_TAG, MAC_LEN, ciphertext_pos)) {
+        cerr << "Could not write authentication tag" << endl;
+        goto end_encrypt;
     }
-    else {
-        ret = 0;
-    }
+    ret = 0;
 
 end_encrypt:
-    EVP_CIPHER_CTX_free(aes_ctx);
+    /*
+    if (to_free && ret)
+        free(ciphertext);
+    */
 
+    EVP_CIPHER_CTX_free(aes_ctx);
     return ret;
 }
 
-
-/**
- * Decrypts ciphertext_len bytes of ciphertext using AES-128-GCM
- * For AES-GCM, an iv of iv_len bytes and a 16 byte key is used
- * Additional authenticated data (aad) of size aad_len is supported
- * Authenticity is checked with a tag_len byte long GMAC tag
- * A pointer to the plaintext with ciphertext_len bytes has to be provided
- *
- * returns 0, if the plaintext could be decrypted successfully and a negative value otherwise
- */
-int decrypt(
-        const unsigned char *ciphertext, size_t ciphertext_len,
-        const unsigned char *iv, size_t iv_len,
-        const unsigned char *key,
-        unsigned char *tag, size_t tag_len,
-        unsigned char *plaintext) {
+int decrypt_message(const unsigned char *decryption_key, struct rdma_msg *msg,
+        const unsigned char *ciphertext, size_t ciphertext_len) {
 
     int ret = -1;
-    size_t decrypted_bytes = 0;
-    if (!(ciphertext && iv && key && plaintext)) {
-        cerr << ERR_DEC << endl;
+    if (!(decryption_key && msg && ciphertext && ciphertext_len >= MIN_MSG_LEN)) {
+        cerr << "decrypt_message: Invalid parameters" << endl;
         return -1;
     }
+    int expected_payload_len = PAYLOAD_SIZE(ciphertext_len);
+    size_t bytes_decrypted = 0;
+    bool to_free = false;
+    int seq_op_length_len = sizeof(msg->seq_op) + sizeof(msg->key_len);
+    int length;
 
     EVP_CIPHER_CTX *aes_ctx = EVP_CIPHER_CTX_new();
     if (!aes_ctx){
-        cerr << ERR_DEC << endl;
+        cerr << "Memory allocation failure" << endl;
         return -1;
     }
 
-    if (1 != EVP_DecryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL, key, iv)){
-        cerr << ERR_DEC << endl;
-        ERR_print_errors_fp(stderr);
+    if (1 != EVP_DecryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL,
+            decryption_key, ciphertext + bytes_decrypted)){
+        cerr << "decrypt_message: failed to initialize decryption" << endl;
         goto end_decrypt;
     }
 
     /* Set the location of the authentication tag: */
-    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_TAG, tag_len, tag)) {
-        cerr << ERR_DEC << endl;
-        ERR_print_errors_fp(stderr);
+    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_TAG,
+            MAC_LEN, (void *) (ciphertext + ciphertext_len - MAC_LEN))) {
+        cerr << "decrypt_message: Could not set Tag location" << endl;
         goto end_decrypt;
     }
 
     /* Set the length of the IV: */
-    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_IVLEN, iv_len, nullptr)){
-        cerr << ERR_DEC << endl;
-        ERR_print_errors_fp(stderr);
+    if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_SET_IVLEN, IV_LEN, nullptr)){
+        cerr << "decrypt_message: Could not set IV length" << endl;
         goto end_decrypt;
     }
+    bytes_decrypted += IV_LEN;
 
-    /* Decrypt data: */
-    int length;
-    if (1 != EVP_DecryptUpdate(aes_ctx, plaintext, &length, ciphertext, ciphertext_len)){
-        cerr << ERR_DEC << endl;
-        ERR_print_errors_fp(stderr);
+    /* Decrypt seq_op and length: */
+    if (1 != EVP_DecryptUpdate(aes_ctx, (unsigned char *) &(msg->seq_op),
+            &length,ciphertext + bytes_decrypted, seq_op_length_len)) {
+        cerr << "Could not decrypt seq/op/length" << endl;
         goto end_decrypt;
-    } else
-        decrypted_bytes += length;
+    }
+    if (length != seq_op_length_len) {
+        cerr << "Seq_Op and length were not completely written to struct" << endl;
+        goto end_decrypt;
+    }
+    bytes_decrypted += length;
 
+    /* Decrypt payload, support payloads with length 0: */
+    length = 0;
+    if (expected_payload_len != 0) {
+        if (!(msg->payload)) {
+            msg->payload = malloc((size_t) expected_payload_len);
+            if (!(msg->payload)) {
+                cerr << "Memory allocation failure" << endl;
+                goto end_decrypt;
+            }
+            to_free = true;
+        }
+        if (1 != EVP_DecryptUpdate(aes_ctx, (unsigned char *) msg->payload, &length,
+                ciphertext + bytes_decrypted, expected_payload_len)) {
+            cerr << "Could not decrypt payload" << endl;
+            goto end_decrypt;
+        }
+    }
     /* Finish decryption: */
-    if (1 != EVP_DecryptFinal_ex(aes_ctx, plaintext + decrypted_bytes, &length)){
-        cerr << ERR_DEC << endl;
-        ERR_print_errors_fp(stderr);
+    if (1 != EVP_DecryptFinal_ex(aes_ctx, (unsigned char *)msg->payload + length, &length)){
+        cerr << "Could not finish decryption" << endl;
         goto end_decrypt;
-    } else {
-        decrypted_bytes += length;
-        /* TODO: Debug Output. Remove after test */
-        cout << "Ciphertext length: " << ciphertext_len <<
-             ", Plaintext length (decrypted): " << decrypted_bytes << endl;
-        ret = 0;
     }
+    ret = 0;
 
 end_decrypt:
+    if (ret && to_free) {
+        free(msg->payload);
+        msg->payload = nullptr;
+    }
     EVP_CIPHER_CTX_free(aes_ctx);
     return ret;
-}
 
+}
