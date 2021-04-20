@@ -10,6 +10,7 @@
 
 #include "client_server_common.h"
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 std::set<uint64_t> *sequence_numbers;
 
@@ -30,6 +31,39 @@ int add_sequence_number(uint64_t sequence_number) {
     }
     return -1;
 }
+
+/* En-/decrypts data using EVP_CipherUpdate
+ * Supports data lengths over (2^31 - 1) bytes
+ * On success (i.e. if in_size bytes have been en-/decrypted without error), 0 is returned,
+ * otherwise -1
+ * */
+int cipher_update(EVP_CIPHER_CTX *aes_ctx,
+        const unsigned char *in, size_t in_size, unsigned char *out) {
+
+    ssize_t total_processed_bytes = 0;
+    int processed_bytes, to_process;
+
+    while ((size_t) total_processed_bytes < in_size) {
+        to_process = (int) MIN(INT32_MAX, in_size - total_processed_bytes);
+        if (1 != EVP_CipherUpdate(aes_ctx, out, &processed_bytes, in, to_process)) {
+            cerr << "Could not en-/decrypt payload" << endl;
+            return -1;
+        }
+        if (processed_bytes < 0) {
+            cerr << "Something went wrong while en-/decrypting" << endl;
+            return -1;
+        }
+        total_processed_bytes += (size_t) processed_bytes;
+        out += (size_t) processed_bytes;
+        in += (size_t) processed_bytes;
+    }
+    if (total_processed_bytes < 0 || (size_t) total_processed_bytes != in_size) {
+        cerr << "Number of en-/decrypted bytes doesn't match expected number" << endl;
+        return -1;
+    }
+    return 0;
+}
+
 
 /**
  * Encrypts the header and the key/value that have to be placed in the corresponding
@@ -99,22 +133,18 @@ int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_h
 
     /* Encrypt key: */
     if (header->key_len > 0 && payload->key) {
-        if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
-                payload->key, header->key_len)) {
-            cerr << "Could not encrypt payload" << endl;
+        if (0 > cipher_update(aes_ctx, payload->key, header->key_len, ciphertext_pos))
             goto end_encrypt;
-        }
-        ciphertext_pos += (size_t)length;
+
+        ciphertext_pos += (size_t) header->key_len;
     }
 
     /* Encrypt value: */
     if (payload->value_len > 0 && payload->value) {
-        if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
-                payload->value, payload->value_len)) {
-            cerr << "Could not encrypt value" << endl;
+        if (0 > cipher_update(aes_ctx, payload->value, payload->value_len, ciphertext_pos))
             goto end_encrypt;
-        }
-        ciphertext_pos += (size_t)length;
+
+        ciphertext_pos += (size_t) payload->value_len;
     }
 
     /* Write final encrypted data: */
@@ -140,9 +170,8 @@ end_encrypt:
 }
 
 int allocate_and_decrypt(EVP_CIPHER_CTX *aes_ctx, unsigned char **payload,
-        const unsigned char *ciphertext_pos, int expected_length, bool *to_free) {
+        const unsigned char *ciphertext_pos, size_t expected_length, bool *to_free) {
 
-    int decrypted_length;
     if (!*payload) {
         *payload = (unsigned char *) malloc((size_t) expected_length);
         if (!*payload) {
@@ -154,17 +183,10 @@ int allocate_and_decrypt(EVP_CIPHER_CTX *aes_ctx, unsigned char **payload,
     else
         *to_free = false;
 
-    if (1 != EVP_DecryptUpdate(aes_ctx, *payload, &decrypted_length,
-            ciphertext_pos, expected_length)) {
-
-        cerr << "Could not decrypt payload" << endl;
+    if (0 > cipher_update(aes_ctx, ciphertext_pos, expected_length, *payload))
         goto err_allocate_and_decrypt;
-    }
 
-    if (decrypted_length == expected_length)
-        return decrypted_length;
-    else
-        cerr << "Expected length does not match actual decrypted length" << endl;
+    return 0;
 
 err_allocate_and_decrypt:
     if (*to_free) {
@@ -246,19 +268,18 @@ int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header 
     }
     /* Decrypt key: */
     if (header->key_len > 0) {
-        length = allocate_and_decrypt(aes_ctx, &(payload->key),
-                ciphertext + bytes_decrypted, header->key_len, &free_key);
-        if (length < 0)
+        if (0 > allocate_and_decrypt(aes_ctx, &(payload->key),
+                ciphertext + bytes_decrypted, header->key_len, &free_key))
             goto end_decrypt;
-        bytes_decrypted += length;
+
+        bytes_decrypted += header->key_len;
     }
 
     /* Decrypt value: */
     expected_value_len = expected_payload_len - header->key_len;
     if (expected_value_len > 0) {
-        length = allocate_and_decrypt(aes_ctx, &(payload->value),
-                ciphertext + bytes_decrypted, expected_value_len, &free_value);
-        if (length < 0)
+        if (0 > allocate_and_decrypt(aes_ctx, &(payload->value),
+                ciphertext + bytes_decrypted, expected_value_len, &free_value))
             goto end_decrypt;
     }
 
