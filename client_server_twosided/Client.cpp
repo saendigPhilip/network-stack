@@ -40,9 +40,9 @@ struct incoming_value{
 /* void cont_func(void *context, void *tag) { */
 void verbose_cont_func(void *, void *tag) {
     /* TODO: Get request + parameters by tag and context */
-    struct incoming_value *val = (struct incoming_value *)tag;
-    if (!val)
+    if (!tag)
         return;
+    struct incoming_value *val = (struct incoming_value *)tag;
     puts((char *)val->value);
 }
 
@@ -78,7 +78,6 @@ int initialize_client(std::string client_hostname, uint16_t udp_port) {
     erpc::Nexus nexus(client_uri, 0, 0);
     if (RAND_status() != 1) {
         if (RAND_poll() != 1) {
-            /* TODO: Handle this error (with an exception?) */
             cerr << "Couldn't initialize RNG" << endl;
             return -1;
         }
@@ -148,8 +147,9 @@ int connect(std::string server_hostname, unsigned int udp_port, size_t try_itera
  * @param key_len Size of address
  * @return 0 on success, -1 if something went wrong, TODO: Return codes?
  */
-int get_from_server(const char *key, size_t key_len, size_t expected_value_len,
-        void *value, void (*callback)(void *, void *), unsigned int timeout=100) {
+int get_from_server(const void *key, size_t key_len, void *value, size_t max_value_len,
+        void (*callback)(void *, void *), unsigned int timeout=100) {
+
     if (!key)
         return -1;
 
@@ -159,7 +159,6 @@ int get_from_server(const char *key, size_t key_len, size_t expected_value_len,
     }
 
     int ret = -1;
-    size_t req_ciphertext_len = CIPHERTEXT_SIZE(expected_value_len);
     struct rdma_msg_header header;
     erpc::MsgBuffer req;
     erpc::MsgBuffer resp;
@@ -168,8 +167,8 @@ int get_from_server(const char *key, size_t key_len, size_t expected_value_len,
 
     struct incoming_value *tag = (struct incoming_value *)malloc(sizeof(struct incoming_value));
     try {
-         req = client_rpc->alloc_msg_buffer(req_ciphertext_len);
-         resp = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(expected_value_len));
+         req = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(key_len));
+         resp = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(max_value_len));
     } catch (const runtime_error &) {
         cerr << "Data size too big for allocating memory" << endl;
         goto err_get;
@@ -203,4 +202,11 @@ err_get:
 
     return ret;
 }
+
+
+int put_to_server(const char *key, size_t key_len, const c) {
+
+
+}
+
 
