@@ -24,6 +24,18 @@ struct rdma_msg_header {
     uint64_t key_len;
 };
 
+struct rdma_enc_payload {
+    const unsigned char *key;
+    const unsigned char *value;
+    size_t value_len;
+};
+
+struct rdma_dec_payload {
+    unsigned char *key;
+    unsigned char *value;
+    size_t value_len;
+};
+
 /* Request format:
  * +----------+--------------+-----------------+-----------+------------+
  * | IV (12B) | Seq, OP (8B) | key length (8B) | key/value | GMAC (16B) |
@@ -53,9 +65,9 @@ static constexpr size_t kMsgSize = 4096;
 int add_sequence_number(uint64_t sequence_number);
 
 int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_header *header,
-        unsigned char **ciphertext, const void *payload, size_t payload_len);
+        const struct rdma_enc_payload *payload, unsigned char **ciphertext);
 
 int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header *header,
-        const unsigned char *ciphertext, void **payload, size_t ciphertext_len);
+        struct rdma_dec_payload *payload, const unsigned char *ciphertext, size_t ciphertext_len);
 
 #endif // RDMA_COMMON_METHODS

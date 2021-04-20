@@ -31,8 +31,19 @@ int add_sequence_number(uint64_t sequence_number) {
     return -1;
 }
 
+/**
+ * Encrypts the header and the key/value that have to be placed in the corresponding
+ * struct by the caller
+ * @param encryption_key AES_GCM key to use for encryption
+ * @param header Header data to encrypt
+ * @param payload Payload data to encrypt
+ * @param ciphertext Pointer to pointer where ciphertext is placed
+ *          If NULL, memory for the ciphertext is allocated that has to be freed
+ *          by the caller. In this case, on error, the memory is freed by this method
+ * @return 0 on success, -1 on error
+ */
 int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_header *header,
-        unsigned char **ciphertext, const void *payload, size_t payload_len) {
+        const struct rdma_enc_payload *payload, unsigned char **ciphertext) {
     int ret = -1;
     int length;
     bool to_free = false;
@@ -41,12 +52,14 @@ int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_h
         cerr << "encrypt_message: invalid parameters" << endl;
         return -1;
     }
+
     EVP_CIPHER_CTX *aes_ctx = EVP_CIPHER_CTX_new();
     if (!aes_ctx){
         cerr << "Memory allocation failure" << endl;
         return -1;
     }
 
+    size_t payload_len = header->key_len + payload->value_len;
     if (!*ciphertext) {
         *ciphertext = (unsigned char *) malloc(CIPHERTEXT_SIZE(payload_len));
         if (!*ciphertext) {
@@ -84,13 +97,25 @@ int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_h
     }
     ciphertext_pos += (size_t)length;
 
-    /* Encrypt payload: */
-    if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
-            (unsigned char *)payload, payload_len)) {
-        cerr << "Could not encrypt payload" << endl;
-        goto end_encrypt;
+    /* Encrypt key: */
+    if (header->key_len > 0 && payload->key) {
+        if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
+                payload->key, header->key_len)) {
+            cerr << "Could not encrypt payload" << endl;
+            goto end_encrypt;
+        }
+        ciphertext_pos += (size_t)length;
     }
-    ciphertext_pos += (size_t)length;
+
+    /* Encrypt value: */
+    if (payload->value_len > 0 && payload->value) {
+        if (1 != EVP_EncryptUpdate(aes_ctx, ciphertext_pos, &length,
+                payload->value, payload->value_len)) {
+            cerr << "Could not encrypt value" << endl;
+            goto end_encrypt;
+        }
+        ciphertext_pos += (size_t)length;
+    }
 
     /* Write final encrypted data: */
     if (1 != EVP_EncryptFinal_ex(aes_ctx, ciphertext_pos, &length)){
@@ -114,17 +139,67 @@ end_encrypt:
     return ret;
 }
 
+int allocate_and_decrypt(EVP_CIPHER_CTX *aes_ctx, unsigned char **payload,
+        const unsigned char *ciphertext_pos, int expected_length, bool *to_free) {
+
+    int decrypted_length;
+    if (!*payload) {
+        *payload = (unsigned char *) malloc((size_t) expected_length);
+        if (!*payload) {
+            cerr << "Memory allocation failure" << endl;
+            return -1;
+        }
+        *to_free = true;
+    }
+    else
+        *to_free = false;
+
+    if (1 != EVP_DecryptUpdate(aes_ctx, *payload, &decrypted_length,
+            ciphertext_pos, expected_length)) {
+
+        cerr << "Could not decrypt payload" << endl;
+        goto err_allocate_and_decrypt;
+    }
+
+    if (decrypted_length == expected_length)
+        return decrypted_length;
+    else
+        cerr << "Expected length does not match actual decrypted length" << endl;
+
+err_allocate_and_decrypt:
+    if (*to_free) {
+        free(*payload);
+        *payload = NULL;
+        *to_free = false;
+    }
+    return -1;
+}
+
+/**
+ * Decrypts a message and stores the results of the decryption in a
+ * rdma_msg_header and a rdma_dec_payload struct.
+ * The pointers in the rdma_dec_payload struct are allocated by this method and
+ * have to be freed by the caller. On error, this method frees the pointers itself
+ * @param decryption_key AES-GCM Key to use for decryption
+ * @param header Header struct to store the header information
+ * @param payload Payload struct where key and value information are stored
+ *          in newly allocated pointers
+ * @param ciphertext Ciphertext to decrypt
+ * @param ciphertext_len Length of ciphertext to decrypt
+ * @return 0 on success, -1 on error
+ */
 int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header *header,
-        const unsigned char *ciphertext, void **payload, size_t ciphertext_len) {
+        struct rdma_dec_payload *payload, const unsigned char *ciphertext, size_t ciphertext_len) {
 
     int ret = -1;
     if (!(decryption_key && header && ciphertext && payload && ciphertext_len >= MIN_MSG_LEN)) {
         cerr << "decrypt_message: Invalid parameters" << endl;
         return -1;
     }
-    int expected_payload_len = PAYLOAD_SIZE(ciphertext_len);
+    size_t expected_payload_len = PAYLOAD_SIZE(ciphertext_len);
+    int64_t expected_value_len;
     size_t bytes_decrypted = 0;
-    bool to_free = false;
+    bool free_key = false, free_value = false;
     int length;
 
     EVP_CIPHER_CTX *aes_ctx = EVP_CIPHER_CTX_new();
@@ -165,34 +240,46 @@ int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header 
     }
     bytes_decrypted += length;
 
-    /* Decrypt payload, support payloads with length 0: */
-    length = 0;
-    if (expected_payload_len >= 0) {
-        if (!*payload) {
-            *payload = malloc((size_t) expected_payload_len);
-            if (!*payload) {
-                cerr << "Memory allocation failure" << endl;
-                goto end_decrypt;
-            }
-            to_free = true;
-        }
-        if (1 != EVP_DecryptUpdate(aes_ctx, (unsigned char *) *payload, &length,
-                ciphertext + bytes_decrypted, expected_payload_len)) {
-            cerr << "Could not decrypt payload" << endl;
-            goto end_decrypt;
-        }
+    if (header->key_len > expected_payload_len) {
+        cerr << "Invalid key length" << endl;
+        goto end_decrypt;
     }
+    /* Decrypt key: */
+    if (header->key_len > 0) {
+        length = allocate_and_decrypt(aes_ctx, &(payload->key),
+                ciphertext + bytes_decrypted, header->key_len, &free_key);
+        if (length < 0)
+            goto end_decrypt;
+        bytes_decrypted += length;
+    }
+
+    /* Decrypt value: */
+    expected_value_len = expected_payload_len - header->key_len;
+    if (expected_value_len > 0) {
+        length = allocate_and_decrypt(aes_ctx, &(payload->value),
+                ciphertext + bytes_decrypted, expected_value_len, &free_value);
+        if (length < 0)
+            goto end_decrypt;
+    }
+
     /* Finish decryption: */
-    if (1 != EVP_DecryptFinal_ex(aes_ctx, (unsigned char *) *payload + length, &length)){
+    if (1 != EVP_DecryptFinal_ex(aes_ctx, nullptr, &length)){
         cerr << "Could not finish decryption" << endl;
         goto end_decrypt;
     }
+    payload->value_len = expected_value_len;
     ret = 0;
 
 end_decrypt:
-    if (ret && to_free) {
-        free(*payload);
-        *payload = nullptr;
+    if (ret) {
+        if (free_key) {
+            free(payload->key);
+            payload->key = nullptr;
+        }
+        if (free_value) {
+            free(payload->value);
+            payload->value = nullptr;
+        }
     }
     EVP_CIPHER_CTX_free(aes_ctx);
     return ret;
