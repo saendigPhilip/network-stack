@@ -130,6 +130,23 @@ void test_encryption() {
     }
     END_TEST_DELIMITER();
 
+    BEGIN_TEST_DELIMITER("encryption and decryption with payload sizes over 2^31 bytes");
+    size_t huge_test_key_size = (size_t) INT32_MAX + 100;
+    size_t huge_test_value_size = (size_t) INT32_MAX + 99;
+
+    unsigned char *huge_test_key = (unsigned char *) malloc(huge_test_key_size);
+    unsigned char *huge_test_value = (unsigned char *) malloc(huge_test_value_size);
+    if (!(huge_test_key && huge_test_value)) {
+        cerr << "Memory allocation failure while testing with huge payload sizes" << endl;
+        goto free_huge;
+    }
+    execute_tests(huge_test_key, huge_test_key_size, huge_test_value, huge_test_value_size);
+    END_TEST_DELIMITER();
+
+free_huge:
+    free(huge_test_key);
+    free(huge_test_value);
+
     PRINT_TEST_SUMMARY();
 }
 
