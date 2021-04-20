@@ -17,15 +17,19 @@ erpc::Rpc<erpc::CTransport> *client_rpc = nullptr;
 erpc::MsgBuffer req;
 erpc::MsgBuffer resp;
 
-bool initialized = false;
+uint64_t current_seq_number = 0;
+
+unsigned char *encryption_key;
 
 /* TODO: Map from Sequence numbers to buffers for multiple requests */
 /* TODO: Use data structure for multiple sessions + context */
 int session_nr = -1;
 
 struct incoming_value{
+    size_t expected_seq;
     void *value;
-    void *(*callback)();
+    void (*callback)(void *, void *);
+    erpc::MsgBuffer *request;
     erpc::MsgBuffer *response;
 };
 
@@ -79,12 +83,17 @@ int initialize_client(std::string client_hostname, uint16_t udp_port) {
             return -1;
         }
     }
-    initialized = true;
+    if (1 != RAND_bytes((unsigned char *) &current_seq_number, sizeof(current_seq_number))) {
+        cerr << "Could not create initial random sequence number" << endl;
+        return -1;
+    }
+    /* The last two bits are for indicating the operation */
+    current_seq_number &= ~(uint64_t )0b11;
     return 0;
 }
 
 /**
- * Destroys a session with a server
+ * Ends a session with a server
  * @return 0 on success, negative errno if the session can't be disconnected
  */
 int disconnect() {
@@ -94,7 +103,7 @@ int disconnect() {
     return ret;
 }
 
-void cont_func(void *, void*) {
+void cont_func(void *, void *) {
 
 }
 
@@ -105,11 +114,9 @@ void cont_func(void *, void*) {
  * @return negative value if an error occurs. Otherwise the eRPC session number is returned
  */
 int connect(std::string server_hostname, unsigned int udp_port, size_t try_iterations) {
-    if (!initialized) {
-        if (initialize_client(kClientHostname, kUDPPort)) {
-            cerr << "Failed to initialize client!" << endl;
-            return -1;
-        }
+    if (initialize_client(kClientHostname, kUDPPort)) {
+        cerr << "Failed to initialize client!" << endl;
+        return -1;
     }
     std::string server_uri = server_hostname + ":" + std::to_string(udp_port);
     if (client_rpc) {
@@ -142,66 +149,58 @@ int connect(std::string server_hostname, unsigned int udp_port, size_t try_itera
  * @return 0 on success, -1 if something went wrong, TODO: Return codes?
  */
 int get_from_server(const char *key, size_t key_len, size_t expected_value_len,
-        void *value, void (callback)(void *, void *), unsigned int timeout=100) {
+        void *value, void (*callback)(void *, void *), unsigned int timeout=100) {
     if (!key)
         return -1;
 
-    int ret = -1;
-    unsigned char *req_plaintext;
-    size_t req_plaintext_len = SEQ_LEN + SIZE_LEN + key_len;
-    size_t req_ciphertext_len = MIN_MSG_LEN + key_len;
-
     if (!client_rpc || session_nr < 0) {
         cerr << "Client not initialized yet" << endl;
+        return -1;
     }
 
-    /* Generate new sequence number: */
-    uint64_t seq;
-    do {
-        if (1 != RAND_bytes((unsigned char*)&seq, sizeof(seq))) {
-            cerr << "Failed to generate random sequence number" << endl;
-            return -1;
-        }
-        seq &= ~ (uint64_t )0x3;
-    } while(!add_sequence_number(seq));
+    int ret = -1;
+    size_t req_ciphertext_len = CIPHERTEXT_SIZE(expected_value_len);
+    struct rdma_msg_header header;
+    erpc::MsgBuffer req;
+    erpc::MsgBuffer resp;
+    header.seq_op = current_seq_number | RDMA_GET;
+    header.key_len = key_len;
 
-    seq |= (uint64_t )RDMA_GET;
-
-    req_plaintext = (unsigned char *)malloc(req_plaintext_len);
-    req = client_rpc->alloc_msg_buffer(req_ciphertext_len);
-    resp = client_rpc->alloc_msg_buffer(MIN_MSG_LEN + expected_value_len);
     struct incoming_value *tag = (struct incoming_value *)malloc(sizeof(struct incoming_value));
-
-    if (!(req_plaintext && req.buf && resp.buf && tag)) {
-        goto end_get;
+    try {
+         req = client_rpc->alloc_msg_buffer(req_ciphertext_len);
+         resp = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(expected_value_len));
+    } catch (const runtime_error &) {
+        cerr << "Data size too big for allocating memory" << endl;
+        goto err_get;
+    }
+    if (!(req.buf && resp.buf && tag)) {
+        goto err_get;
     }
 
-    ((uint64_t *) seq)[0] = htobe64(seq);
-    ((uint64_t *) seq)[1] = htobe64((uint64_t) key_len);
-    (void) memcpy(req_plaintext + 16, key, key_len);
-
-    if (0 != encrypt(req_plaintext, req_plaintext_len, req.buf, IV_LEN,
-                key_do_not_use, req.buf + req_ciphertext_len - MAC_LEN, MAC_LEN,
-                req.buf + IV_LEN)) {
-        goto end_get;
+    if (0 != encrypt_message(encryption_key, &header, &req.buf, key, key_len)) {
+        goto err_get;
     }
 
-    /* Fill the tag that is passed to the callback function TODO: integrate
-        tag->callback = callback;
-        tag->value = value;
-        tag->response = &resp; */
+    /* Tag struct is passed to the callback function when the server responds */
+    tag->expected_seq = NEXT_SEQ(current_seq_number);
+    current_seq_number = NEXT_SEQ(tag->expected_seq);
+    tag->value = value;
+    tag->callback = callback;
+    tag->request = &req;
+    tag->response = &resp;
 
-        free(req_plaintext);
-        client_rpc->enqueue_request(session_nr, 0, &req, &resp, cont_func, (void *)tag);
-        client_rpc->run_event_loop(timeout);
-        return 0;
+    client_rpc->enqueue_request(session_nr,
+            DEFAULT_REQ_TYPE, &req, &resp, cont_func, (void *)tag);
+    client_rpc->run_event_loop(timeout);
+    return 0;
 
-        /* We only get here on failure, because req and resp belong to eRPC on success */
-    end_get:
-        free(req_plaintext);
-        client_rpc->free_msg_buffer(req);
-        client_rpc->free_msg_buffer(resp);
+    /* req and resp belong to eRPC on success. On error, the buffers need to be freed manually */
+err_get:
+    client_rpc->free_msg_buffer(req);
+    client_rpc->free_msg_buffer(resp);
+    free(tag);
 
-        return ret;
-    }
+    return ret;
+}
 
