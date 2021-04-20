@@ -13,8 +13,8 @@ error:
 	@echo "Please choose one of the following targets: infiniband, raw, dpdk, clean"
 	@exit 2
 infiniband:
-	g++ $(FLAGS) -std=c++11 -o server $(SERVER) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true
-	g++ $(FLAGS) -std=c++11 -o client $(CLIENT) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true
+	g++ $(FLAGS) -std=c++11 -o server $(SERVER) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true #-fsanitize=address
+	g++ $(FLAGS) -std=c++11 -o client $(CLIENT) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true #-fsanitize=address
 raw:                                                                          
 	g++ $(FLAGS) -std=c++11 -o server $(SERVER) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_RAW=true
 	g++ $(FLAGS) -std=c++11 -o client $(CLIENT) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_RAW=true
