@@ -96,6 +96,7 @@ void send_response_get(erpc::ReqHandle *req_handle,
     /* Reuse the request header for creating and enqueueing the response: */
     header->seq_op = NEXT_SEQ(header->seq_op);
     header->key_len = 0;
+    struct rdma_enc_payload payload;
     erpc::MsgBuffer resp_buffer;
 
     size_t ciphertext_size = CIPHERTEXT_SIZE(resp_len);
@@ -111,7 +112,10 @@ void send_response_get(erpc::ReqHandle *req_handle,
         goto end_send_response_get;
     }
 
-    if (0 != encrypt_message(encryption_key, header, &ciphertext, resp, resp_len)) {
+    payload.key = NULL;
+    payload.value = resp;
+    payload.value_len = resp_len;
+    if (0 != encrypt_message(encryption_key, header, &payload, &ciphertext)) {
         rpc_host->free_msg_buffer(resp_buffer);
         goto end_send_response_get;
     }
@@ -127,8 +131,8 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
     struct rdma_msg_header header;
     uint8_t op;
     const erpc::MsgBuffer *ciphertext_buf = req_handle->get_req_msgbuf();
+    struct rdma_dec_payload payload = { nullptr, nullptr, 0 };
     unsigned char *ciphertext = (unsigned char *)ciphertext_buf->buf;
-    void *payload = nullptr;
     if (!ciphertext) {
         cerr << "Could not get request message buffer" << endl;
         return;
@@ -139,7 +143,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
         return;
     }
 
-    if (0 != decrypt_message(encryption_key, &header, ciphertext, &payload, ciphertext_size))
+    if (0 != decrypt_message(encryption_key, &header, &payload, ciphertext, ciphertext_size))
         goto end_req_handler;
 
     /* Add sequence number to known sequence numbers and check for replays: */
@@ -150,7 +154,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
 
     op = (uint8_t) (header.seq_op & 0b11);
     switch (op) {
-        case RDMA_GET: send_response_get(req_handle, &header, payload); break;
+        case RDMA_GET: send_response_get(req_handle, &header, payload.key); break;
         case RDMA_PUT:
         case RDMA_DELETE:
             cerr << "TODO: Implement" << endl; break;
@@ -159,7 +163,8 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
     }
 
 end_req_handler:
-    free(payload);
+    free(payload.key);
+    free(payload.value);
 }
 
 /*

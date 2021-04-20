@@ -159,11 +159,10 @@ int get_from_server(const void *key, size_t key_len, void *value, size_t max_val
     }
 
     int ret = -1;
-    struct rdma_msg_header header;
+    struct rdma_msg_header header = { current_seq_number | RDMA_GET, key_len };
+    struct rdma_enc_payload payload = { (unsigned char *) key, nullptr, 0 };
     erpc::MsgBuffer req;
     erpc::MsgBuffer resp;
-    header.seq_op = current_seq_number | RDMA_GET;
-    header.key_len = key_len;
 
     struct incoming_value *tag = (struct incoming_value *)malloc(sizeof(struct incoming_value));
     try {
@@ -177,7 +176,7 @@ int get_from_server(const void *key, size_t key_len, void *value, size_t max_val
         goto err_get;
     }
 
-    if (0 != encrypt_message(encryption_key, &header, &req.buf, key, key_len)) {
+    if (0 != encrypt_message(encryption_key, &header, &payload, (unsigned char **) &(req.buf))) {
         goto err_get;
     }
 
@@ -204,4 +203,26 @@ err_get:
 }
 
 
+/*
+int put_to_server(const void *key, size_t key_len, const void *value, size_t value_len,
+        void (*callback)(void *, void *), unsigned int timeout=100) {
+
+    if (!(key && value)) {
+        return -1;
+    }
+    if (!client_rpc || session_nr < 0) {
+        cerr << "Client not initialized yet" << endl;
+        return -1;
+    }
+
+    int ret = -1;
+    struct rdma_msg_header header;
+    header.seq_op = current_seq_number | RDMA_PUT;
+    header.key_len = key_len;
+
+end_put_to_server:
+    ret = 0;
+    return ret;
+}
+ */
 
