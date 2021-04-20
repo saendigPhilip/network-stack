@@ -204,9 +204,4 @@ err_get:
 }
 
 
-int put_to_server(const char *key, size_t key_len, const c) {
-
-
-}
-
 

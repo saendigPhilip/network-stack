@@ -9,7 +9,7 @@ int connect(std::string server_hostname, unsigned int udp_port,
         size_t try_iterations);
 
 int get_from_server(const char *key, size_t key_len,
-        size_t expected_value_length, void *value,
+        size_t max_value_length, void *value,
         void (callback)(void *, void *),
         unsigned int timeout);
 

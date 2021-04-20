@@ -18,6 +18,7 @@ int main() {
 
     delete rpc;
     */
+    /*
     const char *ip = "192.168.0.0";
     const uint16_t standard_udp_port = 31850;
     if (connect(ip, standard_udp_port, 10000)) {
@@ -36,4 +37,5 @@ int main() {
         return -1;
     }
     return disconnect();
+     */
 }
