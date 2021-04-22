@@ -75,19 +75,24 @@ err_new_tag:
  * */
 /* void cont_func(void *context, void *tag) { */
 void decrypt_cont_func(void *, void *message_tag) {
-    if (!message_tag)
-        return;
     struct sent_message_tag *tag = (struct sent_message_tag *)message_tag;
-    switch (OP_FROM_SEQ((tag->header.seq_op))) {
-        case RDMA_GET:
-        case RDMA_PUT:
-        case RDMA_DELETE:
-        case RDMA_ERR:
-            cerr << "TODO: implement" << endl;
-            break;
-        default:
-            cerr << "Invalid operation" << endl;
-    }
+    if (!message_tag)
+        tag->callback(-1);
+
+    struct rdma_msg_header incoming_header;
+    struct rdma_dec_payload payload = { nullptr, (unsigned char *) tag->value, 0 };
+
+    if (0 > decrypt_message(encryption_key, &incoming_header,
+            &payload, tag->response->buf, tag->response->get_data_size()))
+        tag->callback(-1);
+
+    int expected_op = OP_FROM_SEQ(tag->header.seq_op);
+    int incoming_op = OP_FROM_SEQ(incoming_header.seq_op);
+    if (incoming_header.seq_op != NEXT_SEQ(tag->header.seq_op)
+            || expected_op != incoming_op)
+        tag->callback(-1);
+
+    tag->callback(0);
 }
 
 /* sm = Session management. Is invoked if a session is created or destroyed */
@@ -216,7 +221,7 @@ void send_message(struct sent_message_tag *tag, int timeout) {
 /**
  * @param key Server address to read from
  * @param key_len Size of address
- * @return 0 on success, -1 if something went wrong, TODO: Return codes?
+ * @return 0 on success, -1 if something went wrong
  */
 int get_from_server(const void *key, size_t key_len, void *value, size_t max_value_len,
         status_callback *callback, unsigned int timeout=10) {
