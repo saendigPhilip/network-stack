@@ -75,24 +75,30 @@ err_new_tag:
  * */
 /* void cont_func(void *context, void *tag) { */
 void decrypt_cont_func(void *, void *message_tag) {
+    int ret = -1;
     struct sent_message_tag *tag = (struct sent_message_tag *)message_tag;
-    if (!message_tag)
-        tag->callback(-1);
-
     struct rdma_msg_header incoming_header;
     struct rdma_dec_payload payload = { nullptr, (unsigned char *) tag->value, 0 };
+    if (!message_tag)
+        goto end_decrypt_cont_func;
+
 
     if (0 > decrypt_message(encryption_key, &incoming_header,
             &payload, tag->response->buf, tag->response->get_data_size()))
-        tag->callback(-1);
+        goto end_decrypt_cont_func;
 
     int expected_op = OP_FROM_SEQ(tag->header.seq_op);
     int incoming_op = OP_FROM_SEQ(incoming_header.seq_op);
     if (incoming_header.seq_op != NEXT_SEQ(tag->header.seq_op)
             || expected_op != incoming_op)
-        tag->callback(-1);
+        goto end_decrypt_cont_func;
 
-    tag->callback(0);
+    ret = 0;
+end_decrypt_cont_func:
+    tag->callback(ret);
+    client_rpc->free_msg_buffer(*req);
+    client_rpc->free_msg_buffer(*resp);
+    free_message_tag(tag);
 }
 
 /* sm = Session management. Is invoked if a session is created or destroyed */
