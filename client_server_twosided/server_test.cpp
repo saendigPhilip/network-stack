@@ -150,10 +150,8 @@ free_huge:
     PRINT_TEST_SUMMARY();
 }
 
-int main() {
-    test_encryption();
-    return 0;
-    /*
+int main(void) {
+    // test_encryption();
     int ret = -1;
     std::string ip = "192.168.2.113";
     const uint16_t standard_udp_port = 31850;
@@ -161,5 +159,4 @@ int main() {
         cerr << "Failed to host server" << endl;
         return ret;
     }
-     */
 }

@@ -24,7 +24,7 @@ void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, s
 void req_handler_put(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 
 unsigned char *kv_get(const void *key, size_t key_len, size_t *data_len);
-// int kv_put(const unsigned char *key, size_t key_len, unsigned char *value, size_t value_len);
+int kv_put(const unsigned char *key, size_t key_len, unsigned char *value, size_t value_len);
 // int kv_delete(const unsigned char *key, size_t key_len);
 
 /* Hosts an RPC server
@@ -64,19 +64,39 @@ void close_connection() {
     delete rpc_host;
 }
 
-/**
-* Request handler for incoming put requests
-* Checks freshness and checksum
-* Then, writes data from the client to the specified address
-* TODO: implement
-* */
-/*
-void req_handler_put(erpc::ReqHandle *req_handle, struct rdma_msg *req) {
+void send_encrypted_response(erpc::ReqHandle *req_handle,
+        struct rdma_msg_header *header, struct rdma_enc_payload *payload) {
+
+    unsigned char *ciphertext;
+    erpc::MsgBuffer resp_buffer;
+    /* The server never sends back a key, so the value length is sufficient */
+    size_t ciphertext_size = CIPHERTEXT_SIZE(payload->value_len);
+    try {
+        resp_buffer = rpc_host->alloc_msg_buffer(ciphertext_size);
+    } catch (const runtime_error &) {
+        cerr << "Error allocating memory for response" << endl;
+        return;
+    }
+    ciphertext = (unsigned char *) resp_buffer.buf;
+    if (!ciphertext) {
+        cerr << "Memory Allocation failure" << endl;
+        return;
+    }
+
+    if (0 != encrypt_message(encryption_key, header, payload, &ciphertext)) {
+        rpc_host->free_msg_buffer(resp_buffer);
+        return;
+    }
+
+    rpc_host->enqueue_response(req_handle, &resp_buffer);
+
 }
-*/
 
-void send_empty_response(erpc::ReqHandle *, struct rdma_msg_header *) {
 
+void send_empty_response(erpc::ReqHandle *req_handle, struct rdma_msg_header *header) {
+    header->key_len = 0;
+    struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
+    send_encrypted_response(req_handle, header, &payload);
 }
 
 /**
@@ -85,12 +105,13 @@ void send_empty_response(erpc::ReqHandle *, struct rdma_msg_header *) {
 * */
 void send_response_get(erpc::ReqHandle *req_handle,
         struct rdma_msg_header *header, const void *key) {
-    unsigned char *resp, *ciphertext;
+    unsigned char *resp;
     size_t resp_len;
 
     /* Call KV-store: */
     resp = kv_get(key, header->key_len, &resp_len);
     if (!resp) {
+        header->seq_op = SET_OP(NEXT_SEQ(header->seq_op), RDMA_ERR);
         send_empty_response(req_handle, header);
         return;
     }
@@ -98,35 +119,24 @@ void send_response_get(erpc::ReqHandle *req_handle,
     /* Reuse the request header for creating and enqueueing the response: */
     header->seq_op = NEXT_SEQ(header->seq_op);
     header->key_len = 0;
-    struct rdma_enc_payload payload;
-    erpc::MsgBuffer resp_buffer;
+    struct rdma_enc_payload payload = { nullptr, resp, resp_len };
 
-    size_t ciphertext_size = CIPHERTEXT_SIZE(resp_len);
-    try {
-        resp_buffer = rpc_host->alloc_msg_buffer(ciphertext_size);
-    } catch (const runtime_error &) {
-        cerr << "Error allocating memory for response" << endl;
-        goto end_send_response_get;
-    }
-    ciphertext = resp_buffer.buf;
-    if (!ciphertext) {
-        cerr << "Memory Allocation failure" << endl;
-        goto end_send_response_get;
-    }
+    send_encrypted_response(req_handle, header, &payload);
 
-    payload.key = NULL;
-    payload.value = resp;
-    payload.value_len = resp_len;
-    if (0 != encrypt_message(encryption_key, header, &payload, &ciphertext)) {
-        rpc_host->free_msg_buffer(resp_buffer);
-        goto end_send_response_get;
-    }
-
-    rpc_host->enqueue_response(req_handle, &resp_buffer);
-
-end_send_response_get:
     free(resp);
 }
+
+
+/**
+* Request handler for incoming put requests
+* Checks freshness and checksum
+* Then, writes data from the client to the specified address
+* */
+/*
+void send_response_put(erpc::ReqHandle *req_handle, struct rdma_msg_header *header,
+        struct rdma_dec_payload *payload) {
+}
+ */
 
 /* void req_handler(erpc::ReqHandle *req_handle, void *context) */
 void req_handler(erpc::ReqHandle *req_handle, void *) {

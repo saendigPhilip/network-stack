@@ -4,7 +4,9 @@
 #define CIPHERTEXT_SIZE(payload_size) (MIN_MSG_LEN + (payload_size))
 #define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
 #define NEXT_SEQ(seq_number) ((seq_number) + 4)
-#define OP_FROM_SEQ(seq_number) ((seq_number) & 0b11)
+#define OP_FROM_SEQ_OP(seq_number) ((seq_number) & 0b11)
+#define SEQ_FROM_SEQ_OP(seq_number) ((seq_number) & ~(uint64_t)0b11)
+#define SET_OP(seq_number, op) SEQ_FROM_SEQ_OP(seq_number) | (op)
 
 #include <iostream>
 using namespace std;
