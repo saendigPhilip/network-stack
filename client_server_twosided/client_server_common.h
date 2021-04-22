@@ -4,6 +4,7 @@
 #define CIPHERTEXT_SIZE(payload_size) (MIN_MSG_LEN + (payload_size))
 #define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
 #define NEXT_SEQ(seq_number) ((seq_number) + 4)
+#define OP_FROM_SEQ(seq_number) ((seq_number) & 0b11)
 
 #include <iostream>
 using namespace std;
@@ -17,7 +18,6 @@ static constexpr uint8_t RDMA_GET = 0b00;
 static constexpr uint8_t RDMA_PUT = 0b01;
 static constexpr uint8_t RDMA_DELETE = 0b10;
 static constexpr uint8_t RDMA_ERR = 0b11;
-
 
 struct rdma_msg_header {
     uint64_t seq_op;

@@ -19,6 +19,8 @@ void free_client();
 void verbose_cont_func(void *, void *);
 // void get_response_handler(int, erpc::SmEventType, erpc::SmErrType, void *);
 
+typedef void status_callback(int);
+
 #endif //RDMA_CLIENT
 
 

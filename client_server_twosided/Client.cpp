@@ -25,25 +25,69 @@ unsigned char *encryption_key;
 /* TODO: Use data structure for multiple sessions + context */
 int session_nr = -1;
 
-struct incoming_value{
-    size_t expected_seq;
+struct sent_message_tag{
+    status_callback *callback;
+    struct rdma_msg_header header;
     void *value;
-    void (*callback)(void *, void *);
     erpc::MsgBuffer *request;
     erpc::MsgBuffer *response;
 };
+
+
+/* Frees a message tag internally and also the tag memory itself
+ * The callback is the only parameter that is not freed
+ */
+void free_message_tag(struct sent_message_tag *tag) {
+    if (!tag)
+        return;
+
+    delete tag->request;
+    delete tag->response;
+    free(tag);
+}
+
+struct sent_message_tag *new_message_tag(status_callback *callback) {
+    struct sent_message_tag *ret =
+            (struct sent_message_tag *) malloc(sizeof(struct sent_message_tag));
+    if (!ret)
+        return nullptr;
+    ret->callback = callback;
+
+    ret->request = new erpc::MsgBuffer();
+    ret->response = new erpc::MsgBuffer();
+
+    if (!(ret->request && ret->response)) {
+        goto err_new_tag;
+    }
+
+    return ret;
+
+err_new_tag:
+    free_message_tag(ret);
+    return nullptr;
+}
+
+
 
 /* Note: cont_func is the continuation callback.
  * A message can be re-identified with the help of a tag
  * -> Possibility to provide asynchronous and synchronous put and get calls
  * */
 /* void cont_func(void *context, void *tag) { */
-void verbose_cont_func(void *, void *tag) {
-    /* TODO: Get request + parameters by tag and context */
-    if (!tag)
+void decrypt_cont_func(void *, void *message_tag) {
+    if (!message_tag)
         return;
-    struct incoming_value *val = (struct incoming_value *)tag;
-    puts((char *)val->value);
+    struct sent_message_tag *tag = (struct sent_message_tag *)message_tag;
+    switch (OP_FROM_SEQ((tag->header.seq_op))) {
+        case RDMA_GET:
+        case RDMA_PUT:
+        case RDMA_DELETE:
+        case RDMA_ERR:
+            cerr << "TODO: implement" << endl;
+            break;
+        default:
+            cerr << "Invalid operation" << endl;
+    }
 }
 
 /* sm = Session management. Is invoked if a session is created or destroyed */
@@ -102,10 +146,6 @@ int disconnect() {
     return ret;
 }
 
-void cont_func(void *, void *) {
-
-}
-
 
 /**
  * Connects to a server at server_hostname:udp_port
@@ -141,6 +181,37 @@ int connect(std::string server_hostname, unsigned int udp_port, size_t try_itera
         return session_nr;
 }
 
+int allocate_req_buffers(
+        erpc::MsgBuffer *req, size_t req_size,
+        erpc::MsgBuffer *resp, size_t resp_size) {
+    try {
+        *req = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(req_size));
+        *resp = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(resp_size));
+    } catch (const runtime_error &) {
+        cerr << "Fatal error while allocating memory for request" << endl;
+        goto err_allocate_req_buffers;
+    }
+    if (!(req->buf && resp->buf)) {
+        cerr << "Error allocating buffers for request" << endl;
+        goto err_allocate_req_buffers;
+    }
+    return 0;
+
+err_allocate_req_buffers:
+    client_rpc->free_msg_buffer(*req);
+    client_rpc->free_msg_buffer(*resp);
+    return -1;
+}
+
+void send_message(struct sent_message_tag *tag, int timeout) {
+
+    /* Skip the sequence number for the server response */
+    current_seq_number = NEXT_SEQ(NEXT_SEQ(current_seq_number));
+
+    client_rpc->enqueue_request(session_nr, DEFAULT_REQ_TYPE,
+            tag->request, tag->response, decrypt_cont_func, (void *)tag);
+    client_rpc->run_event_loop(timeout);
+}
 
 /**
  * @param key Server address to read from
@@ -148,7 +219,7 @@ int connect(std::string server_hostname, unsigned int udp_port, size_t try_itera
  * @return 0 on success, -1 if something went wrong, TODO: Return codes?
  */
 int get_from_server(const void *key, size_t key_len, void *value, size_t max_value_len,
-        void (*callback)(void *, void *), unsigned int timeout=100) {
+        status_callback *callback, unsigned int timeout=10) {
 
     if (!key)
         return -1;
@@ -158,54 +229,47 @@ int get_from_server(const void *key, size_t key_len, void *value, size_t max_val
         return -1;
     }
 
+    struct sent_message_tag *tag = new_message_tag(callback);
+    if (!tag)
+        return -1;
+
     int ret = -1;
-    struct rdma_msg_header header = { current_seq_number | RDMA_GET, key_len };
-    struct rdma_enc_payload payload = { (unsigned char *) key, nullptr, 0 };
-    erpc::MsgBuffer req;
-    erpc::MsgBuffer resp;
+    uint64_t get_seq_number = current_seq_number | RDMA_GET;
+    bool free_buffers = true;
+    struct rdma_enc_payload enc_payload;
 
-    struct incoming_value *tag = (struct incoming_value *)malloc(sizeof(struct incoming_value));
-    try {
-         req = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(key_len));
-         resp = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(max_value_len));
-    } catch (const runtime_error &) {
-        cerr << "Data size too big for allocating memory" << endl;
-        goto err_get;
-    }
-    if (!(req.buf && resp.buf && tag)) {
+    if (0 != allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len),
+            tag->response, CIPHERTEXT_SIZE(max_value_len))) {
+        free_buffers = false;
         goto err_get;
     }
 
-    if (0 != encrypt_message(encryption_key, &header, &payload, (unsigned char **) &(req.buf))) {
-        goto err_get;
-    }
-
-    /* Tag struct is passed to the callback function when the server responds */
-    tag->expected_seq = NEXT_SEQ(current_seq_number);
-    current_seq_number = NEXT_SEQ(tag->expected_seq);
+    tag->header = { get_seq_number, key_len };
     tag->value = value;
-    tag->callback = callback;
-    tag->request = &req;
-    tag->response = &resp;
+    enc_payload = { (unsigned char *) key, nullptr, 0 };
 
-    client_rpc->enqueue_request(session_nr,
-            DEFAULT_REQ_TYPE, &req, &resp, cont_func, (void *)tag);
-    client_rpc->run_event_loop(timeout);
+    if (0 != encrypt_message(encryption_key, &(tag->header),
+            &enc_payload, (unsigned char **) &(tag->request->buf)))
+        goto err_get;
+
+
+    send_message(tag, timeout);
+
     return 0;
 
     /* req and resp belong to eRPC on success. On error, the buffers need to be freed manually */
 err_get:
-    client_rpc->free_msg_buffer(req);
-    client_rpc->free_msg_buffer(resp);
-    free(tag);
-
+    if (free_buffers) {
+        client_rpc->free_msg_buffer(*(tag->request));
+        client_rpc->free_msg_buffer(*(tag->response));
+    }
+    free_message_tag(tag);
     return ret;
 }
 
 
-/*
 int put_to_server(const void *key, size_t key_len, const void *value, size_t value_len,
-        void (*callback)(void *, void *), unsigned int timeout=100) {
+        status_callback *callback, unsigned int timeout=10) {
 
     if (!(key && value)) {
         return -1;
@@ -215,14 +279,86 @@ int put_to_server(const void *key, size_t key_len, const void *value, size_t val
         return -1;
     }
 
-    int ret = -1;
-    struct rdma_msg_header header;
-    header.seq_op = current_seq_number | RDMA_PUT;
-    header.key_len = key_len;
+    struct sent_message_tag *tag = new_message_tag(callback);
+    if (!tag)
+        return -1;
 
-end_put_to_server:
-    ret = 0;
-    return ret;
+    bool free_buffers = true;
+    uint64_t put_seq_number = current_seq_number | RDMA_PUT;
+    struct rdma_enc_payload enc_payload;
+
+    if (0 > allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len + value_len),
+            tag->response, CIPHERTEXT_SIZE(0))) {
+        free_buffers = false;
+        goto err_put;
+    }
+
+    tag->header = { put_seq_number, key_len };
+    tag->value = nullptr;
+    enc_payload = { (unsigned char *) key, (unsigned char *) value, value_len };
+
+    if (0 > encrypt_message(encryption_key, &(tag->header),
+            &enc_payload, (unsigned char **) &(tag->request->buf)))
+        goto err_put;
+
+    send_message(tag, timeout);
+
+    return 0;
+
+err_put:
+    if (free_buffers) {
+        client_rpc->free_msg_buffer(*(tag->request));
+        client_rpc->free_msg_buffer(*(tag->response));
+    }
+    free_message_tag(tag);
+    return -1;
 }
- */
+
+
+int delete_from_server(const char *key, size_t key_len,
+        status_callback *callback, unsigned int timeout=10) {
+
+    if (!key) {
+        return -1;
+    }
+    if (!client_rpc || session_nr < 0) {
+        cerr << "Client not initialized yet" << endl;
+        return -1;
+    }
+
+    struct sent_message_tag *tag = new_message_tag(callback);
+    if (!tag)
+        return -1;
+
+    bool free_buffers = true;
+    uint64_t delete_seq_number = current_seq_number | RDMA_DELETE;
+    struct rdma_enc_payload payload;
+
+    if (0 > allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len),
+            tag->response, CIPHERTEXT_SIZE(0))) {
+        free_buffers = false;
+        goto err_delete;
+    }
+
+    tag->header = { delete_seq_number, key_len };
+    tag->value = nullptr;
+    payload = (struct rdma_enc_payload) { (unsigned char *) key, nullptr, 0 };
+
+    if (0 > encrypt_message(encryption_key,
+            &(tag->header), &payload, (unsigned char **)tag->request->buf))
+        goto err_delete;
+
+    send_message(tag, timeout);
+
+    return 0;
+
+err_delete:
+    if (free_buffers) {
+        client_rpc->free_msg_buffer(*(tag->request));
+        client_rpc->free_msg_buffer(*(tag->response));
+    }
+    free_message_tag(tag);
+    return -1;
+
+}
 

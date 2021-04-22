@@ -53,7 +53,9 @@ int host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis) 
         return -1;
     }
 
-    /* TODO: (probably) replace this with an endless while-loop/ introduce variable for closing connections */
+    /* TODO: replace this with an endless while-loop and run_once()/
+     *          introduce variable for closing connections
+     */
     rpc_host->run_event_loop(timeout_millis);
     return 0;
 }
