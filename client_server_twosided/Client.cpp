@@ -14,9 +14,6 @@
 erpc::Nexus *nexus;
 erpc::Rpc<erpc::CTransport> *client_rpc = nullptr;
 
-erpc::MsgBuffer req;
-erpc::MsgBuffer resp;
-
 uint64_t current_seq_number = 0;
 
 unsigned char *encryption_key;
@@ -79,6 +76,7 @@ void decrypt_cont_func(void *, void *message_tag) {
     struct sent_message_tag *tag = (struct sent_message_tag *)message_tag;
     struct rdma_msg_header incoming_header;
     struct rdma_dec_payload payload = { nullptr, (unsigned char *) tag->value, 0 };
+    int expected_op, incoming_op;
     if (!message_tag)
         goto end_decrypt_cont_func;
 
@@ -87,8 +85,8 @@ void decrypt_cont_func(void *, void *message_tag) {
             &payload, tag->response->buf, tag->response->get_data_size()))
         goto end_decrypt_cont_func;
 
-    int expected_op = OP_FROM_SEQ(tag->header.seq_op);
-    int incoming_op = OP_FROM_SEQ(incoming_header.seq_op);
+    expected_op = OP_FROM_SEQ(tag->header.seq_op);
+    incoming_op = OP_FROM_SEQ(incoming_header.seq_op);
     if (incoming_header.seq_op != NEXT_SEQ(tag->header.seq_op)
             || expected_op != incoming_op)
         goto end_decrypt_cont_func;
@@ -96,8 +94,8 @@ void decrypt_cont_func(void *, void *message_tag) {
     ret = 0;
 end_decrypt_cont_func:
     tag->callback(ret);
-    client_rpc->free_msg_buffer(*req);
-    client_rpc->free_msg_buffer(*resp);
+    client_rpc->free_msg_buffer(*(tag->request));
+    client_rpc->free_msg_buffer(*(tag->response));
     free_message_tag(tag);
 }
 
