@@ -126,7 +126,7 @@ void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
 
 }
 
-int initialize_client(std::string client_hostname, uint16_t udp_port) {
+int initialize_client(std::string client_hostname, uint16_t udp_port, uint8_t id) {
     std::string client_uri = client_hostname + ":" + std::to_string(udp_port);
     erpc::Nexus nexus(client_uri, 0, 0);
     if (RAND_status() != 1) {
@@ -139,8 +139,7 @@ int initialize_client(std::string client_hostname, uint16_t udp_port) {
         cerr << "Could not create initial random sequence number" << endl;
         return -1;
     }
-    /* The last two bits are for indicating the operation */
-    current_seq_number &= ~(uint64_t )0b11;
+    current_seq_number = SET_ID(current_seq_number, id);
     return 0;
 }
 
@@ -161,8 +160,9 @@ int disconnect() {
  * Tries to connect with given number of iterations
  * @return negative value if an error occurs. Otherwise the eRPC session number is returned
  */
-int connect(std::string server_hostname, unsigned int udp_port, size_t try_iterations) {
-    if (initialize_client(kClientHostname, kUDPPort)) {
+int connect(std::string server_hostname, unsigned int udp_port, uint8_t id,
+        size_t try_iterations) {
+    if (0 > initialize_client(kClientHostname, kUDPPort, id)) {
         cerr << "Failed to initialize client!" << endl;
         return -1;
     }
@@ -243,7 +243,7 @@ int get_from_server(const void *key, size_t key_len, void *value, size_t max_val
         return -1;
 
     int ret = -1;
-    uint64_t get_seq_number = current_seq_number | RDMA_GET;
+    uint64_t get_seq_number = SET_OP(current_seq_number, RDMA_GET);
     bool free_buffers = true;
     struct rdma_enc_payload enc_payload;
 
@@ -293,7 +293,7 @@ int put_to_server(const void *key, size_t key_len, const void *value, size_t val
         return -1;
 
     bool free_buffers = true;
-    uint64_t put_seq_number = current_seq_number | RDMA_PUT;
+    uint64_t put_seq_number = SET_OP(current_seq_number, RDMA_PUT);
     struct rdma_enc_payload enc_payload;
 
     if (0 > allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len + value_len),
@@ -340,7 +340,7 @@ int delete_from_server(const char *key, size_t key_len,
         return -1;
 
     bool free_buffers = true;
-    uint64_t delete_seq_number = current_seq_number | RDMA_DELETE;
+    uint64_t delete_seq_number = SET_OP(current_seq_number, RDMA_DELETE);
     struct rdma_enc_payload payload;
 
     if (0 > allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len),

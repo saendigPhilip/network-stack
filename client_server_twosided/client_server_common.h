@@ -23,6 +23,8 @@
 #define OP_FROM_SEQ_OP(seq_number) ((seq_number) & OP_MASK)
 
 #define SET_OP(seq_number, op) (((seq_number) & ~OP_MASK) | (op))
+#define SET_ID(seq_number, id) \
+    (((seq_number) & SEQ_MASK) | ((uint64_t) (id) << 2))
 
 #include <iostream>
 using namespace std;
