@@ -12,25 +12,6 @@
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-std::set<uint64_t> *sequence_numbers;
-
-/* *
- * Checks if a sequence number was already encountered by maintaining a set with
- * sequence numbers. Adds sequence number if not already contained
- * Returns 0, if the sequence number is valid, and a negative value if it was already encountered
- * */
-int add_sequence_number(uint64_t sequence_number) {
-    if (!sequence_numbers) {
-        sequence_numbers = new std::set<uint64_t>;
-        sequence_numbers->insert(sequence_number);
-        return 0;
-    }
-    if (sequence_numbers->find(sequence_number) == sequence_numbers->end()) {
-        sequence_numbers->insert(sequence_number);
-        return 0;
-    }
-    return -1;
-}
 
 /* En-/decrypts data using EVP_CipherUpdate
  * Supports data lengths over (2^31 - 1) bytes

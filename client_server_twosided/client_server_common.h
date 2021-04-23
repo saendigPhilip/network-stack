@@ -3,10 +3,26 @@
 
 #define CIPHERTEXT_SIZE(payload_size) (MIN_MSG_LEN + (payload_size))
 #define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
-#define NEXT_SEQ(seq_number) ((seq_number) + 4)
-#define OP_FROM_SEQ_OP(seq_number) ((seq_number) & 0b11)
-#define SEQ_FROM_SEQ_OP(seq_number) ((seq_number) & ~(uint64_t)0b11)
-#define SET_OP(seq_number, op) SEQ_FROM_SEQ_OP(seq_number) | (op)
+
+
+/*
+ * Macros for handling seq_op numbers. seq_op is 64 bit and looks like this:
+ * +--------------------------+------------+------------+
+ * | Sequence number (54 bit) | ID (8 bit) | OP (2 bit) |
+ * +--------------------------+------------+------------+
+ */
+
+#define SEQ_MASK ~((uint64_t) 0x3ff)    // ~(11 1111 1111)
+#define ID_MASK (uint64_t) 0x3fc        //   11 1111 1100
+#define OP_MASK (uint64_t) 0x3          //   00 0000 0011
+
+#define NEXT_SEQ(seq_number) ((seq_number) + (1 << 10))
+
+#define SEQ_FROM_SEQ_OP(seq_number) (((seq_number) & SEQ_MASK) >> 10)
+#define ID_FROM_SEQ_OP(seq_number) (((seq_number) & ID_MASK) >> 2)
+#define OP_FROM_SEQ_OP(seq_number) ((seq_number) & OP_MASK)
+
+#define SET_OP(seq_number, op) (((seq_number) & ~OP_MASK) | (op))
 
 #include <iostream>
 using namespace std;
@@ -60,11 +76,6 @@ static const std::string kClientHostname = "192.168.178.28";
 static constexpr uint16_t kUDPPort = 31850;
 static constexpr size_t kMsgSize = 4096;
 
-
-
-// int calculate_hash(const void *msg, size_t len, unsigned char *dest);
-// int check_hash(const void *msg, size_t len);
-int add_sequence_number(uint64_t sequence_number);
 
 int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_header *header,
         const struct rdma_enc_payload *payload, unsigned char **ciphertext);

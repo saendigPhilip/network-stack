@@ -10,8 +10,8 @@ typedef int (*delete_function)(const void *key, size_t key_len);
 
 
 int host_server(std::string hostname, uint16_t udp_port, size_t timeout_milliseconds,
-        get_function get, put_function put, delete_function del,
-        const unsigned char *encryption_key);
+        const unsigned char *encryption_key, uint8_t number_clients,
+        get_function get, put_function put, delete_function del);
 
 
 void close_connection();
