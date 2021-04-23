@@ -227,7 +227,8 @@ void send_message(struct sent_message_tag *tag, int timeout) {
  * @param key_len Size of address
  * @return 0 on success, -1 if something went wrong
  */
-int get_from_server(const void *key, size_t key_len, void *value, size_t max_value_len,
+int get_from_server(const void *key, size_t key_len,
+        void *value, size_t max_value_len,
         status_callback *callback, unsigned int timeout=10) {
 
     if (!key)

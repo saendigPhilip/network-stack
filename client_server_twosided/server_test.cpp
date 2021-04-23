@@ -178,4 +178,8 @@ int main(void) {
         cerr << "Failed to host server" << endl;
         return ret;
     }
+    cout << "Shutting down server" << endl;
+
+    close_connection();
+    return 0;
 }
