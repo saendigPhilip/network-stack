@@ -1,7 +1,4 @@
 #include <openssl/rand.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/unistd.h>
 
 #include "client_server_common.h"
 
@@ -22,14 +19,17 @@ unsigned char *encryption_key = nullptr;
 void req_handler(erpc::ReqHandle *, void *);
 void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 void req_handler_put(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
+void req_handler_delete(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 
-unsigned char *kv_get(const void *key, size_t key_len, size_t *data_len);
-int kv_put(const unsigned char *key, size_t key_len, unsigned char *value, size_t value_len);
-// int kv_delete(const unsigned char *key, size_t key_len);
+get_function kv_get;
+put_function kv_put;
+delete_function kv_delete;
 
-/* Hosts an RPC server
- */
-int host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis) {
+/* Hosts an RPC server */
+int host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis,
+        get_function get, put_function put, delete_function del) {
+
+
     std::string server_uri = hostname + ":" + std::to_string(udp_port);
     if (!nexus)
         nexus = new erpc::Nexus(server_uri, 0, 0);
@@ -40,11 +40,16 @@ int host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis) 
             return -1;
         }
     }
+
     if (nexus->register_req_func(0, req_handler)) {
         cerr << "Failed to host Server" << endl;
         delete nexus;
         return -1;
     }
+
+    kv_get = get;
+    kv_put = put;
+    kv_delete = del;
 
     rpc_host = new erpc::Rpc<erpc::CTransport>(nexus, nullptr, 0, nullptr);
     if (!rpc_host) {
@@ -109,7 +114,7 @@ void send_response_get(erpc::ReqHandle *req_handle,
     size_t resp_len;
 
     /* Call KV-store: */
-    resp = kv_get(key, header->key_len, &resp_len);
+    resp = (unsigned char *) kv_get(key, header->key_len, &resp_len);
     if (!resp) {
         header->seq_op = SET_OP(NEXT_SEQ(header->seq_op), RDMA_ERR);
         send_empty_response(req_handle, header);
@@ -132,11 +137,43 @@ void send_response_get(erpc::ReqHandle *req_handle,
 * Checks freshness and checksum
 * Then, writes data from the client to the specified address
 * */
-/*
 void send_response_put(erpc::ReqHandle *req_handle, struct rdma_msg_header *header,
         struct rdma_dec_payload *payload) {
+
+    /* Call KV-store: */
+    int resp = kv_put(payload->key, header->key_len, payload->value, payload->value_len);
+    if (0 > resp) {
+        header->seq_op = SET_OP(NEXT_SEQ(header->seq_op), RDMA_ERR);
+    }
+    else {
+        header->seq_op = NEXT_SEQ(header->seq_op);
+    }
+    /* We only inform the client about whether the operation was successful or not */
+    send_empty_response(req_handle, header);
 }
+
+
+/**
+ * Handles a delete request, passes it to the KV-store and sends a response message
+ * to the client
+ * @param req_handle Handle of the request
+ * @param header Header of the incoming request that is reused for the response
+ * @param payload Payload structure of the incoming request
  */
+void send_response_delete(erpc::ReqHandle *req_handle, struct rdma_msg_header *header,
+        struct rdma_dec_payload *payload) {
+
+    /* Call KV-store: */
+    int resp = kv_delete(payload->key, header->key_len);
+    if (0 > resp) {
+        header->seq_op = SET_OP(NEXT_SEQ(header->seq_op), RDMA_ERR);
+    }
+    else {
+        header->seq_op = NEXT_SEQ(header->seq_op);
+    }
+    /* We only inform the client about whether the operation was successful or not */
+    send_empty_response(req_handle, header);
+}
 
 /* void req_handler(erpc::ReqHandle *req_handle, void *context) */
 void req_handler(erpc::ReqHandle *req_handle, void *) {
@@ -189,36 +226,3 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
 }
 */
 
-/* Dummy method for testing: We interpret the key as a filename and read from the according file */
-unsigned char *kv_get(const void *key, size_t, size_t *data_length) {
-    if (!(key && data_length)) {
-        return nullptr;
-    }
-
-    unsigned char *data;
-    char *filename = (char *) key;
-    FILE *file = fopen(filename, "rb");
-    if (!file) {
-        cerr << "Could not open " << key << endl;
-        return nullptr;
-    }
-
-    struct stat key_stat;
-    if (!stat(filename, &key_stat)) {
-        cerr << "Could not get stats of " << key << endl;
-        return nullptr;
-    }
-
-    /* Allocate enough memory for the whole message: */
-    data = (unsigned char *) malloc(SEQ_LEN + SIZE_LEN + key_stat.st_size);
-    if (!data) {
-        cerr << "Memory allocation failure" << endl;
-        goto end_get;
-    }
-
-    *data_length = fread(data + SIZE_LEN + SEQ_LEN, 1, key_stat.st_size, file);
-
-end_get:
-    fclose(file);
-    return data;
-}

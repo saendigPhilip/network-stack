@@ -1,5 +1,8 @@
 #include <cstring>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/unistd.h>
 
 #include "client_server_common.h"
 #include "Server.h"
@@ -150,12 +153,55 @@ free_huge:
     PRINT_TEST_SUMMARY();
 }
 
+/* Dummy method for testing: We interpret the key as a filename and read from the according file */
+void *kv_get(const void *key, size_t, size_t *data_length) {
+    if (!(key && data_length)) {
+        return nullptr;
+    }
+
+    unsigned char *data;
+    char *filename = (char *) key;
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        cerr << "Could not open " << key << endl;
+        return nullptr;
+    }
+
+    struct stat key_stat;
+    if (!stat(filename, &key_stat)) {
+        cerr << "Could not get stats of " << key << endl;
+        return nullptr;
+    }
+
+    /* Allocate enough memory for the whole message: */
+    data = (unsigned char *) malloc(SEQ_LEN + SIZE_LEN + key_stat.st_size);
+    if (!data) {
+        cerr << "Memory allocation failure" << endl;
+        goto end_get;
+    }
+
+    *data_length = fread(data + SIZE_LEN + SEQ_LEN, 1, key_stat.st_size, file);
+
+end_get:
+    fclose(file);
+    return (void *) data;
+}
+
+/* Dummy for put function */
+int kv_put(const void *, size_t, const void *, size_t) {
+    return 0;
+}
+
+int kv_delete(const void *, size_t) {
+    return 0;
+}
+
 int main(void) {
     // test_encryption();
     int ret = -1;
     std::string ip = "192.168.2.113";
     const uint16_t standard_udp_port = 31850;
-    if (host_server(ip, standard_udp_port, 100000)) {
+    if (host_server(ip, standard_udp_port, 100000, kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
         return ret;
     }
