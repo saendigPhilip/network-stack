@@ -14,7 +14,9 @@
 
 erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
 erpc::Nexus *nexus = nullptr;
-unsigned char *encryption_key = nullptr;
+const unsigned char *enc_key = nullptr;
+
+struct client;
 
 void req_handler(erpc::ReqHandle *, void *);
 void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
@@ -27,8 +29,8 @@ delete_function kv_delete;
 
 /* Hosts an RPC server */
 int host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis,
-        get_function get, put_function put, delete_function del) {
-
+        get_function get, put_function put, delete_function del,
+        const unsigned char *encryption_key) {
 
     std::string server_uri = hostname + ":" + std::to_string(udp_port);
     if (!nexus)
@@ -47,6 +49,7 @@ int host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis,
         return -1;
     }
 
+    enc_key = encryption_key;
     kv_get = get;
     kv_put = put;
     kv_delete = del;
@@ -88,7 +91,7 @@ void send_encrypted_response(erpc::ReqHandle *req_handle,
         return;
     }
 
-    if (0 != encrypt_message(encryption_key, header, payload, &ciphertext)) {
+    if (0 != encrypt_message(enc_key, header, payload, &ciphertext)) {
         rpc_host->free_msg_buffer(resp_buffer);
         return;
     }
@@ -192,7 +195,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
         return;
     }
 
-    if (0 != decrypt_message(encryption_key, &header, &payload, ciphertext, ciphertext_size))
+    if (0 != decrypt_message(enc_key, &header, &payload, ciphertext, ciphertext_size))
         goto end_req_handler;
 
     /* Add sequence number to known sequence numbers and check for replays: */
