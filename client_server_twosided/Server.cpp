@@ -23,12 +23,12 @@ void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, s
 void req_handler_put(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 void req_handler_delete(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 
-get_function kv_get;
-put_function kv_put;
-delete_function kv_delete;
+anchor_server::get_function kv_get;
+anchor_server::put_function kv_put;
+anchor_server::delete_function kv_delete;
 
 /* Hosts an RPC server */
-int host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis,
+int anchor_server::host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis,
         const unsigned char *encryption_key, uint8_t number_clients,
         get_function get, put_function put, delete_function del) {
 
@@ -75,7 +75,7 @@ err_host_server:
     return -1;
 }
 
-void close_connection() {
+void anchor_server::close_connection() {
     delete rpc_host;
     delete nexus;
 }

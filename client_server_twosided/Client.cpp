@@ -23,7 +23,7 @@ unsigned char *encryption_key;
 int session_nr = -1;
 
 struct sent_message_tag{
-    status_callback *callback;
+    anchor_client::status_callback *callback;
     struct rdma_msg_header header;
     void *value;
     const void *user_tag;
@@ -45,7 +45,7 @@ void free_message_tag(struct sent_message_tag *tag) {
 }
 
 struct sent_message_tag *new_message_tag(
-        status_callback *callback, const void *user_tag) {
+        anchor_client::status_callback *callback, const void *user_tag) {
 
     struct sent_message_tag *ret =
             (struct sent_message_tag *) malloc(sizeof(struct sent_message_tag));
@@ -147,25 +147,14 @@ int initialize_client(std::string client_hostname, uint16_t udp_port, uint8_t id
     return 0;
 }
 
-/**
- * Ends a session with a server
- * @return 0 on success, negative errno if the session can't be disconnected
- */
-int disconnect() {
-    int ret = client_rpc->destroy_session(session_nr);
-    delete client_rpc;
-    client_rpc = nullptr;
-    return ret;
-}
-
 
 /**
  * Connects to a server at server_hostname:udp_port
  * Tries to connect with given number of iterations
  * @return negative value if an error occurs. Otherwise the eRPC session number is returned
  */
-int connect(std::string server_hostname, unsigned int udp_port, uint8_t id,
-        size_t try_iterations) {
+int anchor_client::connect(std::string server_hostname,
+        unsigned int udp_port, uint8_t id, size_t try_iterations) {
     if (0 > initialize_client(kClientHostname, kUDPPort, id)) {
         cerr << "Failed to initialize client!" << endl;
         return -1;
@@ -173,7 +162,7 @@ int connect(std::string server_hostname, unsigned int udp_port, uint8_t id,
     std::string server_uri = server_hostname + ":" + std::to_string(udp_port);
     if (client_rpc) {
         cout << "Already connected. Disconnecting old connection" << endl;
-        (void) disconnect();
+        (void) anchor_client::disconnect();
     }
     client_rpc = new erpc::Rpc<erpc::CTransport>(
             nexus, nullptr, 0, empty_sm_handler, 0);
@@ -193,6 +182,19 @@ int connect(std::string server_hostname, unsigned int udp_port, uint8_t id,
     else
         return session_nr;
 }
+
+
+/**
+ * Ends a session with a server
+ * @return 0 on success, negative errno if the session can't be disconnected
+ */
+int anchor_client::disconnect() {
+    int ret = client_rpc->destroy_session(session_nr);
+    delete client_rpc;
+    client_rpc = nullptr;
+    return ret;
+}
+
 
 int allocate_req_buffers(
         erpc::MsgBuffer *req, size_t req_size,
@@ -231,9 +233,10 @@ void send_message(struct sent_message_tag *tag, int timeout) {
  * @param key_len Size of address
  * @return 0 on success, -1 if something went wrong
  */
-int get_from_server(const void *key, size_t key_len,
+int anchor_client::get(const void *key, size_t key_len,
         void *value, size_t max_value_len,
-        status_callback *callback, const void *user_tag, unsigned int timeout=10) {
+        anchor_client::status_callback *callback, const void *user_tag,
+        unsigned int timeout=10) {
 
     if (!key)
         return -1;
@@ -282,8 +285,10 @@ err_get:
 }
 
 
-int put_to_server(const void *key, size_t key_len, const void *value, size_t value_len,
-        status_callback *callback, const void *user_tag, unsigned int timeout=10) {
+int anchor_client::put(const void *key, size_t key_len,
+        const void *value, size_t value_len,
+        anchor_client::status_callback *callback, const void *user_tag,
+        unsigned int timeout=10) {
 
     if (!(key && value)) {
         return -1;
@@ -330,8 +335,9 @@ err_put:
 }
 
 
-int delete_from_server(const char *key, size_t key_len,
-        status_callback *callback, const void *user_tag, unsigned int timeout=10) {
+int anchor_client::del(const char *key, size_t key_len,
+        anchor_client::status_callback *callback, const void *user_tag,
+        unsigned int timeout=10) {
 
     if (!key) {
         return -1;
