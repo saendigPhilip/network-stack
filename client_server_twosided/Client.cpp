@@ -26,6 +26,7 @@ struct sent_message_tag{
     status_callback *callback;
     struct rdma_msg_header header;
     void *value;
+    const void *user_tag;
     erpc::MsgBuffer *request;
     erpc::MsgBuffer *response;
 };
@@ -43,12 +44,15 @@ void free_message_tag(struct sent_message_tag *tag) {
     free(tag);
 }
 
-struct sent_message_tag *new_message_tag(status_callback *callback) {
+struct sent_message_tag *new_message_tag(
+        status_callback *callback, const void *user_tag) {
+
     struct sent_message_tag *ret =
             (struct sent_message_tag *) malloc(sizeof(struct sent_message_tag));
     if (!ret)
         return nullptr;
     ret->callback = callback;
+    ret->user_tag = user_tag;
 
     ret->request = new erpc::MsgBuffer();
     ret->response = new erpc::MsgBuffer();
@@ -93,7 +97,7 @@ void decrypt_cont_func(void *, void *message_tag) {
 
     ret = 0;
 end_decrypt_cont_func:
-    tag->callback(ret);
+    tag->callback(ret, tag->user_tag);
     client_rpc->free_msg_buffer(*(tag->request));
     client_rpc->free_msg_buffer(*(tag->response));
     free_message_tag(tag);
@@ -229,7 +233,7 @@ void send_message(struct sent_message_tag *tag, int timeout) {
  */
 int get_from_server(const void *key, size_t key_len,
         void *value, size_t max_value_len,
-        status_callback *callback, unsigned int timeout=10) {
+        status_callback *callback, const void *user_tag, unsigned int timeout=10) {
 
     if (!key)
         return -1;
@@ -239,7 +243,7 @@ int get_from_server(const void *key, size_t key_len,
         return -1;
     }
 
-    struct sent_message_tag *tag = new_message_tag(callback);
+    struct sent_message_tag *tag = new_message_tag(callback, user_tag);
     if (!tag)
         return -1;
 
@@ -279,7 +283,7 @@ err_get:
 
 
 int put_to_server(const void *key, size_t key_len, const void *value, size_t value_len,
-        status_callback *callback, unsigned int timeout=10) {
+        status_callback *callback, const void *user_tag, unsigned int timeout=10) {
 
     if (!(key && value)) {
         return -1;
@@ -289,7 +293,7 @@ int put_to_server(const void *key, size_t key_len, const void *value, size_t val
         return -1;
     }
 
-    struct sent_message_tag *tag = new_message_tag(callback);
+    struct sent_message_tag *tag = new_message_tag(callback, user_tag);
     if (!tag)
         return -1;
 
@@ -305,6 +309,7 @@ int put_to_server(const void *key, size_t key_len, const void *value, size_t val
 
     tag->header = { put_seq_number, key_len };
     tag->value = nullptr;
+    tag->user_tag = user_tag;
     enc_payload = { (unsigned char *) key, (unsigned char *) value, value_len };
 
     if (0 > encrypt_message(encryption_key, &(tag->header),
@@ -326,7 +331,7 @@ err_put:
 
 
 int delete_from_server(const char *key, size_t key_len,
-        status_callback *callback, unsigned int timeout=10) {
+        status_callback *callback, const void *user_tag, unsigned int timeout=10) {
 
     if (!key) {
         return -1;
@@ -336,7 +341,7 @@ int delete_from_server(const char *key, size_t key_len,
         return -1;
     }
 
-    struct sent_message_tag *tag = new_message_tag(callback);
+    struct sent_message_tag *tag = new_message_tag(callback, user_tag);
     if (!tag)
         return -1;
 
