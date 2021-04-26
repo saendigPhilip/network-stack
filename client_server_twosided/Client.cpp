@@ -11,16 +11,12 @@
 #include "nexus.h"
 #endif // DEBUG
 
+const unsigned char *encryption_key;
+thread_local int session_nr;
+thread_local uint64_t current_seq_number = 0;
+
 erpc::Nexus *nexus;
-erpc::Rpc<erpc::CTransport> *client_rpc = nullptr;
-
-uint64_t current_seq_number = 0;
-
-unsigned char *encryption_key;
-
-/* TODO: Map from Sequence numbers to buffers for multiple requests */
-/* TODO: Use data structure for multiple sessions + context */
-int session_nr = -1;
+thread_local erpc::Rpc<erpc::CTransport> *client_rpc = nullptr;
 
 struct sent_message_tag{
     anchor_client::status_callback *callback;
