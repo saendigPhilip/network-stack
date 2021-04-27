@@ -11,6 +11,8 @@
 #include "nexus.h"
 #endif // DEBUG
 
+const size_t connection_tries = 64;
+
 const unsigned char *encryption_key;
 thread_local int session_nr;
 thread_local uint64_t current_seq_number = 0;
@@ -39,6 +41,7 @@ void free_message_tag(struct sent_message_tag *tag) {
     delete tag->response;
     free(tag);
 }
+
 
 struct sent_message_tag *new_message_tag(
         anchor_client::status_callback *callback, const void *user_tag) {
@@ -145,12 +148,15 @@ int initialize_client(std::string client_hostname, uint16_t udp_port, uint8_t id
 
 
 /**
- * Connects to a server at server_hostname:udp_port
- * Tries to connect with given number of iterations
+ * Connects to a anchor server
+ * @param server_hostname Hostname of the anchor server
+ * @param udp_port Port on which the communication takes place
+ * @param id Assumption: The client ID was agreed on in an initial handshake
+ *          It is used in the sequence number
  * @return negative value if an error occurs. Otherwise the eRPC session number is returned
  */
 int anchor_client::connect(std::string server_hostname,
-        unsigned int udp_port, uint8_t id, size_t try_iterations) {
+        unsigned int udp_port, uint8_t id) {
     if (0 > initialize_client(kClientHostname, kUDPPort, id)) {
         cerr << "Failed to initialize client!" << endl;
         return -1;
@@ -169,10 +175,10 @@ int anchor_client::connect(std::string server_hostname,
             " Could not establish session with server at " << server_uri << endl;
         return session_nr;
     }
-    for (size_t i = 0; i < try_iterations && !client_rpc->is_connected(session_nr); i++)
+    for (size_t i = 0; i < connection_tries && !client_rpc->is_connected(session_nr); i++)
         client_rpc->run_event_loop_once();
     if (!client_rpc->is_connected(session_nr)) {
-        cerr << "Could not reach the server within " << try_iterations << " tries" << endl;
+        cerr << "Could not reach the server" << endl;
         return -1;
     }
     else
@@ -227,7 +233,12 @@ void send_message(struct sent_message_tag *tag, int timeout) {
 /**
  * @param key Server address to read from
  * @param key_len Size of address
- * @return 0 on success, -1 if something went wrong
+ * @param value Value whose key we want to get
+ * @param max_value_len Maximum length the returned value can have
+ * @param callback Callback that is called if a server response is received
+ * @param user_tag Arbitrary tag a user can specify to re-identify his request
+ * @param timeout Maximum time to wait for the server's response
+ * @return 0 on success, -1 on error
  */
 int anchor_client::get(const void *key, size_t key_len,
         void *value, size_t max_value_len,
@@ -280,7 +291,18 @@ err_get:
     return ret;
 }
 
-
+/**
+ * Method that is called by clients to put a value for a certain key to the
+ * server KV-store
+ * @param key Key whose value is updated/inserted
+ * @param key_len Length of key
+ * @param value Value that is put to the KV-store
+ * @param value_len Length of value
+ * @param callback Callback that is called if the server responds to the request
+ * @param user_tag Arbitrary tag a user can specify to re-identify his request
+ * @param timeout Maximum time to wait for the server response
+ * @return 0 on success, -1 on error
+ */
 int anchor_client::put(const void *key, size_t key_len,
         const void *value, size_t value_len,
         anchor_client::status_callback *callback, const void *user_tag,
@@ -331,6 +353,16 @@ err_put:
 }
 
 
+/**
+ * Method that can be called by clients to delete a key-value pair from the
+ * server KV-store
+ * @param key Key to be deleted
+ * @param key_len Length of key
+ * @param callback Callback that is called if we get a response from the server
+ * @param user_tag Arbitrary tag a user can specify to re-identify his request
+ * @param timeout Maximum time to wait for the server response
+ * @return 0 on success, -1 on error
+ */
 int anchor_client::del(const char *key, size_t key_len,
         anchor_client::status_callback *callback, const void *user_tag,
         unsigned int timeout=10) {
@@ -376,6 +408,5 @@ err_delete:
     }
     free_message_tag(tag);
     return -1;
-
 }
 

@@ -27,9 +27,25 @@ anchor_server::get_function kv_get;
 anchor_server::put_function kv_put;
 anchor_server::delete_function kv_delete;
 
-/* Hosts an RPC server */
-int anchor_server::host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis,
-        const unsigned char *encryption_key, uint8_t number_clients, size_t num_bg_threads,
+/**
+ * Hosts a server that answers client put/get/delete requests
+ *
+ * @param hostname Hostname of the server
+ * @param udp_port Port to listen on
+ * @param timeout_millis Time for which the server should run
+ * @param encryption_key Network key to use for en-/decryption of the messages
+ * @param number_clients Maximum number of client to be supported
+ * @param num_bg_threads Number of eRPC background threads for handling requests
+ * @param get Function of the KV-Store that is called on client get-requests
+ * @param put Function of the KV-Store that is called on client put-requests
+ * @param del Function of the KV-Store that is called on client delete-requests
+ * @return 0 if Server was hosted successfully, -1 on error
+ */
+int anchor_server::host_server(
+        std::string hostname, uint16_t udp_port,
+        size_t timeout_millis,
+        const unsigned char *encryption_key,
+        uint8_t number_clients, size_t num_bg_threads,
         get_function get, put_function put, delete_function del) {
 
     std::string server_uri = hostname + ":" + std::to_string(udp_port);
@@ -76,6 +92,9 @@ err_host_server:
     return -1;
 }
 
+/**
+ * Closes the connection that was before opened by a call to host_server
+ */
 void anchor_server::close_connection() {
     delete rpc_host;
     delete nexus;

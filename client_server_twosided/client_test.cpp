@@ -14,7 +14,7 @@ int main() {
     std::string server_hostname = "192.168.0.0";
     uint16_t port = 31850;
     uint8_t id = 0;
-    if (0 > anchor_client::connect(server_hostname, port, id, 100))
+    if (0 > anchor_client::connect(server_hostname, port, id))
         return -1;
 
     const char test_key[] = "0";
