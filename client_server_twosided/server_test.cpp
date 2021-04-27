@@ -174,7 +174,7 @@ int main(void) {
     const uint16_t standard_udp_port = 31850;
     uint8_t num_clients = 1;
     if (anchor_server::host_server(ip, standard_udp_port, 100000,
-            key_do_not_use, num_clients, kv_get, kv_put, kv_delete)) {
+            key_do_not_use, num_clients, 0, kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
         return ret;
     }

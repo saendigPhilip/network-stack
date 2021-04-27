@@ -29,12 +29,12 @@ anchor_server::delete_function kv_delete;
 
 /* Hosts an RPC server */
 int anchor_server::host_server(std::string hostname, uint16_t udp_port, size_t timeout_millis,
-        const unsigned char *encryption_key, uint8_t number_clients,
+        const unsigned char *encryption_key, uint8_t number_clients, size_t num_bg_threads,
         get_function get, put_function put, delete_function del) {
 
     std::string server_uri = hostname + ":" + std::to_string(udp_port);
     if (!nexus)
-        nexus = new erpc::Nexus(server_uri, 0, 0);
+        nexus = new erpc::Nexus(server_uri, 0, num_bg_threads);
 
     if (nexus->register_req_func(0, req_handler)) {
         cerr << "Failed to host Server" << endl;
@@ -68,6 +68,7 @@ int anchor_server::host_server(std::string hostname, uint16_t udp_port, size_t t
      *          introduce variable for closing connections
      */
     rpc_host->run_event_loop(timeout_millis);
+    close_connection();
     return 0;
 
 err_host_server:
