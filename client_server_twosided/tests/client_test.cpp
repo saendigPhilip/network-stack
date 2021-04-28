@@ -11,8 +11,12 @@ void test_callback(int status, const void *tag) {
     EXPECT_EQUAL(test_key, tag);
 }
 
-int main() {
-    std::string server_hostname = "192.168.0.0";
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        cerr << "Usage: " << argv[0] << " <ip-address>" << endl;
+        return -1;
+    }
+    std::string server_hostname(argv[1]);
     uint16_t port = 31850;
     uint8_t id = 0;
     if (0 > anchor_client::connect(server_hostname, port, id))

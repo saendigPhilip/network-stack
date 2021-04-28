@@ -199,10 +199,14 @@ int kv_delete(const void *key, size_t) {
         return -1;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
     // test_encryption();
+    if (argc < 2) {
+        cerr << "Usage: " << argv[0] << " <ip-address>" << endl;
+        return -1;
+    }
     int ret = -1;
-    std::string ip = "192.168.2.113";
+    std::string ip(argv[1]);
     const uint16_t standard_udp_port = 31850;
     const uint8_t num_clients = 1;
     if (anchor_server::host_server(ip, standard_udp_port,
