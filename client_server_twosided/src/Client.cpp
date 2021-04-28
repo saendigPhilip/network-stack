@@ -13,7 +13,7 @@
 
 const size_t connection_tries = 64;
 
-const unsigned char *encryption_key;
+const unsigned char *enc_key;
 thread_local int session_nr;
 thread_local uint64_t current_seq_number = 0;
 
@@ -84,7 +84,7 @@ void decrypt_cont_func(void *, void *message_tag) {
         goto end_decrypt_cont_func;
 
 
-    if (0 > decrypt_message(encryption_key, &incoming_header,
+    if (0 > decrypt_message(enc_key, &incoming_header,
             &payload, tag->response->buf, tag->response->get_data_size()))
         goto end_decrypt_cont_func;
 
@@ -161,12 +161,13 @@ int initialize_client(std::string client_hostname, uint16_t udp_port, uint8_t id
  * @return negative value if an error occurs. Otherwise the eRPC session number is returned
  */
 int anchor_client::connect(std::string server_hostname,
-        unsigned int udp_port, uint8_t id) {
+        unsigned int udp_port, uint8_t id, const unsigned char *encryption_key) {
     if (0 > initialize_client(kClientHostname, kUDPPort, id)) {
         cerr << "Failed to initialize client!" << endl;
         return -1;
     }
     std::string server_uri = server_hostname + ":" + std::to_string(udp_port);
+    enc_key = encryption_key;
     if (client_rpc) {
         cout << "Already connected. Disconnecting old connection" << endl;
         (void) anchor_client::disconnect();
@@ -278,7 +279,7 @@ int anchor_client::get(const void *key, size_t key_len,
     tag->value = value;
     enc_payload = { (unsigned char *) key, nullptr, 0 };
 
-    if (0 != encrypt_message(encryption_key, &(tag->header),
+    if (0 != encrypt_message(enc_key, &(tag->header),
             &enc_payload, (unsigned char **) &(tag->request->buf)))
         goto err_get;
 
@@ -341,7 +342,7 @@ int anchor_client::put(const void *key, size_t key_len,
     tag->user_tag = user_tag;
     enc_payload = { (unsigned char *) key, (unsigned char *) value, value_len };
 
-    if (0 > encrypt_message(encryption_key, &(tag->header),
+    if (0 > encrypt_message(enc_key, &(tag->header),
             &enc_payload, (unsigned char **) &(tag->request->buf)))
         goto err_put;
 
@@ -399,7 +400,7 @@ int anchor_client::del(const void *key, size_t key_len,
     tag->value = nullptr;
     payload ={ (unsigned char *) key, nullptr, 0 };
 
-    if (0 > encrypt_message(encryption_key,
+    if (0 > encrypt_message(enc_key,
             &(tag->header), &payload, (unsigned char **)tag->request->buf))
         goto err_delete;
 

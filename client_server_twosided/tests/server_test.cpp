@@ -11,9 +11,6 @@
 
 #define MAX_TEST_SIZE (1 << 16)
 
-static const unsigned char key_do_not_use[16] =
-        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-
 char *test_kv_store[TEST_KV_SIZE];
 
 int test_pre_alloc(size_t key_size, size_t value_size,

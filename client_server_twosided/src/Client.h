@@ -7,7 +7,8 @@ using namespace std;
 namespace anchor_client {
     typedef void status_callback(int, const void *);
 
-    int connect(std::string server_hostname, unsigned int udp_port, uint8_t id);
+    int connect(std::string server_hostname, unsigned int udp_port, 
+                uint8_t id, const unsigned char *encryption_key);
 
     int disconnect();
 

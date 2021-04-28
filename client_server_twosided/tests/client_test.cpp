@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     std::string server_hostname(argv[1]);
     uint16_t port = 31850;
     uint8_t id = 0;
-    if (0 > anchor_client::connect(server_hostname, port, id))
+    if (0 > anchor_client::connect(server_hostname, port, id, key_do_not_use))
         return -1;
 
 
