@@ -14,6 +14,8 @@
 static const unsigned char key_do_not_use[16] =
         {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
+char *test_kv_store[TEST_KV_SIZE];
+
 int test_pre_alloc(size_t key_size, size_t value_size,
         struct rdma_dec_payload *dec_payload, unsigned char **ciphertext) {
 
@@ -154,18 +156,47 @@ free_huge:
     PRINT_TEST_SUMMARY();
 }
 
-void *kv_get(const void *, size_t, size_t *) {
-    return nullptr;
+long int get_index(const char *key) {
+    char *err;
+    long int index = (size_t) strtol(key, &err, 0);
+    if (*key != '\0' && *err == '\0' && index >= 0 && (size_t) index < TEST_KV_SIZE) {
+        return index;
+    }
+    return -1;
+}
+
+void *kv_get(const void *key, size_t, size_t *data_len) {
+    long int index = get_index((char *) key);
+    if (index >= 0) {
+        *data_len = strlen(test_kv_store[index]) + 1;
+        return (void*) (test_kv_store + index);
+    }
+    else 
+        return nullptr;
 }
 
 
 /* Dummy for put function */
-int kv_put(const void *, size_t, const void *, size_t) {
-    return 0;
+int kv_put(const void *key, size_t, void *value, size_t) {
+    long int index = get_index((char *) key);
+    if (index >= 0) {
+        free(test_kv_store[index]);
+        test_kv_store[index] = (char *) value;
+        return 0;
+    }
+    else 
+        return -1;
 }
 
-int kv_delete(const void *, size_t) {
-    return 0;
+int kv_delete(const void *key, size_t) {
+    long int index = get_index((char *) key);
+    if (index >= 0) {
+        free(test_kv_store[index]);
+        test_kv_store[index] = nullptr;
+        return 0;
+    }
+    else 
+        return -1;
 }
 
 int main(void) {
