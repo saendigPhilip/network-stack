@@ -7,6 +7,7 @@
 #include "client_server_common.h"
 #include "Server.h"
 #include "simple_unit_test.h"
+#include "test_common.h"
 
 #define MAX_TEST_SIZE (1 << 16)
 
@@ -172,12 +173,15 @@ int main(void) {
     int ret = -1;
     std::string ip = "192.168.2.113";
     const uint16_t standard_udp_port = 31850;
-    uint8_t num_clients = 1;
-    if (anchor_server::host_server(ip, standard_udp_port, 100000,
-            key_do_not_use, num_clients, 0, kv_get, kv_put, kv_delete)) {
+    const uint8_t num_clients = 1;
+    if (anchor_server::host_server(ip, standard_udp_port,
+            key_do_not_use, num_clients, 0,
+            TEST_MAX_KEY_SIZE + TEST_MAX_VAL_SIZE,
+            kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
         return ret;
     }
+    anchor_server::run_event_loop(100000);
     cout << "Shutting down server" << endl;
 
     anchor_server::close_connection();

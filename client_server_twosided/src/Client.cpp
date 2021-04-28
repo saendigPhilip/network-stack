@@ -4,8 +4,8 @@
 #include "client_server_common.h"
 
 #ifdef DEBUG
-#include "../src/rpc.h"
-#include "../src/nexus.h"
+#include "../../src/rpc.h"
+#include "../../src/nexus.h"
 #else
 #include "rpc.h"
 #include "nexus.h"
@@ -202,8 +202,8 @@ int allocate_req_buffers(
         erpc::MsgBuffer *req, size_t req_size,
         erpc::MsgBuffer *resp, size_t resp_size) {
     try {
-        *req = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(req_size));
-        *resp = client_rpc->alloc_msg_buffer(CIPHERTEXT_SIZE(resp_size));
+        *req = client_rpc->alloc_msg_buffer(req_size);
+        *resp = client_rpc->alloc_msg_buffer(resp_size);
     } catch (const runtime_error &) {
         cerr << "Fatal error while allocating memory for request" << endl;
         goto err_allocate_req_buffers;
@@ -220,14 +220,15 @@ err_allocate_req_buffers:
     return -1;
 }
 
-void send_message(struct sent_message_tag *tag, int timeout) {
+void send_message(struct sent_message_tag *tag, size_t times) {
 
     /* Skip the sequence number for the server response */
     current_seq_number = NEXT_SEQ(NEXT_SEQ(current_seq_number));
 
     client_rpc->enqueue_request(session_nr, DEFAULT_REQ_TYPE,
             tag->request, tag->response, decrypt_cont_func, (void *)tag);
-    client_rpc->run_event_loop(timeout);
+    for (size_t i = 0; i < times; i++)
+        client_rpc->run_event_loop_once();
 }
 
 /**

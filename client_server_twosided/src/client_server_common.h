@@ -1,9 +1,12 @@
 #ifndef RDMA_COMMON_METHODS
 #define RDMA_COMMON_METHODS
 
+#include <iostream>
+using namespace std;
+
+
 #define CIPHERTEXT_SIZE(payload_size) (MIN_MSG_LEN + (payload_size))
 #define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
-
 
 /*
  * Macros for handling seq_op numbers. seq_op is 64 bit and looks like this:
@@ -11,7 +14,6 @@
  * | Sequence number (54 bit) | ID (8 bit) | OP (2 bit) |
  * +--------------------------+------------+------------+
  */
-
 #define SEQ_MASK ~((uint64_t) 0x3ff)    // ~(11 1111 1111)
 #define ID_MASK (uint64_t) 0x3fc        //   11 1111 1100
 #define OP_MASK (uint64_t) 0x3          //   00 0000 0011
@@ -25,9 +27,6 @@
 #define SET_OP(seq_number, op) (((seq_number) & ~OP_MASK) | (op))
 #define SET_ID(seq_number, id) \
     (((seq_number) & SEQ_MASK) | ((uint64_t) (id) << 2))
-
-#include <iostream>
-using namespace std;
 
 
 // #define DEBUG

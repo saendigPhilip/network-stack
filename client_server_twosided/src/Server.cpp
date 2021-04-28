@@ -3,8 +3,8 @@
 #include "client_server_common.h"
 
 #ifdef DEBUG
-#include "../src/rpc.h"
-#include "../src/nexus.h"
+#include "../../src/rpc.h"
+#include "../../src/nexus.h"
 #else
 #include "rpc.h"
 #include "nexus.h"
@@ -17,6 +17,7 @@ erpc::Nexus *nexus = nullptr;
 const unsigned char *enc_key = nullptr;
 uint64_t *next_seq_numbers;
 size_t num_clients;
+size_t max_msg_size;
 
 void req_handler(erpc::ReqHandle *, void *);
 void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
@@ -32,10 +33,10 @@ anchor_server::delete_function kv_delete;
  *
  * @param hostname Hostname of the server
  * @param udp_port Port to listen on
- * @param timeout_millis Time for which the server should run
  * @param encryption_key Network key to use for en-/decryption of the messages
  * @param number_clients Maximum number of client to be supported
  * @param num_bg_threads Number of eRPC background threads for handling requests
+ * @param max_entry_size Size of biggest key-value-pair in the KV-store
  * @param get Function of the KV-Store that is called on client get-requests
  * @param put Function of the KV-Store that is called on client put-requests
  * @param del Function of the KV-Store that is called on client delete-requests
@@ -43,10 +44,18 @@ anchor_server::delete_function kv_delete;
  */
 int anchor_server::host_server(
         std::string hostname, uint16_t udp_port,
-        size_t timeout_millis,
         const unsigned char *encryption_key,
         uint8_t number_clients, size_t num_bg_threads,
+        size_t max_entry_size,
         get_function get, put_function put, delete_function del) {
+
+    max_msg_size = CIPHERTEXT_SIZE(max_entry_size);
+    if (max_msg_size > erpc::Rpc<erpc::CTransport>::kMaxMsgSize) {
+        cerr << "Maximum entry size is too big. Not supported (yet)" << endl;
+        cerr << "Maximum supported entry size: ";
+        cerr << PAYLOAD_SIZE(erpc::Rpc<erpc::CTransport>::kMaxMsgSize) << endl;
+        return -1;
+    }
 
     std::string server_uri = hostname + ":" + std::to_string(udp_port);
     if (!nexus)
@@ -79,17 +88,22 @@ int anchor_server::host_server(
         cerr << "Failed to host Server" << endl;
         goto err_host_server;
     }
+    rpc_host->set_pre_resp_msgbuf_size(CIPHERTEXT_SIZE(max_entry_size));
 
-    /* TODO: replace this with an endless while-loop and run_once()/
-     *          introduce variable for closing connections
-     */
-    rpc_host->run_event_loop(timeout_millis);
-    close_connection();
     return 0;
 
 err_host_server:
     delete nexus;
     return -1;
+}
+
+void anchor_server::run_event_loop(size_t timeout_millis) {
+    rpc_host->run_event_loop(timeout_millis);
+}
+
+void anchor_server::run_event_loop_n_times(size_t n) {
+    for (size_t i = 0; i < n; i++)
+        rpc_host->run_event_loop_once();
 }
 
 /**
@@ -135,27 +149,27 @@ void send_encrypted_response(erpc::ReqHandle *req_handle,
         struct rdma_msg_header *header, struct rdma_enc_payload *payload) {
 
     unsigned char *ciphertext;
-    erpc::MsgBuffer resp_buffer;
+    erpc::MsgBuffer *resp_buffer;
     /* The server never sends back a key, so the value length is sufficient */
     size_t ciphertext_size = CIPHERTEXT_SIZE(payload->value_len);
-    try {
-        resp_buffer = rpc_host->alloc_msg_buffer(ciphertext_size);
-    } catch (const runtime_error &) {
-        cerr << "Error allocating memory for response" << endl;
+    if (ciphertext_size > max_msg_size) {
+        cerr << "Answer too long for pre-allocated message buffer" << endl;
         return;
     }
-    ciphertext = (unsigned char *) resp_buffer.buf;
+    resp_buffer = &(req_handle->pre_resp_msgbuf);
+    rpc_host->resize_msg_buffer(resp_buffer, ciphertext_size);
+    ciphertext = (unsigned char *) resp_buffer->buf;
     if (!ciphertext) {
         cerr << "Memory Allocation failure" << endl;
         return;
     }
 
     if (0 != encrypt_message(enc_key, header, payload, &ciphertext)) {
-        rpc_host->free_msg_buffer(resp_buffer);
+        rpc_host->free_msg_buffer(*resp_buffer);
         return;
     }
 
-    rpc_host->enqueue_response(req_handle, &resp_buffer);
+    rpc_host->enqueue_response(req_handle, resp_buffer);
 
 }
 
