@@ -391,7 +391,7 @@ int anchor_client::del(const char *key, size_t key_len,
 
     tag->header = { delete_seq_number, key_len };
     tag->value = nullptr;
-    payload = (struct rdma_enc_payload) { (unsigned char *) key, nullptr, 0 };
+    payload ={ (unsigned char *) key, nullptr, 0 };
 
     if (0 > encrypt_message(encryption_key,
             &(tag->header), &payload, (unsigned char **)tag->request->buf))

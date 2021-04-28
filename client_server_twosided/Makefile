@@ -4,23 +4,32 @@
 #   * If DTRANSPORT=raw, use `make raw`
 #   * If DTRANSPORT=infiniband, use `make infiniband`
 LIBS = -lerpc -lpthread -lnuma -ldl -lssl -lcrypto
-FLAGS = -g -Wall -Wextra
-SERVER = Server.cpp server_test.cpp
-CLIENT = Client.cpp client_test.cpp
-COMMON = client_server_common.cpp
+FLAGS = -g -Wall -Wextra -Wpedantic 
+OUT = build
+SRC = src
+TEST = tests
+COMMON = $(SRC)/client_server_common.cpp
+SERVER = $(SRC)/Server.cpp $(TEST)/server_test.cpp -o $(OUT)/server_test -I $(SRC)/
+CLIENT = $(SRC)/Client.cpp $(TEST)/client_test.cpp -o $(OUT)/client_test -I $(SRC)/
+ERPC = ..
+INCLUDE_DPDK = -I /usr/usr/local/include/dpdk 
+LINK_DPDK = -L /usr/usr/local/lib/ -ldpdk 
 
 error:
 	@echo "Please choose one of the following targets: infiniband, raw, dpdk, clean"
 	@exit 2
 infiniband:
-	g++ $(FLAGS) -std=c++11 -o server $(SERVER) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true #-fsanitize=address
-	g++ $(FLAGS) -std=c++11 -o client $(CLIENT) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_INFINIBAND=true #-fsanitize=address
+	mkdir -p $(OUT)
+	g++ $(FLAGS) -std=c++14 $(SERVER) $(COMMON) -isystem $(ERPC)/src -L $(ERPC)/build $(LIBS) -libverbs -DERPC_INFINIBAND=true #-fsanitize=address
+	g++ $(FLAGS) -std=c++14 $(CLIENT) $(COMMON) -isystem $(ERPC)/src -L $(ERPC)/build $(LIBS) -libverbs -DERPC_INFINIBAND=true #-fsanitize=address
 raw:                                                                          
-	g++ $(FLAGS) -std=c++11 -o server $(SERVER) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_RAW=true
-	g++ $(FLAGS) -std=c++11 -o client $(CLIENT) $(COMMON) -isystem ../src -L ../build $(LIBS) -libverbs -DERPC_RAW=true
+	mkdir -p $(OUT)
+	g++ $(FLAGS) -std=c++14 $(SERVER) $(COMMON) -isystem $(ERPC)/src -L $(ERPC)/build $(LIBS) -libverbs -DERPC_RAW=true
+	g++ $(FLAGS) -std=c++14 $(CLIENT) $(COMMON) -isystem $(ERPC)/src -L $(ERPC)/build $(LIBS) -libverbs -DERPC_RAW=true
 dpdk:                                                    
-	g++ $(FLAGS) -std=c++11 -o server $(SERVER) $(COMMON) -isystem ../src -I /usr/local/include/dpdk -L ../build $(LIBS) -ldpdk -DERPC_DPDK=true -march=native
-	g++ $(FLAGS) -std=c++11 -o client $(CLIENT) $(COMMON) -isystem ../src -I /usr/local/include/dpdk -L ../build $(LIBS) -ldpdk -DERPC_DPDK=true -march=native
+	mkdir -p $(OUT)
+	g++ $(FLAGS) -std=c++14 $(SERVER) $(COMMON) -isystem $(ERPC)/src -L $(ERPC)/build $(LIBS) $(INCLUDE_DPDK) $(LINK_DPDK) -DERPC_DPDK=true -march=native
+	g++ $(FLAGS) -std=c++14 $(CLIENT) $(COMMON) -isystem $(ERPC)/src -L $(ERPC)/build $(LIBS) $(INCLUDE_DPDK) $(LINK_DPDK) -DERPC_DPDK=true -march=native
 clean:
-	rm server client
+	rm $(OUT)/server $(OUT)/client
 
