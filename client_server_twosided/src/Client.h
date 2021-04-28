@@ -13,13 +13,13 @@ namespace anchor_client {
 
     int get(const void *key, size_t key_len,
             void *value, size_t max_value_len,
-            status_callback *callback, const void *user_tag, unsigned int timeout);
+            status_callback *callback, const void *user_tag, size_t loop_iterations=100);
 
     int put(const void *key, size_t key_len, const void *value, size_t value_len,
-            status_callback *callback, const void *user_tag, unsigned int timeout);
+            status_callback *callback, const void *user_tag, size_t loop_iterations=100);
 
-    int del(const char *key, size_t key_len,
-            status_callback *callback, const void *user_tag, unsigned int timeout);
+    int del(const void *key, size_t key_len,
+            status_callback *callback, const void *user_tag, size_t loop_iterations=100);
 }
 
 

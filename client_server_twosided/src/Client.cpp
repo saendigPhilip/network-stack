@@ -220,14 +220,14 @@ err_allocate_req_buffers:
     return -1;
 }
 
-void send_message(struct sent_message_tag *tag, size_t times) {
+void send_message(struct sent_message_tag *tag, size_t loop_iterations) {
 
     /* Skip the sequence number for the server response */
     current_seq_number = NEXT_SEQ(NEXT_SEQ(current_seq_number));
 
     client_rpc->enqueue_request(session_nr, DEFAULT_REQ_TYPE,
             tag->request, tag->response, decrypt_cont_func, (void *)tag);
-    for (size_t i = 0; i < times; i++)
+    for (size_t i = 0; i < loop_iterations; i++)
         client_rpc->run_event_loop_once();
 }
 
@@ -244,7 +244,7 @@ void send_message(struct sent_message_tag *tag, size_t times) {
 int anchor_client::get(const void *key, size_t key_len,
         void *value, size_t max_value_len,
         anchor_client::status_callback *callback, const void *user_tag,
-        unsigned int timeout=10) {
+        size_t loop_iterations) {
 
     if (!key)
         return -1;
@@ -278,7 +278,7 @@ int anchor_client::get(const void *key, size_t key_len,
         goto err_get;
 
 
-    send_message(tag, timeout);
+    send_message(tag, loop_iterations);
 
     return 0;
 
@@ -307,7 +307,7 @@ err_get:
 int anchor_client::put(const void *key, size_t key_len,
         const void *value, size_t value_len,
         anchor_client::status_callback *callback, const void *user_tag,
-        unsigned int timeout=10) {
+        size_t loop_iterations) {
 
     if (!(key && value)) {
         return -1;
@@ -340,7 +340,7 @@ int anchor_client::put(const void *key, size_t key_len,
             &enc_payload, (unsigned char **) &(tag->request->buf)))
         goto err_put;
 
-    send_message(tag, timeout);
+    send_message(tag, loop_iterations);
 
     return 0;
 
@@ -364,9 +364,9 @@ err_put:
  * @param timeout Maximum time to wait for the server response
  * @return 0 on success, -1 on error
  */
-int anchor_client::del(const char *key, size_t key_len,
+int anchor_client::del(const void *key, size_t key_len,
         anchor_client::status_callback *callback, const void *user_tag,
-        unsigned int timeout=10) {
+        size_t loop_iterations) {
 
     if (!key) {
         return -1;
@@ -398,7 +398,7 @@ int anchor_client::del(const char *key, size_t key_len,
             &(tag->header), &payload, (unsigned char **)tag->request->buf))
         goto err_delete;
 
-    send_message(tag, timeout);
+    send_message(tag, loop_iterations);
 
     return 0;
 
