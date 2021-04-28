@@ -131,7 +131,6 @@ void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
 
 int initialize_client(std::string client_hostname, uint16_t udp_port, uint8_t id) {
     std::string client_uri = client_hostname + ":" + std::to_string(udp_port);
-    erpc::Nexus nexus(client_uri, 0, 0);
     if (RAND_status() != 1) {
         if (RAND_poll() != 1) {
             cerr << "Couldn't initialize RNG" << endl;
@@ -142,7 +141,13 @@ int initialize_client(std::string client_hostname, uint16_t udp_port, uint8_t id
         cerr << "Could not create initial random sequence number" << endl;
         return -1;
     }
+    if (!nexus) {
+        nexus = new erpc::Nexus(client_uri, 0, 0);
+        if (!nexus)
+            return -1;
+    }
     current_seq_number = SET_ID(current_seq_number, id);
+    
     return 0;
 }
 
