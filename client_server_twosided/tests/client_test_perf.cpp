@@ -9,7 +9,7 @@
 char test_value[TEST_MAX_VAL_SIZE];
 char incoming_test_value[TEST_MAX_VAL_SIZE];
 
-thread_local uint64_t successful_puts = 0, successful_gets = 0;
+thread_local size_t successful_puts = 0, successful_gets = 0;
 thread_local unsigned char value_buf[TEST_MAX_VAL_SIZE];
 thread_local uint64_t *total_time, *success_time;
 
@@ -120,12 +120,8 @@ void *test_thread(void *args) {
 }
 
 void fill_params_structs(std::string hostname, uint16_t port, 
-        struct test_params *params) {
+        struct test_params *params, size_t requests_per_client) {
     
-    size_t loss_compensation = (TOTAL_REQUESTS / (TOTAL_CLIENTS * 16));
-    size_t requests_per_client = TOTAL_REQUESTS / TOTAL_CLIENTS + 
-        loss_compensation;
-
     struct test_params default_params = { 
         hostname, 
         port, 
@@ -144,6 +140,30 @@ void fill_params_structs(std::string hostname, uint16_t port,
 }
 
 
+void print_summary(bool all, struct test_params *params, 
+        size_t reqs_per_client) {
+
+    size_t suc_gets = params->get_requests;
+    size_t suc_puts = params->put_requests;
+    size_t total_gets = reqs_per_client / 2;
+    size_t total_puts = reqs_per_client / 2;
+    uint64_t suc_time = params->success_time_ns;
+    uint64_t total_time = params->total_time_ns;
+
+    if (all)
+        printf("\n\n--------------------Summary--------------------\n\n\n");
+    else 
+        printf("Thread %2i: \n", params->id);
+
+    printf("get(): %zu/%zu, put(): %zu/%zu successful\n", 
+        suc_gets, total_gets, suc_puts, total_puts);
+    printf("Time successful: %lu ns; all: %lu ns.\n",
+        suc_time, total_time);
+    printf("Average time per response: successful: %f; total: %f\n\n", 
+        (double) suc_time / (double) reqs_per_client, 
+        (double) total_time / (double) reqs_per_client);
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         cerr << "Usage: " << argv[0] << " <ip-address>" << endl;
@@ -153,7 +173,11 @@ int main(int argc, char *argv[]) {
     uint16_t port = 31850;
     struct test_params params[TOTAL_CLIENTS];
     pthread_t threads[TOTAL_CLIENTS];
-    fill_params_structs(server_hostname, port, params);
+    size_t loss_compensation = (TOTAL_REQUESTS / (TOTAL_CLIENTS * 16));
+    size_t requests_per_client = TOTAL_REQUESTS / TOTAL_CLIENTS + 
+        loss_compensation;
+
+    fill_params_structs(server_hostname, port, params, requests_per_client);
     
     /* Launch requester threads: */
     for (uint8_t i = 0; i < TOTAL_CLIENTS; i++) {
@@ -166,10 +190,22 @@ int main(int argc, char *argv[]) {
 
     /* Wait for requester threads to finish: */
     struct test_params *ret_param;
+    struct test_params final;
+    final.get_requests = 0;
+    final.put_requests = 0;
+    final.success_time_ns = 0;
+    final.total_time_ns = 0;
     for (uint8_t i = 0; i < TOTAL_CLIENTS; i++) {
         if (pthread_join(threads[i], (void **) &ret_param)) {
             if (!ret_param) {
                 cerr << "Thread " << i << " exited with an error" << endl;
+            }
+            else {
+                print_summary(false, ret_param, requests_per_client);
+                final.get_requests += ret_param->get_requests;
+                final.put_requests += ret_param->put_requests;
+                final.success_time_ns += ret_param->success_time_ns;
+                final.total_time_ns += ret_param->total_time_ns;
             }
         }
     }
