@@ -14,7 +14,6 @@
 
 erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
 erpc::Nexus *nexus = nullptr;
-const unsigned char *enc_key = nullptr;
 uint64_t *next_seq_numbers;
 size_t num_clients;
 size_t max_msg_size;
@@ -164,7 +163,8 @@ void send_encrypted_response(erpc::ReqHandle *req_handle,
         return;
     }
 
-    if (0 != encrypt_message(enc_key, header, payload, &ciphertext)) {
+    if (0 != encrypt_message(header, payload, &ciphertext)) {
+        rpc_host->free_msg_buffer(*resp_buffer);
         return;
     }
 
@@ -270,7 +270,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
         return;
     }
 
-    if (0 != decrypt_message(enc_key, &header, &payload, ciphertext, ciphertext_size))
+    if (0 != decrypt_message(&header, &payload, ciphertext, ciphertext_size))
         goto end_req_handler;
 
     /* Check for replays by checking the sequence number: */

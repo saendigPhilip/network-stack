@@ -12,6 +12,7 @@
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
+const unsigned char *enc_key = nullptr;
 
 /* En-/decrypts data using EVP_CipherUpdate
  * Supports data lengths over (2^31 - 1) bytes
@@ -49,7 +50,6 @@ int cipher_update(EVP_CIPHER_CTX *aes_ctx,
 /**
  * Encrypts the header and the key/value that have to be placed in the corresponding
  * struct by the caller
- * @param encryption_key AES_GCM key to use for encryption
  * @param header Header data to encrypt
  * @param payload Payload data to encrypt
  * @param ciphertext Pointer to pointer where ciphertext is placed
@@ -57,13 +57,15 @@ int cipher_update(EVP_CIPHER_CTX *aes_ctx,
  *          by the caller. In this case, on error, the memory is freed by this method
  * @return 0 on success, -1 on error
  */
-int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_header *header,
-        const struct rdma_enc_payload *payload, unsigned char **ciphertext) {
+int encrypt_message(
+        const struct rdma_msg_header *header,
+        const struct rdma_enc_payload *payload, 
+        unsigned char **ciphertext) {
     int ret = -1;
     int length;
     bool to_free = false;
 
-    if (!(encryption_key && header && ciphertext && payload)){
+    if (!(enc_key && header && ciphertext && payload)){
         cerr << "encrypt_message: invalid parameters" << endl;
         return -1;
     }
@@ -92,7 +94,7 @@ int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_h
 
     /* Initialize Encryption, set position of IV: */
     if (1 != EVP_EncryptInit_ex(aes_ctx,
-            EVP_aes_128_gcm(), nullptr, encryption_key, ciphertext_pos)){
+            EVP_aes_128_gcm(), nullptr, enc_key, ciphertext_pos)){
         cerr << "encrypt_message: Could not initialize encryption of IV" << endl;
         goto end_encrypt;
     }
@@ -183,7 +185,6 @@ err_allocate_and_decrypt:
  * rdma_msg_header and a rdma_dec_payload struct.
  * The pointers in the rdma_dec_payload struct are allocated by this method and
  * have to be freed by the caller. On error, this method frees the pointers itself
- * @param decryption_key AES-GCM Key to use for decryption
  * @param header Header struct to store the header information
  * @param payload Payload struct where key and value information are stored
  *          in newly allocated pointers
@@ -191,11 +192,13 @@ err_allocate_and_decrypt:
  * @param ciphertext_len Length of ciphertext to decrypt
  * @return 0 on success, -1 on error
  */
-int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header *header,
-        struct rdma_dec_payload *payload, const unsigned char *ciphertext, size_t ciphertext_len) {
+int decrypt_message(
+        struct rdma_msg_header *header,
+        struct rdma_dec_payload *payload, 
+        const unsigned char *ciphertext, size_t ciphertext_len) {
 
     int ret = -1;
-    if (!(decryption_key && header && ciphertext && payload && ciphertext_len >= MIN_MSG_LEN)) {
+    if (!(header && ciphertext && payload && ciphertext_len >= MIN_MSG_LEN)) {
         cerr << "decrypt_message: Invalid parameters" << endl;
         return -1;
     }
@@ -212,7 +215,7 @@ int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header 
     }
 
     if (1 != EVP_DecryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL,
-            decryption_key, ciphertext + bytes_decrypted)){
+            enc_key, ciphertext + bytes_decrypted)){
         cerr << "decrypt_message: failed to initialize decryption" << endl;
         goto end_decrypt;
     }

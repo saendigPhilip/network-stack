@@ -77,11 +77,15 @@ static const std::string kClientHostname = "192.168.178.28";
 static constexpr uint16_t kUDPPort = 31850;
 static constexpr size_t kMsgSize = 4096;
 
+extern const unsigned char *enc_key;
 
-int encrypt_message(const unsigned char *encryption_key, const struct rdma_msg_header *header,
+int encrypt_message(
+        const struct rdma_msg_header *header,
         const struct rdma_enc_payload *payload, unsigned char **ciphertext);
 
-int decrypt_message(const unsigned char *decryption_key, struct rdma_msg_header *header,
-        struct rdma_dec_payload *payload, const unsigned char *ciphertext, size_t ciphertext_len);
+int decrypt_message(
+        struct rdma_msg_header *header,
+        struct rdma_dec_payload *payload, 
+        const unsigned char *ciphertext, size_t ciphertext_len);
 
 #endif // RDMA_COMMON_METHODS
