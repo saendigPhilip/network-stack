@@ -165,7 +165,6 @@ void send_encrypted_response(erpc::ReqHandle *req_handle,
     }
 
     if (0 != encrypt_message(enc_key, header, payload, &ciphertext)) {
-        rpc_host->free_msg_buffer(*resp_buffer);
         return;
     }
 
