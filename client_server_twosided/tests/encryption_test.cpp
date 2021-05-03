@@ -7,6 +7,7 @@
 
 #define MAX_TEST_SIZE (1 << 16)
 
+
 int test_pre_alloc(size_t key_size, size_t value_size,
         struct rdma_dec_payload *dec_payload, unsigned char **ciphertext) {
 
@@ -67,11 +68,11 @@ int single_test_encryption(bool pre_alloc,
 
     int header_cmp, key_cmp, value_cmp;
 
-    if (0 != encrypt_message(key_do_not_use, &enc_header, &enc_payload, &ciphertext)) {
+    if (0 != encrypt_message(&enc_header, &enc_payload, &ciphertext)) {
         cerr << "Encryption failed" << endl;
         goto end_test_encryption;
     }
-    if (0 != decrypt_message(key_do_not_use, &dec_header,
+    if (0 != decrypt_message(&dec_header,
             &dec_payload, ciphertext, ciphertext_size)) {
         cerr << "Decryption failed" << endl;
         goto end_test_encryption;
@@ -111,7 +112,8 @@ void execute_tests(unsigned char *key, size_t key_size, unsigned char *value, si
 
 
 /* Tests if encryption and decryption in client_server_common.h works: */
-int main(int argc, char *argv[]) {
+int main(void) {
+    enc_key = key_do_not_use;
     BEGIN_TEST_DELIMITER("encryption and decryption with NULL values");
     EXPECT_EQUAL(0, single_test_encryption(false, nullptr, 0, nullptr, 0));
     EXPECT_EQUAL(0, single_test_encryption(true, nullptr, 0, nullptr, 0));

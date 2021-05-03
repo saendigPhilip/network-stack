@@ -26,13 +26,8 @@ using namespace std;
 #define SET_ID(seq_number, id) \
     (((seq_number) & SEQ_MASK) | ((uint64_t) (id) << 2))
 
-#if NO_ENCRYPTION
-#define CIPHERTEXT_SIZE(payload_size) ((payload_size) + SEQ_LEN + SIZE_LEN)
-#define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - SEQ_LEN - SIZE_LEN)
-#else
 #define CIPHERTEXT_SIZE(payload_size) ((payload_size) + MIN_MSG_LEN)
 #define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
-#endif // NO_ENCRYPTION
 
 
 // #define DEBUG
@@ -75,7 +70,12 @@ struct rdma_dec_payload {
 */
 static constexpr size_t IV_LEN = 12, MAC_LEN = 16, SEQ_LEN = 8, SIZE_LEN = 8;
 static constexpr size_t ENC_KEY_LEN = 16;
+
+#if NO_ENCRYPTION
+static constexpr size_t MIN_MSG_LEN = SEQ_LEN + SIZE_LEN;
+#else
 static constexpr size_t MIN_MSG_LEN = IV_LEN + MAC_LEN + SEQ_LEN + SIZE_LEN;
+#endif // NO_ENCRYPTION
 
 static const std::string kServerHostname = "192.168.178.28";
 static const std::string kClientHostname = "192.168.178.28";

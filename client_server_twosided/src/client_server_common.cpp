@@ -242,11 +242,11 @@ int decrypt_message(
     bool free_key = false, free_value = false;
 
 #if NO_ENCRYPTION
-    header = (struct rdma_msg_header *) ciphertext;
+    (void) memcpy(header, ciphertext, sizeof(struct rdma_msg_header));
     ciphertext += sizeof(struct rdma_msg_header);
     ciphertext_len -= sizeof(struct rdma_msg_header);
     if (header->key_len > 0) {
-        if (header->key_len > PAYLOAD_SIZE(ciphertext_len)) {
+        if (header->key_len > ciphertext_len) {
             cerr << "decrypt_message: Wrong key length in header" << endl;
             return ret;
         }
