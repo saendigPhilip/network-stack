@@ -93,17 +93,11 @@ void decrypt_cont_func(void *, void *message_tag) {
             &payload, ciphertext, ciphertext_size))
         goto end_decrypt_cont_func;
 
-#if NO_ENCRYPTION
-    /* We don't need to check the sequence numbers if we don't encrypt */
-    (void) expected_op;
-    (void) incoming_op;
-#else
     expected_op = OP_FROM_SEQ_OP(tag->header.seq_op);
     incoming_op = OP_FROM_SEQ_OP(incoming_header.seq_op);
     if (incoming_header.seq_op != NEXT_SEQ(tag->header.seq_op)
             || expected_op != incoming_op)
         goto end_decrypt_cont_func;
-#endif // NO_ENCRYPTION
 
     ret = 0;
 end_decrypt_cont_func:

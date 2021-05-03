@@ -234,7 +234,6 @@ int decrypt_message(
         struct rdma_dec_payload *payload, 
         const unsigned char *ciphertext, size_t ciphertext_len) {
 
-    int ret = -1;
     if (!(header && ciphertext && payload && ciphertext_len >= MIN_MSG_LEN)) {
         cerr << "decrypt_message: Invalid parameters" << endl;
         return -1;
@@ -248,11 +247,11 @@ int decrypt_message(
     if (header->key_len > 0) {
         if (header->key_len > ciphertext_len) {
             cerr << "decrypt_message: Wrong key length in header" << endl;
-            return ret;
+            return -1;
         }
         if (0 > allocate_and_copy(&(payload->key), 
                 ciphertext, header->key_len, &free_key)) {
-            return ret;
+            return -1;
         }
         ciphertext += header->key_len;
         ciphertext_len -= header->key_len;
@@ -263,12 +262,13 @@ int decrypt_message(
 
             if (free_key) 
                 free(payload->key);
-            return ret;
+            return -1;
         }
         payload->value_len = ciphertext_len;
     }
     return 0;
 #else
+    int ret = -1;
     size_t expected_payload_len = PAYLOAD_SIZE(ciphertext_len);
     int64_t expected_value_len;
     size_t bytes_decrypted = 0;
