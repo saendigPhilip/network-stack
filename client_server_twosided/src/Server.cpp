@@ -265,10 +265,6 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
         return;
     }
     size_t ciphertext_size = ciphertext_buf->get_data_size();
-    if (ciphertext_size < MIN_MSG_LEN) {
-        cerr << "Message not long enough" << endl;
-        return;
-    }
 
     if (0 != decrypt_message(&header, &payload, ciphertext, ciphertext_size))
         goto end_req_handler;
@@ -295,6 +291,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
     }
 
 end_req_handler:
+    // TODO: Discuss with Dimitris about ownership
     free(payload.key);
     free(payload.value);
 }

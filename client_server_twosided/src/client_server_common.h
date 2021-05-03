@@ -4,9 +4,7 @@
 #include <iostream>
 using namespace std;
 
-
-#define CIPHERTEXT_SIZE(payload_size) (MIN_MSG_LEN + (payload_size))
-#define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
+#define NO_ENCRYPTION 0
 
 /*
  * Macros for handling seq_op numbers. seq_op is 64 bit and looks like this:
@@ -27,6 +25,14 @@ using namespace std;
 #define SET_OP(seq_number, op) (((seq_number) & ~OP_MASK) | (op))
 #define SET_ID(seq_number, id) \
     (((seq_number) & SEQ_MASK) | ((uint64_t) (id) << 2))
+
+#if NO_ENCRYPTION
+#define CIPHERTEXT_SIZE(payload_size) ((payload_size) + SEQ_LEN + SIZE_LEN)
+#define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - SEQ_LEN - SIZE_LEN)
+#else
+#define CIPHERTEXT_SIZE(payload_size) ((payload_size) + MIN_MSG_LEN)
+#define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
+#endif // NO_ENCRYPTION
 
 
 // #define DEBUG

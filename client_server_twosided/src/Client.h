@@ -13,7 +13,7 @@ namespace anchor_client {
     int disconnect();
 
     int get(const void *key, size_t key_len,
-            void *value, size_t max_value_len,
+            void *value, size_t max_value_len, size_t *value_len,
             status_callback *callback, const void *user_tag, size_t loop_iterations=100);
 
     int put(const void *key, size_t key_len, const void *value, size_t value_len,

@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     
     BEGIN_TEST_DELIMITER("get operation");
     EXPECT_EQUAL(0, anchor_client::get((void *) test_key, sizeof(test_key),
-            test_value, TEST_MAX_VAL_SIZE, test_callback, nullptr))
+            test_value, TEST_MAX_VAL_SIZE, nullptr, test_callback, nullptr))
     END_TEST_DELIMITER();
 
     BEGIN_TEST_DELIMITER("delete operation");

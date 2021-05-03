@@ -94,7 +94,8 @@ void *test_thread(void *args) {
         if (req % 2 == 0 && gets_performed < params->get_requests) {
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
             if (0 > anchor_client::get((void *) &key, sizeof(size_t), 
-                (void *)value_buf, TEST_MAX_VAL_SIZE, get_callback, time_now)) {
+                (void *)value_buf, TEST_MAX_VAL_SIZE, nullptr, 
+                get_callback, time_now)) {
 
                     cerr << "get() failed" << endl;
             }

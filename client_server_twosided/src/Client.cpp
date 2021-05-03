@@ -23,6 +23,7 @@ struct sent_message_tag{
     anchor_client::status_callback *callback;
     struct rdma_msg_header header;
     void *value;
+    size_t *value_len;
     const void *user_tag;
     erpc::MsgBuffer *request;
     erpc::MsgBuffer *response;
@@ -43,13 +44,15 @@ void free_message_tag(struct sent_message_tag *tag) {
 
 
 struct sent_message_tag *new_message_tag(
-        anchor_client::status_callback *callback, const void *user_tag) {
+        anchor_client::status_callback *callback, const void *user_tag,
+        size_t *value_size=nullptr) {
 
     struct sent_message_tag *ret =
             (struct sent_message_tag *) malloc(sizeof(struct sent_message_tag));
     if (!ret)
         return nullptr;
     ret->callback = callback;
+    ret->value_len = value_size;
     ret->user_tag = user_tag;
 
     ret->request = new erpc::MsgBuffer();
@@ -79,19 +82,28 @@ void decrypt_cont_func(void *, void *message_tag) {
     struct rdma_msg_header incoming_header;
     struct rdma_dec_payload payload = { nullptr, (unsigned char *) tag->value, 0 };
     int expected_op, incoming_op;
+    size_t ciphertext_size = tag->response->get_data_size();
+    unsigned char *ciphertext = tag->response->buf;
+
     if (!message_tag)
         goto end_decrypt_cont_func;
 
 
     if (0 > decrypt_message(&incoming_header,
-            &payload, tag->response->buf, tag->response->get_data_size()))
+            &payload, ciphertext, ciphertext_size))
         goto end_decrypt_cont_func;
 
+#if NO_ENCRYPTION
+    /* We don't need to check the sequence numbers if we don't encrypt */
+    (void) expected_op;
+    (void) incoming_op;
+#else
     expected_op = OP_FROM_SEQ_OP(tag->header.seq_op);
     incoming_op = OP_FROM_SEQ_OP(incoming_header.seq_op);
     if (incoming_header.seq_op != NEXT_SEQ(tag->header.seq_op)
             || expected_op != incoming_op)
         goto end_decrypt_cont_func;
+#endif // NO_ENCRYPTION
 
     ret = 0;
 end_decrypt_cont_func:
@@ -241,13 +253,14 @@ void send_message(struct sent_message_tag *tag, size_t loop_iterations) {
  * @param key_len Size of address
  * @param value Value whose key we want to get
  * @param max_value_len Maximum length the returned value can have
+ * @param value_len Pointer to size_t at which the length of the value is stored
  * @param callback Callback that is called if a server response is received
  * @param user_tag Arbitrary tag a user can specify to re-identify his request
  * @param timeout Maximum time to wait for the server's response
  * @return 0 on success, -1 on error
  */
 int anchor_client::get(const void *key, size_t key_len,
-        void *value, size_t max_value_len,
+        void *value, size_t max_value_len, size_t *value_len,
         anchor_client::status_callback *callback, const void *user_tag,
         size_t loop_iterations) {
 
@@ -259,7 +272,8 @@ int anchor_client::get(const void *key, size_t key_len,
         return -1;
     }
 
-    struct sent_message_tag *tag = new_message_tag(callback, user_tag);
+    struct sent_message_tag *tag = 
+        new_message_tag(callback, user_tag, value_len);
     if (!tag)
         return -1;
 
