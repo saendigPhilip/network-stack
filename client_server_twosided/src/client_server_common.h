@@ -4,7 +4,7 @@
 #include <iostream>
 using namespace std;
 
-#define NO_ENCRYPTION 0
+#define NO_ENCRYPTION 1
 
 /*
  * Macros for handling seq_op numbers. seq_op is 64 bit and looks like this:
