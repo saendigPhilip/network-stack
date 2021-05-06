@@ -22,6 +22,7 @@ int main(int argc, char *argv[]) {
     if (0 > anchor_client::connect(server_hostname, port, id, key_do_not_use))
         return -1;
 
+    value_from_key(test_value, test_key, sizeof(test_key));
 
     BEGIN_TEST_DELIMITER("put operation");
     EXPECT_EQUAL(0, anchor_client::put((void *) test_key, sizeof(test_key), 
@@ -30,7 +31,8 @@ int main(int argc, char *argv[]) {
     
     BEGIN_TEST_DELIMITER("get operation");
     EXPECT_EQUAL(0, anchor_client::get((void *) test_key, sizeof(test_key),
-            test_value, TEST_MAX_VAL_SIZE, nullptr, test_callback, nullptr))
+            incoming_test_value, TEST_MAX_VAL_SIZE, nullptr, test_callback, nullptr))
+    EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, TEST_MAX_VAL_SIZE))
     END_TEST_DELIMITER();
 
     BEGIN_TEST_DELIMITER("delete operation");
