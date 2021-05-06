@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "Client.h"
 #include "test_common.h"
 #include "simple_unit_test.h"
