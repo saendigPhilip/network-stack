@@ -164,7 +164,6 @@ void send_encrypted_response(erpc::ReqHandle *req_handle,
     }
 
     if (0 != encrypt_message(header, payload, &ciphertext)) {
-        rpc_host->free_msg_buffer(*resp_buffer);
         return;
     }
 
@@ -253,7 +252,6 @@ void send_response_delete(erpc::ReqHandle *req_handle, struct rdma_msg_header *h
 
 
 
-
 void req_handler(erpc::ReqHandle *req_handle, void *) {
     struct rdma_msg_header header;
     uint8_t op;
@@ -295,14 +293,4 @@ end_req_handler:
     free(payload.key);
     free(payload.value);
 }
-
-/*
-void req_handler(erpc::ReqHandle *req_handle, void *) {
-    auto &resp = req_handle->pre_resp_msgbuf;
-    rpc_host->resize_msg_buffer(&resp, kMsgSize);
-    sprintf(reinterpret_cast<char *>(resp.buf), "hello");
-
-    rpc_host->enqueue_response(req_handle, &resp);
-}
-*/
 
