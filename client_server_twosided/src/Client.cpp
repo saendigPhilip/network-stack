@@ -11,7 +11,6 @@
 #include "nexus.h"
 #endif // DEBUG
 
-const size_t connection_tries = 1024;
 
 thread_local int session_nr;
 thread_local uint64_t current_seq_number = 0;
@@ -189,14 +188,10 @@ int anchor_client::connect(
             " Could not establish session with server at " << server_uri << endl;
         return session_nr;
     }
-    for (size_t i = 0; i < connection_tries && !client_rpc->is_connected(session_nr); i++)
+    for (size_t i = 0; !client_rpc->is_connected(session_nr); i++)
         client_rpc->run_event_loop_once();
-    if (!client_rpc->is_connected(session_nr)) {
-        cerr << "Could not reach the server" << endl;
-        return -1;
-    }
-    else
-        return session_nr;
+    
+    return session_nr;
 }
 
 
