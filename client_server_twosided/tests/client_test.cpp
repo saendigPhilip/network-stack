@@ -15,13 +15,16 @@ void test_callback(int status, const void *tag) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        cerr << "Usage: " << argv[0] << " <ip-address>" << endl;
+        cerr << "Usage: " << argv[0] <<
+            " <client ip-address> <server ip-address>" << endl;
         return -1;
     }
-    std::string server_hostname(argv[1]);
+    std::string client_hostname(argv[1]);
+    std::string server_hostname(argv[2]);
     uint16_t port = 31850;
     uint8_t id = 0;
-    if (0 > anchor_client::connect(server_hostname, port, id, key_do_not_use))
+    if (0 > anchor_client::connect(client_hostname, server_hostname, port,
+            id, key_do_not_use))
         return -1;
 
     value_from_key(test_value, test_key, sizeof(test_key));

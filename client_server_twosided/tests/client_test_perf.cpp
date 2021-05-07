@@ -14,7 +14,8 @@ thread_local unsigned char value_buf[TEST_MAX_VAL_SIZE];
 thread_local uint64_t *total_time, *success_time;
 
 struct test_params {
-    std::string hostname;
+    std::string client_hostname;
+    std::string server_hostname;
     uint16_t port;
     uint8_t id;
     size_t get_requests;
@@ -60,7 +61,8 @@ void put_callback(int status, const void *tag) {
 
 void *test_thread(void *args) {
     struct test_params *params = (struct test_params *) args;
-    if (0 > anchor_client::connect(params->hostname, 
+    if (0 > anchor_client::connect(
+            params->client_hostname, params->server_hostname,
             params->port, params->id, key_do_not_use)) {
         cerr << "Failed to connect to server" << endl;
         return nullptr;
@@ -120,12 +122,14 @@ void *test_thread(void *args) {
     return params;
 }
 
-void fill_params_structs(std::string hostname, uint16_t port, 
+void fill_params_structs(
+        std::string client_hostname, std::string server_hostname, uint16_t port,
         struct test_params *params, size_t requests_per_client) {
     
     struct test_params default_params = { 
-        hostname, 
-        port, 
+        client_hostname,
+        server_hostname,
+        port,
         0, 
         requests_per_client / 2, 
         requests_per_client / 2,
@@ -166,11 +170,13 @@ void print_summary(bool all, struct test_params *params,
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        cerr << "Usage: " << argv[0] << " <ip-address>" << endl;
+    if (argc < 3) {
+        cerr << "Usage: " << argv[0] <<
+            " <client ip-address> <server ip-address>" << endl;
         return -1;
     }
-    std::string server_hostname(argv[1]);
+    std::string client_hostname(argv[1]);
+    std::string server_hostname(argv[2]);
     uint16_t port = 31850;
     struct test_params params[TOTAL_CLIENTS];
     pthread_t threads[TOTAL_CLIENTS];
@@ -178,7 +184,8 @@ int main(int argc, char *argv[]) {
     size_t requests_per_client = TOTAL_REQUESTS / TOTAL_CLIENTS + 
         loss_compensation;
 
-    fill_params_structs(server_hostname, port, params, requests_per_client);
+    fill_params_structs(client_hostname, server_hostname,
+            port, params, requests_per_client);
     
     /* Launch requester threads: */
     for (uint8_t i = 0; i < TOTAL_CLIENTS; i++) {

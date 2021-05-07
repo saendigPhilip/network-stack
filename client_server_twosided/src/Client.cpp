@@ -134,7 +134,8 @@ void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
 
 }
 
-int initialize_client(std::string client_hostname, uint16_t udp_port, uint8_t id) {
+int initialize_client(std::string client_hostname, uint16_t udp_port,
+        uint8_t id) {
     std::string client_uri = client_hostname + ":" + std::to_string(udp_port);
     if (RAND_status() != 1) {
         if (RAND_poll() != 1) {
@@ -165,9 +166,11 @@ int initialize_client(std::string client_hostname, uint16_t udp_port, uint8_t id
  *          It is used in the sequence number
  * @return negative value if an error occurs. Otherwise the eRPC session number is returned
  */
-int anchor_client::connect(std::string server_hostname,
+int anchor_client::connect(
+        std::string client_hostname, std::string server_hostname,
         unsigned int udp_port, uint8_t id, const unsigned char *encryption_key) {
-    if (0 > initialize_client(kClientHostname, kUDPPort, id)) {
+
+    if (0 > initialize_client(client_hostname, kUDPPort, id)) {
         cerr << "Failed to initialize client!" << endl;
         return -1;
     }
