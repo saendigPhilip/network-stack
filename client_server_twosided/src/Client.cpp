@@ -11,7 +11,7 @@
 #include "nexus.h"
 #endif // DEBUG
 
-const size_t connection_tries = 64;
+const size_t connection_tries = 1024;
 
 thread_local int session_nr;
 thread_local uint64_t current_seq_number = 0;
