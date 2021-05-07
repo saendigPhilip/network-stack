@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
         cerr << "Failed to host server" << endl;
         return ret;
     }
-    anchor_server::run_event_loop(100000);
+    anchor_server::run_event_loop(1000000);
     cout << "Shutting down server" << endl;
 
     anchor_server::close_connection();
