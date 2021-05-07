@@ -15,9 +15,10 @@ CLIENT = $(SRC)/Client.cpp $(TEST)/client_test.cpp $(TEST)/test_common.cpp -o $(
 SERVER_TEST = $(SRC)/Server.cpp $(TEST)/server_test_perf.cpp $(TEST)/test_common.cpp -o $(OUT)/server_test_perf -I $(SRC)/
 CLIENT_TEST = $(SRC)/Client.cpp $(TEST)/client_test_perf.cpp $(TEST)/test_common.cpp -o $(OUT)/client_test_perf -I $(SRC)/
 ERPC = ../../eRPC
+DPDK = $(ERPC)/dpdk
 INCLUDE_ERPC = -isystem $(ERPC)/src -L $(ERPC)/build
-INCLUDE_DPDK = -I /usr/usr/local/include/dpdk -L /usr/usr/local/lib/ 
-LIBS_DPDK = -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port -libverbs -lmlx4 -lmlx5
+INCLUDE_DPDK = -I $(DPDK)/x86_64-native-linuxapp-gcc/include -L $(DPDK)/x86_64-native-linuxapp-gcc/lib
+LIBS_DPDK = -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port -libverbs 
 
 error:
 	@echo "Please choose one of the following targets: infiniband, raw, dpdk, clean"
