@@ -35,6 +35,7 @@ static void fill_message_tag(struct sent_message_tag *tag,
     tag->value_len = value_size;
     tag->user_tag = user_tag;
     tag->callback = cb;
+    tag->valid = true;
 }
 
 void Client::invalidate_message_tag(
