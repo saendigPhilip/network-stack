@@ -5,7 +5,7 @@
 #include "simple_unit_test.h"
 #include "test_common.h"
 
-char *test_kv_store[TEST_KV_SIZE];
+char *test_kv_store[TEST_KV_SIZE] = { nullptr };
 
 long int get_index(const char *key) {
     char *err;
@@ -70,5 +70,6 @@ int main(int argc, char *argv[]) {
     cout << "Shutting down server" << endl;
 
     anchor_server::close_connection();
+    PRINT_TEST_SUMMARY();
     return 0;
 }

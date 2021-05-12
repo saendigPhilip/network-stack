@@ -87,7 +87,7 @@ int anchor_server::host_server(
         cerr << "Failed to host Server" << endl;
         goto err_host_server;
     }
-    rpc_host->set_pre_resp_msgbuf_size(CIPHERTEXT_SIZE(max_entry_size));
+    rpc_host->set_pre_resp_msgbuf_size(max_msg_size);
 
     return 0;
 

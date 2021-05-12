@@ -17,8 +17,9 @@ using namespace std;
 #define OP_MASK (uint64_t) 0x3          //   00 0000 0011
 
 #define NEXT_SEQ(seq_number) ((seq_number) + (1 << 10))
+#define PREV_SEQ(seq_number) ((seq_number) - (1 << 10))
 
-#define SEQ_FROM_SEQ_OP(seq_number) (((seq_number) & SEQ_MASK) >> 10)
+#define SEQ_FROM_SEQ_OP(seq_number) ((seq_number) >> 10)
 #define ID_FROM_SEQ_OP(seq_number) (((seq_number) & ID_MASK) >> 2)
 #define OP_FROM_SEQ_OP(seq_number) ((seq_number) & OP_MASK)
 
@@ -28,9 +29,6 @@ using namespace std;
 
 #define CIPHERTEXT_SIZE(payload_size) ((payload_size) + MIN_MSG_LEN)
 #define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
-
-
-// #define DEBUG
 
 static constexpr uint8_t DEFAULT_REQ_TYPE = 0;
 
@@ -77,11 +75,7 @@ static constexpr size_t MIN_MSG_LEN = SEQ_LEN + SIZE_LEN;
 static constexpr size_t MIN_MSG_LEN = IV_LEN + MAC_LEN + SEQ_LEN + SIZE_LEN;
 #endif // NO_ENCRYPTION
 
-static const std::string kServerHostname = "192.168.178.28";
-static const std::string kClientHostname = "192.168.178.28";
-
 static constexpr uint16_t kUDPPort = 31850;
-static constexpr size_t kMsgSize = 4096;
 
 extern const unsigned char *enc_key;
 

@@ -1,12 +1,9 @@
-#include <endian.h>
-#include <openssl/crypto.h>
-#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <set>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #include "client_server_common.h"
 
@@ -16,8 +13,8 @@ const unsigned char *enc_key = nullptr;
 
 /* En-/decrypts data using EVP_CipherUpdate
  * Supports data lengths over (2^31 - 1) bytes
- * On success (i.e. if in_size bytes have been en-/decrypted without error), 0 is returned,
- * otherwise -1
+ * On success (i.e. if in_size bytes have been en-/decrypted without error),
+ * 0 is returned, otherwise -1
  * */
 int cipher_update(EVP_CIPHER_CTX *aes_ctx,
         const unsigned char *in, size_t in_size, unsigned char *out) {

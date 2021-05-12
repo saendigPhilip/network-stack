@@ -12,7 +12,7 @@ static constexpr size_t TEST_MAX_KEY_SIZE = 256;
 static constexpr size_t TEST_MAX_VAL_SIZE = 256;
 static constexpr size_t TEST_KV_SIZE = 1024;
 
-static constexpr size_t TOTAL_REQUESTS = (1 << 31);
+static constexpr size_t TOTAL_REQUESTS = (1 << 24);
 static constexpr uint8_t TOTAL_CLIENTS = 16;
 
 static const unsigned char key_do_not_use[16] =
