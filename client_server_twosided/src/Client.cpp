@@ -4,6 +4,7 @@
 #include "client_server_common.h"
 using namespace anchor_client;
 static erpc::Nexus *nexus;
+static size_t nexus_ref = 0;
 
 /* Because the last bit is always the same at client side, we shift the sequence
  * number to the right in order to use the whole accepted array */
@@ -62,6 +63,7 @@ Client::Client(
     }
     if (!nexus)
         nexus = new erpc::Nexus(client_uri, 0, 0);
+    nexus_ref++;
     current_seq_op = SET_ID(current_seq_op, id);
     for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++)
         init_message_tag(accepted + i);
@@ -73,6 +75,8 @@ Client::~Client() {
     (void) disconnect();
     for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++)
         free_message_tag(accepted + i);
+    if (nexus_ref == 0)
+        delete nexus;
 }
 /**
  * Continuation function that is called when a server response arrives
@@ -209,6 +213,7 @@ int Client::disconnect() {
     invalidate_old_requests(this->current_seq_op);
     delete client_rpc;
     client_rpc = nullptr;
+    nexus_ref--;
     return ret;
 }
 
