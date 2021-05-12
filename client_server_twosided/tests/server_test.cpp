@@ -17,11 +17,11 @@ long int get_index(const char *key) {
     return -1;
 }
 
-void *kv_get(const void *key, size_t, size_t *data_len) {
+const void *kv_get(const void *key, size_t, size_t *data_len) {
     long int index = get_index((char *) key);
     if (index >= 0 && test_kv_store[index]) {
         *data_len = strlen(test_kv_store[index]) + 1;
-        return (void*) (test_kv_store + index);
+        return static_cast<const void*>(test_kv_store + index);
     }
     else 
         return nullptr;

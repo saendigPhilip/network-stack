@@ -5,7 +5,7 @@
 using namespace std;
 
 namespace anchor_server {
-    typedef void *(*get_function)(const void *key, size_t key_len, size_t *data_len);
+    typedef const void *(*get_function)(const void *key, size_t key_len, size_t *data_len);
     typedef int (*put_function)(const void *key, size_t key_len, void *value, size_t value_len);
     typedef int (*delete_function)(const void *key, size_t key_len);
 

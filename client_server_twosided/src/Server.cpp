@@ -181,7 +181,7 @@ void send_response_get(erpc::ReqHandle *req_handle,
 
     size_t resp_len;
     /* Call KV-store: */
-    auto resp = static_cast<unsigned char *>(
+    auto resp = static_cast<const unsigned char *>(
             kv_get(key, header->key_len, &resp_len));
 
     if (!resp) {
@@ -197,7 +197,6 @@ void send_response_get(erpc::ReqHandle *req_handle,
 
     send_encrypted_response(req_handle, header, &payload);
 
-    free(resp);
 }
 
 
