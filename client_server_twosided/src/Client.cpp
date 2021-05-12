@@ -149,7 +149,8 @@ void Client::invalidate_old_requests(uint64_t seq_op) {
     uint64_t current_seq;
     uint64_t orig_seq = SEQ_FROM_SEQ_OP(seq_op);
     int64_t diff;
-    for (size_t index = ACCEPTED_INDEX(seq_op); ; DEC_INDEX(index)) {
+    size_t index = ACCEPTED_INDEX(seq_op);
+    for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; DEC_INDEX(index), i++) {
         /*
          * Invariant:
          * All tags "before" invalid tags are either invalid or fresh
