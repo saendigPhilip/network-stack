@@ -1,16 +1,17 @@
 #include <cstring>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include "Server.h"
 #include "simple_unit_test.h"
 #include "test_common.h"
 
-char *test_kv_store[TEST_KV_SIZE] = { nullptr };
+char *test_kv_store[TEST_KV_SIZE] = {nullptr};
 
 long int get_index(const char *key) {
     char *err;
-    long int index = (size_t) strtol(key, &err, 0);
-    if (*key != '\0' && *err == '\0' && index >= 0 && (size_t) index < TEST_KV_SIZE) {
+    long int index = strtol(key, &err, 0);
+    if (*key != '\0' && *err == '\0' &&
+            index >= 0 && (size_t) index < TEST_KV_SIZE) {
         return index;
     }
     return -1;
@@ -18,7 +19,7 @@ long int get_index(const char *key) {
 
 void *kv_get(const void *key, size_t, size_t *data_len) {
     long int index = get_index((char *) key);
-    if (index >= 0) {
+    if (index >= 0 && test_kv_store[index]) {
         *data_len = strlen(test_kv_store[index]) + 1;
         return (void*) (test_kv_store + index);
     }
@@ -49,6 +50,7 @@ int kv_delete(const void *key, size_t) {
     else 
         return -1;
 }
+
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {

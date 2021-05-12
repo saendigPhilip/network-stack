@@ -2,13 +2,7 @@
 
 #include "client_server_common.h"
 
-#ifdef DEBUG
-#include "../../src/rpc.h"
-#include "../../src/nexus.h"
-#else
 #include "rpc.h"
-#include "nexus.h"
-#endif // DEBUG
 
 #include "Server.h"
 
@@ -187,8 +181,8 @@ void send_response_get(erpc::ReqHandle *req_handle,
 
     size_t resp_len;
     /* Call KV-store: */
-    unsigned char *resp = (unsigned char *)
-            kv_get(key, header->key_len, &resp_len);
+    auto resp = static_cast<unsigned char *>(
+            kv_get(key, header->key_len, &resp_len));
 
     if (!resp) {
         header->seq_op = get_next_seq(NEXT_SEQ(header->seq_op), RDMA_ERR);
