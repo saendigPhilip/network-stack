@@ -29,15 +29,24 @@ void *kv_get(const void *key, size_t, size_t *data_len) {
 
 
 /* Dummy for put function */
-int kv_put(const void *key, size_t, void *value, size_t) {
+int kv_put(const void *key, size_t, void *value, size_t value_size) {
     long int index = get_index((char *) key);
-    if (index >= 0) {
-        free(test_kv_store[index]);
-        test_kv_store[index] = (char *) value;
+    if (index < 0)
+        return -1;
+
+    free(test_kv_store[index]);
+    if (value_size == 0) {
+        test_kv_store[index] = nullptr;
         return 0;
     }
-    else 
+    test_kv_store[index] = static_cast<char *>(malloc(value_size));
+    if (!test_kv_store[index]) {
+        cerr << "Memory allocation failure" << endl;
         return -1;
+    }
+    strncpy(static_cast<char *>(test_kv_store[index]),
+            static_cast<char *>(value), value_size);
+    return 0;
 }
 
 int kv_delete(const void *key, size_t) {
@@ -72,6 +81,10 @@ int main(int argc, char *argv[]) {
     cout << "Shutting down server" << endl;
 
     anchor_server::close_connection();
+
+    for(size_t i = 0; i < TEST_KV_SIZE; i++)
+        free(test_kv_store[i]);
+
     PRINT_TEST_SUMMARY();
     return 0;
 }
