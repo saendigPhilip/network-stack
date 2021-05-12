@@ -160,7 +160,7 @@ void Client::invalidate_old_requests(uint64_t seq_op) {
             continue;
         current_seq = SEQ_FROM_SEQ_OP(accepted[index].header.seq_op);
         diff = (int64_t) (orig_seq - current_seq);
-        if (diff > 0)
+        if (diff < 0)
             break;
         accepted[index].callback(
                 ret_val::TIMEOUT, accepted[index].user_tag);
