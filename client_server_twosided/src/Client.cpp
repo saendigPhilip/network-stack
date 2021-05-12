@@ -136,15 +136,17 @@ void Client::message_arrived(
     invalidate_message_tag(accepted + index);
 
     /* To make sure we're making progress, we invalidate all older requests: */
-    invalidate_old_requests(PREV_SEQ(PREV_SEQ(seq_op)));
+    invalidate_old_requests(seq_op);
 }
 
 /* Iterates over the accepted struct until a request is found that Deletes all requests that have a lower sequence number than seq and invokes
  * the according client callbacks. This way, we can always guarantee that for
  * each message the client callback is invoked
+ * seq_op is the latest sequence number that should be accepted
  */
 void Client::invalidate_old_requests(uint64_t seq_op) {
-    uint64_t current_seq ;
+    seq_op = PREV_SEQ(PREV_SEQ(seq_op));
+    uint64_t current_seq;
     uint64_t orig_seq = SEQ_FROM_SEQ_OP(seq_op);
     int64_t diff;
     for (size_t index = ACCEPTED_INDEX(seq_op); ; DEC_INDEX(index)) {
@@ -153,7 +155,7 @@ void Client::invalidate_old_requests(uint64_t seq_op) {
          * All tags "before" invalid tags are either invalid or fresh
          */
         if (!(accepted[index].valid))
-            break;
+            continue;
         current_seq = SEQ_FROM_SEQ_OP(accepted[index].header.seq_op);
         diff = (int64_t) (orig_seq - current_seq);
         if (diff > 0)
