@@ -30,7 +30,7 @@ using namespace std;
 #define CIPHERTEXT_SIZE(payload_size) ((payload_size) + MIN_MSG_LEN)
 #define PAYLOAD_SIZE(ciphertext_size) ((ciphertext_size) - MIN_MSG_LEN)
 
-static constexpr uint8_t DEFAULT_REQ_TYPE = 0;
+static constexpr uint8_t DEFAULT_REQ_TYPE = 2;
 
 static constexpr uint8_t RDMA_GET = 0b00;
 static constexpr uint8_t RDMA_PUT = 0b01;
