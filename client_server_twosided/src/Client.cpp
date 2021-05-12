@@ -70,7 +70,7 @@ Client::Client(
 }
 
 Client::~Client() {
-    invalidate_old_requests(this->current_seq_op);
+    (void) disconnect();
     for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++)
         free_message_tag(accepted + i);
 }
@@ -180,7 +180,7 @@ int Client::connect(std::string& server_hostname,
     enc_key = encryption_key;
     if (client_rpc) {
         cout << "Already connected. Disconnecting old connection" << endl;
-        (void) Client::disconnect();
+        (void) disconnect();
     }
     client_rpc = new erpc::Rpc<erpc::CTransport>(
             nexus, nullptr, 0, empty_sm_handler, 0);
@@ -204,6 +204,7 @@ int Client::connect(std::string& server_hostname,
  */
 int Client::disconnect() {
     int ret = client_rpc->destroy_session(session_nr);
+    invalidate_old_requests(this->current_seq_op);
     delete client_rpc;
     client_rpc = nullptr;
     return ret;
