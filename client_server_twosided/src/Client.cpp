@@ -419,7 +419,7 @@ int Client::del(const void *key, size_t key_len,
     payload ={ (unsigned char *) key, nullptr, 0 };
 
     if (0 > encrypt_message(
-            &(tag->header), &payload, (unsigned char **)tag->request->buf))
+            &(tag->header), &payload, (unsigned char **)&(tag->request->buf)))
         goto err_delete;
 
     send_message(tag, loop_iterations);
