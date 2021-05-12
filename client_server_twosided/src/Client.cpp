@@ -203,6 +203,8 @@ int Client::connect(std::string& server_hostname,
  * @return 0 on success, negative errno if the session can't be disconnected
  */
 int Client::disconnect() {
+    if (!client_rpc)
+        return 0;
     int ret = client_rpc->destroy_session(session_nr);
     invalidate_old_requests(this->current_seq_op);
     delete client_rpc;
