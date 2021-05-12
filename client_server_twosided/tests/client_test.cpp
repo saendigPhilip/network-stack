@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     BEGIN_TEST_DELIMITER("get operation");
     EXPECT_EQUAL(0, client.get((void *) test_key, sizeof(test_key),
             incoming_test_value, TEST_MAX_VAL_SIZE, nullptr, test_callback,
-            nullptr, 1000))
+            test_key, 1000))
     EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, TEST_MAX_VAL_SIZE))
     END_TEST_DELIMITER();
 
