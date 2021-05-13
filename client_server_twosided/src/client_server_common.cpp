@@ -354,3 +354,7 @@ end_decrypt:
     return ret;
 #endif // NO_ENCRYPTION
 }
+
+void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
+
+}

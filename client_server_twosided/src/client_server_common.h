@@ -4,6 +4,8 @@
 #include <iostream>
 using namespace std;
 
+#include "rpc.h"
+
 #define NO_ENCRYPTION 0
 
 /*
@@ -87,5 +89,8 @@ int decrypt_message(
         struct rdma_msg_header *header,
         struct rdma_dec_payload *payload, 
         const unsigned char *ciphertext, size_t ciphertext_len);
+
+void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *);
+
 
 #endif // RDMA_COMMON_METHODS

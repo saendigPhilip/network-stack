@@ -168,10 +168,6 @@ void Client::invalidate_old_requests(uint64_t seq_op) {
     }
 }
 
-void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
-
-}
-
 
 /**
  * Connects to a anchor server

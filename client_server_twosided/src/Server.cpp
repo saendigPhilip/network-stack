@@ -76,7 +76,8 @@ int anchor_server::host_server(
     kv_put = put;
     kv_delete = del;
 
-    rpc_host = new erpc::Rpc<erpc::CTransport>(nexus, nullptr, 0, nullptr);
+    rpc_host = new erpc::Rpc<erpc::CTransport>(
+            nexus,nullptr, 0, empty_sm_handler);
     if (!rpc_host) {
         cerr << "Failed to host Server" << endl;
         goto err_host_server;
