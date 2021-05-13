@@ -32,8 +32,8 @@ infiniband_test:
 	g++ $(FLAGS_TEST) $(CLIENT_TEST) $(COMMON) $(INCLUDE_ERPC) $(LIBS) -libverbs -DERPC_INFINIBAND=true
 dpdk:                                                    
 	mkdir -p $(OUT)
-	g++ $(FLAGS) $(SERVER) $(COMMON) $(INCLUDE_ERPC) $(INCLUDE_DPDK) $(LIBS) $(LIBS_DPDK) -DERPC_DPDK=true -march=native
-	g++ $(FLAGS) $(CLIENT) $(COMMON) $(INCLUDE_ERPC) $(INCLUDE_DPDK) $(LIBS) $(LIBS_DPDK) -DERPC_DPDK=true -march=native
+	g++ $(FLAGS) $(SERVER) $(COMMON) $(INCLUDE_ERPC) $(INCLUDE_DPDK) $(LIBS) $(LIBS_DPDK) -DERPC_DPDK=true -march=native -fsanitize=address
+	g++ $(FLAGS) $(CLIENT) $(COMMON) $(INCLUDE_ERPC) $(INCLUDE_DPDK) $(LIBS) $(LIBS_DPDK) -DERPC_DPDK=true -march=native -fsanitize=address
 dpdk_test:                                                    
 	mkdir -p $(OUT)
 	g++ $(FLAGS_TEST) $(SERVER_TEST) $(COMMON) $(INCLUDE_ERPC) $(INCLUDE_DPDK) $(LIBS) $(LIBS_DPDK) -DERPC_DPDK=true -march=native
