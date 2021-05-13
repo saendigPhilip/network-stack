@@ -8,7 +8,7 @@
 
 erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
 erpc::Nexus *nexus = nullptr;
-uint64_t *next_seq_numbers;
+uint64_t *next_seq_numbers = nullptr;
 size_t num_clients;
 size_t max_msg_size;
 
@@ -51,12 +51,12 @@ int anchor_server::host_server(
     }
 
     std::string server_uri = hostname + ":" + std::to_string(udp_port);
-    if (!nexus)
+    if (!nexus) {
         nexus = new erpc::Nexus(server_uri, 0, num_bg_threads);
-
-    if (nexus->register_req_func(DEFAULT_REQ_TYPE, req_handler)) {
-        cerr << "Failed to host Server" << endl;
-        goto err_host_server;
+        if (nexus->register_req_func(DEFAULT_REQ_TYPE, req_handler)) {
+            cerr << "Failed to host Server" << endl;
+            goto err_host_server;
+        }
     }
 
     if (RAND_status() != 1) {
@@ -104,6 +104,7 @@ void anchor_server::run_event_loop_n_times(size_t n) {
  * Closes the connection that was before opened by a call to host_server
  */
 void anchor_server::close_connection() {
+    free(next_seq_numbers);
     delete rpc_host;
     delete nexus;
 }
