@@ -54,7 +54,7 @@ int anchor_server::host_server(
     if (!nexus)
         nexus = new erpc::Nexus(server_uri, 0, num_bg_threads);
 
-    if (nexus->register_req_func(0, req_handler)) {
+    if (nexus->register_req_func(DEFAULT_REQ_TYPE, req_handler)) {
         cerr << "Failed to host Server" << endl;
         goto err_host_server;
     }
