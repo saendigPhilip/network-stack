@@ -9,6 +9,20 @@ char test_value[TEST_MAX_VAL_SIZE];
 char incoming_test_value[TEST_MAX_VAL_SIZE];
 
 void test_callback(enum anchor_client::ret_val status, const void *tag) {
+    switch (status) {
+        case anchor_client::ret_val::OP_SUCCESS:
+            cout << "Success" << endl;
+            break;
+        case anchor_client::ret_val::TIMEOUT:
+            cerr << "Timeout" << endl;
+            break;
+        case anchor_client::ret_val::OP_FAILED:
+            cerr << "Operation failed" << endl;
+            break;
+        case anchor_client::ret_val::INVALID_RESPONSE:
+            cerr << "Invalid response" << endl;
+    }
+
     EXPECT_EQUAL(anchor_client::OP_SUCCESS, status);
     EXPECT_EQUAL(test_key, tag);
 }
