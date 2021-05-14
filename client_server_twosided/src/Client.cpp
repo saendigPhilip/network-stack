@@ -124,7 +124,7 @@ end_decrypt_cont_func:
 
 void Client::message_arrived(
         enum ret_val ret, uint64_t seq_op) {
-    
+
     size_t index = ACCEPTED_INDEX(seq_op);
     /* If this is an expired answer to a request or a replay, we're done */
     if (!(this->accepted[index].valid))
@@ -244,7 +244,7 @@ void Client::send_message(
 
     /* Skip one sequence number for the server response */
     current_seq_op = NEXT_SEQ(NEXT_SEQ(current_seq_op));
-    tag->valid = true;
+
 
     client_rpc->enqueue_request(session_nr, DEFAULT_REQ_TYPE,
             tag->request, tag->response, decrypt_cont_func, (void *)tag);
