@@ -129,7 +129,7 @@ void Client::message_arrived(
     uint64_t expected_seq = SEQ_FROM_SEQ_OP(
             this->accepted[index].header.seq_op);
     /* If this is an expired answer to a request or a replay, we're done */
-    if (seq != expected_seq || !(this->accepted[index].valid))
+    if (!(this->accepted[index].valid))
         return;
 
     /* Call the Client callback and invalidate */
