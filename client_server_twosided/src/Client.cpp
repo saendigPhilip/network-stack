@@ -125,7 +125,7 @@ end_decrypt_cont_func:
 void Client::message_arrived(
         enum ret_val ret, uint64_t seq_op) {
     uint64_t seq = SEQ_FROM_SEQ_OP(seq_op);
-    size_t index = seq % MAX_ACCEPTED_RESPONSES;
+    size_t index = ACCEPTED_INDEX(seq_op);
     /* If this is an expired answer to a request or a replay, we're done */
     if (!(this->accepted[index].valid))
         return;
