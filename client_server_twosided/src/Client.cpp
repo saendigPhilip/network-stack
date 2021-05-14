@@ -187,7 +187,7 @@ int Client::connect(std::string& server_hostname,
         (void) disconnect();
     }
     client_rpc = new erpc::Rpc<erpc::CTransport>(
-            nexus, nullptr, 0, empty_sm_handler, 0);
+            nexus, this, 0, empty_sm_handler, 0);
 
     session_nr = client_rpc->create_session(server_uri, 0);
     if (session_nr < 0) {
