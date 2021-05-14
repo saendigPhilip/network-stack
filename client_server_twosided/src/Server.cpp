@@ -2,8 +2,6 @@
 
 #include "client_server_common.h"
 
-#include "rpc.h"
-
 #include "Server.h"
 
 erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
@@ -13,9 +11,6 @@ size_t num_clients;
 size_t max_msg_size;
 
 void req_handler(erpc::ReqHandle *, void *);
-void req_handler_get(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
-void req_handler_put(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
-void req_handler_delete(erpc::ReqHandle *req_handle, unsigned char *request_data, size_t request_data_size);
 
 anchor_server::get_function kv_get;
 anchor_server::put_function kv_put;
@@ -36,7 +31,7 @@ anchor_server::delete_function kv_delete;
  * @return 0 if Server was hosted successfully, -1 on error
  */
 int anchor_server::host_server(
-        std::string hostname, uint16_t udp_port,
+        std::string& hostname, uint16_t udp_port,
         const unsigned char *encryption_key,
         uint8_t number_clients, size_t num_bg_threads,
         size_t max_entry_size,
@@ -152,7 +147,7 @@ void send_encrypted_response(erpc::ReqHandle *req_handle,
         return;
     }
     resp_buffer = &(req_handle->pre_resp_msgbuf);
-    rpc_host->resize_msg_buffer(resp_buffer, ciphertext_size);
+    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(resp_buffer, ciphertext_size);
     ciphertext = (unsigned char *) resp_buffer->buf;
     if (!ciphertext) {
         cerr << "Memory Allocation failure" << endl;
@@ -252,7 +247,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
     uint8_t op;
     const erpc::MsgBuffer *ciphertext_buf = req_handle->get_req_msgbuf();
     struct rdma_dec_payload payload = { nullptr, nullptr, 0 };
-    unsigned char *ciphertext = (unsigned char *)ciphertext_buf->buf;
+    auto *ciphertext = static_cast<unsigned char *>(ciphertext_buf->buf);
     if (!ciphertext) {
         cerr << "Could not get request message buffer" << endl;
         return;

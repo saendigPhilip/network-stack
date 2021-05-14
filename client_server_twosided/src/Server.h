@@ -10,7 +10,7 @@ namespace anchor_server {
     typedef int (*delete_function)(const void *key, size_t key_len);
 
     int host_server(
-            std::string hostname, uint16_t udp_port,
+            std::string& hostname, uint16_t udp_port,
             const unsigned char *encryption_key,
             uint8_t number_clients, size_t num_bg_threads,
             size_t max_entry_size,
