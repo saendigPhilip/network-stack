@@ -20,7 +20,7 @@ long int get_index(const char *key) {
 const void *kv_get(const void *key, size_t, size_t *data_len) {
     long int index = get_index((char *) key);
     if (index >= 0 && test_kv_store[index]) {
-        *data_len = strlen(test_kv_store[index]) + 1;
+        *data_len = TEST_MAX_VAL_SIZE;
         return static_cast<const void*>(test_kv_store + index);
     }
     else 
@@ -39,7 +39,7 @@ int kv_put(const void *key, size_t, void *value, size_t value_size) {
         test_kv_store[index] = nullptr;
         return 0;
     }
-    test_kv_store[index] = static_cast<char *>(malloc(value_size));
+    test_kv_store[index] = static_cast<char *>(malloc(TEST_MAX_VAL_SIZE));
     if (!test_kv_store[index]) {
         cerr << "Memory allocation failure" << endl;
         return -1;
