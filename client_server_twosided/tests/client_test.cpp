@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
     EXPECT_EQUAL(0, client.get((void *) test_key, sizeof(test_key),
             incoming_test_value, TEST_MAX_VAL_SIZE, nullptr, test_callback,
             test_key, 100000))
-    EXPECT_EQUAL(0, strcmp(incoming_test_value, test_value))
+    EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, TEST_MAX_VAL_SIZE))
     END_TEST_DELIMITER();
 
     BEGIN_TEST_DELIMITER("delete operation");

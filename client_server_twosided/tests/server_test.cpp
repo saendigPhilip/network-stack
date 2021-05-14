@@ -44,8 +44,7 @@ int kv_put(const void *key, size_t, void *value, size_t value_size) {
         cerr << "Memory allocation failure" << endl;
         return -1;
     }
-    strncpy(static_cast<char *>(test_kv_store[index]),
-            static_cast<char *>(value), value_size);
+    memcpy(test_kv_store[index], value, value_size);
     return 0;
 }
 
