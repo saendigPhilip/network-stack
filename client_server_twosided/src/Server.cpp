@@ -28,7 +28,7 @@ anchor_server::delete_function kv_delete;
  * @param get Function of the KV-Store that is called on client get-requests
  * @param put Function of the KV-Store that is called on client put-requests
  * @param del Function of ./client_test 129.215.165.58 129.215.165.57
-the KV-Store that is called on client delete-requests
+ *          the KV-Store that is called on client delete-requests
  * @return 0 if Server was hosted successfully, -1 on error
  */
 int anchor_server::host_server(
