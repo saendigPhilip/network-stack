@@ -56,6 +56,7 @@ struct rdma_dec_payload {
     size_t value_len;
 };
 
+
 /* Request format:
  * +----------+--------------+-----------------+-----------+------------+
  * | IV (12B) | Seq, OP (8B) | key length (8B) | key/value | GMAC (16B) |

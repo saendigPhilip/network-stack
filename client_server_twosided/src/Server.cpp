@@ -1,40 +1,40 @@
 #include <openssl/rand.h>
+#include <thread>
 
 #include "client_server_common.h"
 
 #include "Server.h"
+#include "ServerThread.h"
 
 erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
 erpc::Nexus *nexus = nullptr;
-uint64_t *next_seq_numbers = nullptr;
-size_t num_clients;
+std::vector<thread *> *threads = nullptr;
 size_t max_msg_size;
-
-void req_handler(erpc::ReqHandle *, void *);
 
 anchor_server::get_function kv_get;
 anchor_server::put_function kv_put;
 anchor_server::delete_function kv_delete;
 
+void req_handler(erpc::ReqHandle *req_handle, void *context);
 /**
  * Hosts a server that answers client put/get/delete requests
  *
  * @param hostname Hostname of the server
  * @param udp_port Port to listen on
  * @param encryption_key Network key to use for en-/decryption of the messages
- * @param number_clients Maximum number of client to be supported
+ * @param number_threads Number of threads that are spawned at the beginning
+ *          Limits the number of clients
  * @param num_bg_threads Number of eRPC background threads for handling requests
  * @param max_entry_size Size of biggest key-value-pair in the KV-store
  * @param get Function of the KV-Store that is called on client get-requests
  * @param put Function of the KV-Store that is called on client put-requests
- * @param del Function of ./client_test 129.215.165.58 129.215.165.57
- *          the KV-Store that is called on client delete-requests
+ * @param del Function of the KV-Store that is called on client delete-requests
  * @return 0 if Server was hosted successfully, -1 on error
  */
 int anchor_server::host_server(
         std::string& hostname, uint16_t udp_port,
         const unsigned char *encryption_key,
-        uint8_t number_clients, size_t num_bg_threads,
+        uint8_t number_threads, size_t num_bg_threads,
         size_t max_entry_size,
         get_function get, put_function put, delete_function del) {
 
@@ -63,23 +63,21 @@ int anchor_server::host_server(
     }
 
     enc_key = encryption_key;
-    next_seq_numbers = (uint64_t *) calloc(number_clients, sizeof(uint64_t));
-    if (!next_seq_numbers)
-        goto err_host_server;
+    threads = new std::vector<thread *>(number_threads);
 
-    num_clients = number_clients;
     kv_get = get;
     kv_put = put;
     kv_delete = del;
 
-    rpc_host = new erpc::Rpc<erpc::CTransport>(
-            nexus,nullptr, 0, empty_sm_handler);
-    if (!rpc_host) {
-        cerr << "Failed to host Server" << endl;
-        goto err_host_server;
+    thread *current_thread;
+    for (uint8_t id = 0; id < number_threads; id++) {
+        (void) new ServerThread(nexus, id, max_msg_size, &current_thread);
+        threads->push_back(current_thread);
     }
-    rpc_host->set_pre_resp_msgbuf_size(max_msg_size);
+    cout << "Server is ready" << endl;
 
+    for (auto thread : *threads)
+        thread->join();
     return 0;
 
 err_host_server:
@@ -100,39 +98,9 @@ void anchor_server::run_event_loop_n_times(size_t n) {
  * Closes the connection that was before opened by a call to host_server
  */
 void anchor_server::close_connection() {
-    free(next_seq_numbers);
+    delete threads;
     delete rpc_host;
     delete nexus;
-}
-
-
-/* *
- * Checks if sequence number is valid by checking whether we expect the
- * according sequence number from the according client
- * Returns 0, if the sequence number is valid, -1 otherwise
- * */
-int check_sequence_number(uint64_t sequence_number) {
-    uint8_t id = ID_FROM_SEQ_OP(sequence_number);
-    if ((size_t) id >= num_clients) {
-        cerr << "Invalid Client ID" << endl;
-        return -1;
-    }
-    if (next_seq_numbers[id] == 0) {
-        next_seq_numbers[id] = sequence_number & SEQ_MASK;
-        return 0;
-    }
-    return (sequence_number & SEQ_MASK) == next_seq_numbers[id] ? 0 : -1;
-}
-
-/*
- * Returns the next sequence number and updates the next expected sequence
- * number for the according client
- * Should only be called with already checked sequence numbers
- */
-uint64_t get_next_seq(uint64_t sequence_number, uint8_t operation) {
-    uint64_t ret = NEXT_SEQ(sequence_number);
-    next_seq_numbers[ID_FROM_SEQ_OP(sequence_number)] = NEXT_SEQ(ret & SEQ_MASK);
-    return SET_OP(ret, operation);
 }
 
 
@@ -174,7 +142,7 @@ void send_empty_response(erpc::ReqHandle *req_handle, struct rdma_msg_header *he
 * Request handler for incoming receive requests
 * Then, transfers data at the specified address to the client
 * */
-void send_response_get(erpc::ReqHandle *req_handle,
+void send_response_get(erpc::ReqHandle *req_handle, ServerThread *st,
         struct rdma_msg_header *header, const void *key) {
 
     size_t resp_len;
@@ -183,13 +151,13 @@ void send_response_get(erpc::ReqHandle *req_handle,
             kv_get(key, header->key_len, &resp_len));
 
     if (!resp) {
-        header->seq_op = get_next_seq(NEXT_SEQ(header->seq_op), RDMA_ERR);
+        header->seq_op = st->get_next_seq(header->seq_op, RDMA_ERR);
         send_empty_response(req_handle, header);
         return;
     }
 
     /* Reuse the request header for creating and enqueueing the response: */
-    header->seq_op = get_next_seq(header->seq_op, RDMA_GET);
+    header->seq_op = st->get_next_seq(header->seq_op, RDMA_GET);
     header->key_len = 0;
     struct rdma_enc_payload payload = { nullptr, resp, resp_len };
 
@@ -203,16 +171,16 @@ void send_response_get(erpc::ReqHandle *req_handle,
 * Checks freshness and checksum
 * Then, writes data from the client to the specified address
 * */
-void send_response_put(erpc::ReqHandle *req_handle, struct rdma_msg_header *header,
-        struct rdma_dec_payload *payload) {
+void send_response_put(erpc::ReqHandle *req_handle, ServerThread *st,
+        struct rdma_msg_header *header, struct rdma_dec_payload *payload) {
 
     /* Call KV-store: */
     int resp = kv_put(payload->key, header->key_len, payload->value, payload->value_len);
     if (0 > resp) {
-        header->seq_op = get_next_seq(header->seq_op, RDMA_ERR);
+        header->seq_op = st->get_next_seq(header->seq_op, RDMA_ERR);
     }
     else {
-        header->seq_op = get_next_seq(header->seq_op, RDMA_PUT);
+        header->seq_op = st->get_next_seq(header->seq_op, RDMA_PUT);
     }
     /* We only inform the client about whether the operation was successful or not */
     send_empty_response(req_handle, header);
@@ -226,26 +194,27 @@ void send_response_put(erpc::ReqHandle *req_handle, struct rdma_msg_header *head
  * @param header Header of the incoming request that is reused for the response
  * @param payload Payload structure of the incoming request
  */
-void send_response_delete(erpc::ReqHandle *req_handle, struct rdma_msg_header *header,
+void send_response_delete(erpc::ReqHandle *req_handle, ServerThread *st,
+        struct rdma_msg_header *header,
         const void *key) {
 
     /* Call KV-store: */
     int resp = kv_delete(key, header->key_len);
     if (0 > resp) {
-        header->seq_op = get_next_seq(header->seq_op, RDMA_ERR);
+        header->seq_op = st->get_next_seq(header->seq_op, RDMA_ERR);
     }
     else {
-        header->seq_op = get_next_seq(header->seq_op, RDMA_DELETE);
+        header->seq_op = st->get_next_seq(header->seq_op, RDMA_DELETE);
     }
     /* We only inform the client about whether the operation was successful or not */
     send_empty_response(req_handle, header);
 }
 
 
-
-void req_handler(erpc::ReqHandle *req_handle, void *) {
+void req_handler(erpc::ReqHandle *req_handle, void *context) {
     struct rdma_msg_header header;
     uint8_t op;
+    auto st = static_cast<ServerThread *>(context);
     const erpc::MsgBuffer *ciphertext_buf = req_handle->get_req_msgbuf();
     struct rdma_dec_payload payload = { nullptr, nullptr, 0 };
     auto *ciphertext = static_cast<unsigned char *>(ciphertext_buf->buf);
@@ -259,7 +228,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
         goto end_req_handler;
 
     /* Check for replays by checking the sequence number: */
-    if (0 > check_sequence_number(header.seq_op)) {
+    if (!st->is_seq_valid(header.seq_op)) {
         cerr << "Invalid sequence number" << endl;
         goto end_req_handler;
     }
@@ -267,13 +236,13 @@ void req_handler(erpc::ReqHandle *req_handle, void *) {
     op = OP_FROM_SEQ_OP(header.seq_op);
     switch (op) {
         case RDMA_GET:
-            send_response_get(req_handle, &header, payload.key);
+            send_response_get(req_handle, st, &header, payload.key);
             break;
         case RDMA_PUT:
-            send_response_put(req_handle, &header, &payload);
+            send_response_put(req_handle, st, &header, &payload);
             break;
         case RDMA_DELETE:
-            send_response_delete(req_handle, &header, payload.key);
+            send_response_delete(req_handle, st, &header, payload.key);
             break;
         default:
             cerr << "Invalid operation: " << op << endl;
