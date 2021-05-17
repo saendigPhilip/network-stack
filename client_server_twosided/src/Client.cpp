@@ -49,6 +49,10 @@ void Client::invalidate_message_tag(
 
 
 
+void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
+
+}
+
 Client::Client(
         std::string& client_hostname, uint16_t udp_port, uint8_t id) {
 

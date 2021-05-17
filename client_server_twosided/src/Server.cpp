@@ -1,5 +1,4 @@
 #include <openssl/rand.h>
-#include <thread>
 
 #include "client_server_common.h"
 

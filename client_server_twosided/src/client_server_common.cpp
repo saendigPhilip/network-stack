@@ -1,8 +1,6 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
-#include <set>
-#include <cstdio>
 #include <cstring>
 
 #include "client_server_common.h"
@@ -19,12 +17,14 @@ const unsigned char *enc_key = nullptr;
 int cipher_update(EVP_CIPHER_CTX *aes_ctx,
         const unsigned char *in, size_t in_size, unsigned char *out) {
 
-    ssize_t total_processed_bytes = 0;
+    size_t total_processed_bytes = 0;
     int processed_bytes, to_process;
 
-    while ((size_t) total_processed_bytes < in_size) {
-        to_process = (int) MIN(INT32_MAX, in_size - total_processed_bytes);
-        if (1 != EVP_CipherUpdate(aes_ctx, out, &processed_bytes, in, to_process)) {
+    while (static_cast<size_t>(total_processed_bytes) < in_size) {
+        to_process = static_cast<int>(
+                MIN(INT32_MAX, in_size - total_processed_bytes));
+        if (1 != EVP_CipherUpdate(
+                aes_ctx, out, &processed_bytes, in, to_process)) {
             cerr << "Could not en-/decrypt payload" << endl;
             return -1;
         }
@@ -32,12 +32,13 @@ int cipher_update(EVP_CIPHER_CTX *aes_ctx,
             cerr << "Something went wrong while en-/decrypting" << endl;
             return -1;
         }
-        total_processed_bytes += (size_t) processed_bytes;
-        out += (size_t) processed_bytes;
-        in += (size_t) processed_bytes;
+        total_processed_bytes += static_cast<size_t>(processed_bytes);
+        out += static_cast<size_t>(processed_bytes);
+        in += static_cast<size_t>(processed_bytes);
     }
-    if (total_processed_bytes < 0 || (size_t) total_processed_bytes != in_size) {
-        cerr << "Number of en-/decrypted bytes doesn't match expected number" << endl;
+    if (total_processed_bytes != in_size) {
+        cerr << "Number of en-/decrypted bytes doesn't match expected number"
+                << endl;
         return -1;
     }
     return 0;
@@ -66,7 +67,8 @@ int encrypt_message(
     }
     size_t payload_len = header->key_len + payload->value_len;
     if (!*ciphertext) {
-        *ciphertext = (unsigned char *) malloc(CIPHERTEXT_SIZE(payload_len));
+        *ciphertext = static_cast<unsigned char *>(
+                malloc(CIPHERTEXT_SIZE(payload_len)));
         if (!*ciphertext) {
             cerr << "Memory allocation failure" << endl;
             return -1;
@@ -128,7 +130,7 @@ int encrypt_message(
         if (0 > cipher_update(aes_ctx, payload->key, header->key_len, ciphertext_pos))
             goto end_encrypt;
 
-        ciphertext_pos += (size_t) header->key_len;
+        ciphertext_pos += static_cast<size_t>(header->key_len);
     }
 
     /* Encrypt value: */
@@ -136,7 +138,7 @@ int encrypt_message(
         if (0 > cipher_update(aes_ctx, payload->value, payload->value_len, ciphertext_pos))
             goto end_encrypt;
 
-        ciphertext_pos += (size_t) payload->value_len;
+        ciphertext_pos += static_cast<size_t>(payload->value_len);
     }
 
     /* Write final encrypted data: */
@@ -144,7 +146,7 @@ int encrypt_message(
         cerr << "Could not write final encrypted data" << endl;
         goto end_encrypt;
     }
-    ciphertext_pos += (size_t) length;
+    ciphertext_pos += static_cast<size_t>(length);
 
     /* Write tag: */
     if (1 != EVP_CIPHER_CTX_ctrl(aes_ctx, EVP_CTRL_AEAD_GET_TAG, MAC_LEN, ciphertext_pos)) {
@@ -165,7 +167,7 @@ end_encrypt:
 
 #if NO_ENCRYPTION
 int allocate_and_copy(unsigned char **payload, 
-        const unsigned char *ciphertext_pos, size_t expected_length, 
+        const unsigned char *ciphertext_pos, size_t expected_length,
         bool *to_free) {
     
     if (!*payload) {
@@ -187,7 +189,7 @@ int allocate_and_decrypt(EVP_CIPHER_CTX *aes_ctx, unsigned char **payload,
         const unsigned char *ciphertext_pos, size_t expected_length, bool *to_free) {
 
     if (!*payload) {
-        *payload = (unsigned char *) malloc(expected_length);
+        *payload = static_cast<unsigned char *>(malloc(expected_length));
         if (!*payload) {
             cerr << "Memory allocation failure" << endl;
             return -1;
@@ -205,7 +207,7 @@ int allocate_and_decrypt(EVP_CIPHER_CTX *aes_ctx, unsigned char **payload,
 err_allocate_and_decrypt:
     if (*to_free) {
         free(*payload);
-        *payload = NULL;
+        *payload = nullptr;
         *to_free = false;
     }
     return -1;
@@ -278,7 +280,7 @@ int decrypt_message(
         return -1;
     }
 
-    if (1 != EVP_DecryptInit_ex(aes_ctx, EVP_aes_128_gcm(), NULL,
+    if (1 != EVP_DecryptInit_ex(aes_ctx, EVP_aes_128_gcm(), nullptr,
             enc_key, ciphertext + bytes_decrypted)){
         cerr << "decrypt_message: failed to initialize decryption" << endl;
         goto end_decrypt;
@@ -308,7 +310,7 @@ int decrypt_message(
         cerr << "Seq_Op and length were not completely written to struct" << endl;
         goto end_decrypt;
     }
-    bytes_decrypted += length;
+    bytes_decrypted += static_cast<size_t>(length);
 
     if (header->key_len > expected_payload_len) {
         cerr << "Invalid key length" << endl;
@@ -324,10 +326,12 @@ int decrypt_message(
     }
 
     /* Decrypt value: */
-    expected_value_len = expected_payload_len - header->key_len;
+    expected_value_len = static_cast<int64_t>(expected_payload_len) -
+            static_cast<int64_t>(header->key_len);
     if (expected_value_len > 0) {
         if (0 > allocate_and_decrypt(aes_ctx, &(payload->value),
-                ciphertext + bytes_decrypted, expected_value_len, &free_value))
+                ciphertext + bytes_decrypted,
+                static_cast<size_t>(expected_value_len), &free_value))
             goto end_decrypt;
     }
 
@@ -336,7 +340,7 @@ int decrypt_message(
         cerr << "Could not finish decryption" << endl;
         goto end_decrypt;
     }
-    payload->value_len = expected_value_len;
+    payload->value_len = static_cast<size_t>(expected_value_len);
     ret = 0;
 
 end_decrypt:
@@ -353,8 +357,4 @@ end_decrypt:
     EVP_CIPHER_CTX_free(aes_ctx);
     return ret;
 #endif // NO_ENCRYPTION
-}
-
-void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
-
 }
