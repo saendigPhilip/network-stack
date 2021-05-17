@@ -17,7 +17,7 @@ ServerThread::ServerThread(
     this->next_seq = 0;
     this->connected = anchor_server::DISCONNECTED;
 
-    this->running_thread = new std::thread(
+    this->running_thread = std::thread(
             connect_and_work, this, nexus, erpc_id, max_msg_size);
 }
 
@@ -31,7 +31,7 @@ void ServerThread::connect_and_work(ServerThread *st,
         st->rpc_host->run_event_loop_once();
     if (st->connected == anchor_server::ERROR)
         throw std::runtime_error("Connection failure");
-    while (st->connected)
+    while (st->connected == anchor_server::CONNECTED)
         st->rpc_host->run_event_loop_once();
 }
 
@@ -59,7 +59,6 @@ void ServerThread::set_connection_status(
 }
 
 ServerThread::~ServerThread() {
-    delete this->running_thread;
     delete this->rpc_host;
 }
 
@@ -75,7 +74,7 @@ void ServerThread::enqueue_response(erpc::ReqHandle *handle,
  * */
 bool ServerThread::is_seq_valid(uint64_t sequence_number) {
     uint8_t id = ID_FROM_SEQ_OP(sequence_number);
-    if ((size_t) id != this->client_id) {
+    if (id != this->client_id) {
         cerr << "Invalid Client ID" << endl;
         return false;
     }
@@ -98,7 +97,7 @@ uint64_t ServerThread::get_next_seq(uint64_t sequence_number, uint8_t operation)
 }
 
 void ServerThread::join() {
-    this->running_thread->join();
+    this->running_thread.join();
 }
 
 void ServerThread::terminate() {
