@@ -76,13 +76,12 @@ int main(int argc, char *argv[]) {
         cerr << "Failed to host server" << endl;
         return ret;
     }
-    anchor_server::run_event_loop(1000000);
-    cout << "Shutting down server" << endl;
 
-    anchor_server::close_connection();
+    anchor_server::close_connection(false);
+    cout << "Shut down server" << endl;
 
-    for(size_t i = 0; i < TEST_KV_SIZE; i++)
-        free(test_kv_store[i]);
+    for(auto entry : test_kv_store)
+        free(entry);
 
     PRINT_TEST_SUMMARY();
     return 0;
