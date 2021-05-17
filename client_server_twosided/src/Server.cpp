@@ -61,7 +61,7 @@ int anchor_server::host_server(
     }
 
     enc_key = encryption_key;
-    threads = new std::vector<ServerThread *>(number_threads);
+    threads = new std::vector<ServerThread *>();
 
     kv_get = get;
     kv_put = put;
