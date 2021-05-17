@@ -17,7 +17,8 @@ private:
     enum anchor_server::connection_status connected;
     std::thread *running_thread;
 
-    static void connect_and_work(ServerThread *st);
+    static void connect_and_work(ServerThread *st, erpc::Nexus *nexus,
+            uint8_t erpc_id, size_t max_msg_size);
 
 
 

@@ -70,7 +70,6 @@ int anchor_server::host_server(
     for (uint8_t id = 0; id < number_threads; id++) {
         threads->push_back(new ServerThread(nexus, id, max_msg_size));
     }
-    cout << "Server is ready" << endl;
 
     return 0;
 err_host_server:

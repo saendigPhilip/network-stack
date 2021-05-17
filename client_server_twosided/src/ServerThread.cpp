@@ -13,15 +13,26 @@ void server_sm_handler(int, erpc::SmEventType type,
 
 ServerThread::ServerThread(
         erpc::Nexus *nexus, int erpc_id, size_t max_msg_size) {
-    this->rpc_host = new erpc::Rpc<erpc::CTransport>(
-            nexus, this, erpc_id, server_sm_handler);
-    this->rpc_host->set_pre_resp_msgbuf_size(max_msg_size);
-
     this->client_id = erpc_id; // TODO: This is not secure. Find better solution
     this->next_seq = 0;
     this->connected = anchor_server::DISCONNECTED;
 
-    this->running_thread = new std::thread(connect_and_work, this);
+    this->running_thread = new std::thread(
+            connect_and_work, this, nexus, erpc_id, max_msg_size);
+}
+
+void ServerThread::connect_and_work(ServerThread *st,
+        erpc::Nexus *nexus, uint8_t erpc_id, size_t max_msg_size) {
+    st->rpc_host = new erpc::Rpc<erpc::CTransport>(
+            nexus, st, erpc_id, server_sm_handler);
+    st->rpc_host->set_pre_resp_msgbuf_size(max_msg_size);
+
+    while (st->connected == anchor_server::DISCONNECTED)
+        st->rpc_host->run_event_loop_once();
+    if (st->connected == anchor_server::ERROR)
+        throw std::runtime_error("Connection failure");
+    while (st->connected)
+        st->rpc_host->run_event_loop_once();
 }
 
 
@@ -50,16 +61,6 @@ void ServerThread::set_connection_status(
 ServerThread::~ServerThread() {
     delete this->running_thread;
     delete this->rpc_host;
-}
-
-
-void ServerThread::connect_and_work(ServerThread *st) {
-    while (st->connected == anchor_server::DISCONNECTED)
-        st->rpc_host->run_event_loop_once();
-    if (st->connected == anchor_server::ERROR)
-        throw std::runtime_error("Connection failure");
-    while (st->connected)
-        st->rpc_host->run_event_loop_once();
 }
 
 void ServerThread::enqueue_response(erpc::ReqHandle *handle,
