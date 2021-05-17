@@ -8,7 +8,7 @@ namespace anchor_server {
     typedef const void *(*get_function)(const void *key, size_t key_len, size_t *data_len);
     typedef int (*put_function)(const void *key, size_t key_len, void *value, size_t value_len);
     typedef int (*delete_function)(const void *key, size_t key_len);
-    enum connection_status { CONNECTED, DISCONNECTED, ERROR };
+    enum connection_status { CONNECTED, DISCONNECTED, ERROR, PERFORM_DISCONNECT };
 
     int host_server(
             std::string& hostname, uint16_t udp_port,
@@ -21,7 +21,7 @@ namespace anchor_server {
 
     void run_event_loop_n_times(size_t n);
 
-    void close_connection();
+    void close_connection(bool force);
 }
 
 

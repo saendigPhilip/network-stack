@@ -7,7 +7,7 @@
 #include "ServerThread.h"
 
 erpc::Nexus *nexus = nullptr;
-std::vector<thread *> *threads = nullptr;
+std::vector<ServerThread *> *threads = nullptr;
 size_t max_msg_size;
 
 anchor_server::get_function kv_get;
@@ -62,23 +62,18 @@ int anchor_server::host_server(
     }
 
     enc_key = encryption_key;
-    threads = new std::vector<thread *>(number_threads);
+    threads = new std::vector<ServerThread *>(number_threads);
 
     kv_get = get;
     kv_put = put;
     kv_delete = del;
 
-    thread *current_thread;
     for (uint8_t id = 0; id < number_threads; id++) {
-        (void) new ServerThread(nexus, id, max_msg_size, &current_thread);
-        threads->push_back(current_thread);
+        threads->push_back(new ServerThread(nexus, id, max_msg_size));
     }
     cout << "Server is ready" << endl;
 
-    for (auto thread : *threads)
-        thread->join();
     return 0;
-
 err_host_server:
     delete nexus;
     return -1;
@@ -87,8 +82,16 @@ err_host_server:
 
 /**
  * Closes the connection that was before opened by a call to host_server
+ * @param force If true, forces each server thread to disconnect from the client
+ *          itself. Otherwise waits for the
  */
-void anchor_server::close_connection() {
+void anchor_server::close_connection(bool force) {
+    for (auto thread : *threads) {
+        if (force)
+            thread->terminate();
+        thread->join();
+        delete thread;
+    }
     delete threads;
     delete nexus;
 }

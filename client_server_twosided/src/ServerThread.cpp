@@ -11,8 +11,8 @@ void server_sm_handler(int, erpc::SmEventType type,
         erpc::SmErrType error, void *context);
 
 
-ServerThread::ServerThread(erpc::Nexus *nexus,
-        int erpc_id, size_t max_msg_size, std::thread **thread_ptr) {
+ServerThread::ServerThread(
+        erpc::Nexus *nexus, int erpc_id, size_t max_msg_size) {
     this->rpc_host = new erpc::Rpc<erpc::CTransport>(
             nexus, this, erpc_id, server_sm_handler);
     this->rpc_host->set_pre_resp_msgbuf_size(max_msg_size);
@@ -21,7 +21,7 @@ ServerThread::ServerThread(erpc::Nexus *nexus,
     this->next_seq = 0;
     this->connected = anchor_server::DISCONNECTED;
 
-    *thread_ptr = new std::thread(connect_and_work, this);
+    this->running_thread = new std::thread(connect_and_work, this);
 }
 
 
@@ -48,6 +48,7 @@ void ServerThread::set_connection_status(
 }
 
 ServerThread::~ServerThread() {
+    delete this->running_thread;
     delete this->rpc_host;
 }
 
@@ -59,7 +60,6 @@ void ServerThread::connect_and_work(ServerThread *st) {
         throw std::runtime_error("Connection failure");
     while (st->connected)
         st->rpc_host->run_event_loop_once();
-    delete st;
 }
 
 void ServerThread::enqueue_response(erpc::ReqHandle *handle,
@@ -94,4 +94,12 @@ uint64_t ServerThread::get_next_seq(uint64_t sequence_number, uint8_t operation)
     uint64_t ret = NEXT_SEQ(sequence_number);
     this->next_seq = NEXT_SEQ(ret & SEQ_MASK);
     return SET_OP(ret, operation);
+}
+
+void ServerThread::join() {
+    this->running_thread->join();
+}
+
+void ServerThread::terminate() {
+    this->set_connection_status(anchor_server::PERFORM_DISCONNECT);
 }
