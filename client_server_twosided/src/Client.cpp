@@ -118,6 +118,8 @@ void Client::decrypt_cont_func(void *context, void *message_tag) {
         ret = ret_val::OP_FAILED;
         goto end_decrypt_cont_func;
     }
+    if (tag->value_len)
+        *tag->value_len = payload.value_len;
 
     ret = ret_val::OP_SUCCESS;
 
