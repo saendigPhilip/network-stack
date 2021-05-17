@@ -16,10 +16,6 @@ namespace anchor_server {
             size_t max_entry_size,
             get_function get, put_function put, delete_function del);
 
-    void run_event_loop(size_t timeout);
-
-    void run_event_loop_n_times(size_t n);
-
     void close_connection(bool force);
 }
 
