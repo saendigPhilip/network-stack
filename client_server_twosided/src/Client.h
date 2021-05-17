@@ -55,6 +55,8 @@ namespace anchor_client {
 
         sent_message_tag *prepare_new_request();
 
+        void send_disconnect_message();
+
     public:
 
         Client(std::string& client_hostname, uint16_t udp_port, uint8_t id);

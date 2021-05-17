@@ -135,7 +135,8 @@ void Client::message_arrived(
         return;
 
     /* Call the Client callback and invalidate */
-    this->accepted[index].callback(ret, this->accepted[index].user_tag);
+    if (this->accepted[index].callback)
+        this->accepted[index].callback(ret, this->accepted[index].user_tag);
     invalidate_message_tag(accepted + index);
 
     /* To make sure we're making progress, we invalidate all older requests: */
@@ -211,6 +212,7 @@ int Client::connect(std::string& server_hostname,
 int Client::disconnect() {
     if (!client_rpc)
         return 0;
+    send_disconnect_message();
     int ret = client_rpc->destroy_session(session_nr);
     invalidate_old_requests(this->current_seq_op);
     delete client_rpc;
@@ -273,6 +275,25 @@ struct sent_message_tag *Client::prepare_new_request() {
     return accepted + index;
 }
 
+void Client::send_disconnect_message() {
+    struct sent_message_tag *tag = prepare_new_request();
+    tag->header = { SET_OP(current_seq_op, RDMA_ERR), 0 };
+    struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
+
+    if (0 != allocate_req_buffers(
+            tag->request, MIN_MSG_LEN, tag->response, MIN_MSG_LEN)) {
+        goto err_send_disconnect_message;
+    }
+
+    if (0 > encrypt_message(&(tag->header), &payload,
+            static_cast<unsigned char **>(&(tag->request->buf))))
+        goto err_send_disconnect_message;
+
+    this->send_message(tag, 10);
+
+err_send_disconnect_message:
+    invalidate_message_tag(tag);
+}
 
 /**
  * @param key Server address to read from
@@ -303,12 +324,10 @@ int Client::get(const void *key, size_t key_len,
 
     int ret = -1;
     uint64_t get_seq_number = SET_OP(current_seq_op, RDMA_GET);
-    bool free_buffers = true;
     struct rdma_enc_payload enc_payload;
 
     if (0 != allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len),
             tag->response, CIPHERTEXT_SIZE(max_value_len))) {
-        free_buffers = false;
         goto err_get;
     }
 
@@ -328,10 +347,6 @@ int Client::get(const void *key, size_t key_len,
     /* req and resp belong to eRPC on success.
      * On error, the buffers need to be freed manually */
 err_get:
-    if (free_buffers) {
-        client_rpc->free_msg_buffer(*(tag->request));
-        client_rpc->free_msg_buffer(*(tag->response));
-    }
     invalidate_message_tag(tag);
     return ret;
 }

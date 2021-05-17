@@ -14,20 +14,16 @@ private:
     erpc::Rpc<erpc::CTransport> *rpc_host;
     uint64_t next_seq;
     uint8_t client_id;
-    enum anchor_server::connection_status connected;
+    bool stay_connected;
     std::thread running_thread;
 
     static void connect_and_work(ServerThread *st, erpc::Nexus *nexus,
             uint8_t erpc_id, size_t max_msg_size);
 
-
-
 public:
     ServerThread(erpc::Nexus *nexus, int erpc_id, size_t max_msg_size);
 
     ~ServerThread();
-
-    void set_connection_status(enum anchor_server::connection_status status);
 
     bool is_seq_valid(uint64_t sequence_number);
 

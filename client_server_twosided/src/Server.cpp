@@ -235,12 +235,14 @@ void req_handler(erpc::ReqHandle *req_handle, void *context) {
         case RDMA_DELETE:
             send_response_delete(req_handle, st, &header, payload.key);
             break;
+        case RDMA_ERR:
+            st->terminate();
+            break;
         default:
             cerr << "Invalid operation: " << op << endl;
     }
 
 end_req_handler:
-    // TODO: Discuss with Dimitris about ownership
     free(payload.key);
     free(payload.value);
 }

@@ -7,15 +7,11 @@
 #include "ServerThread.h"
 
 
-void server_sm_handler(int, erpc::SmEventType type,
-        erpc::SmErrType error, void *context);
-
-
 ServerThread::ServerThread(
         erpc::Nexus *nexus, int erpc_id, size_t max_msg_size) {
     this->client_id = erpc_id; // TODO: This is not secure. Find better solution
     this->next_seq = 0;
-    this->connected = anchor_server::DISCONNECTED;
+    this->stay_connected = true;
 
     this->running_thread = std::thread(
             connect_and_work, this, nexus, erpc_id, max_msg_size);
@@ -24,39 +20,13 @@ ServerThread::ServerThread(
 void ServerThread::connect_and_work(ServerThread *st,
         erpc::Nexus *nexus, uint8_t erpc_id, size_t max_msg_size) {
     st->rpc_host = new erpc::Rpc<erpc::CTransport>(
-            nexus, st, erpc_id, server_sm_handler);
+            nexus, st, erpc_id, nullptr);
     st->rpc_host->set_pre_resp_msgbuf_size(max_msg_size);
 
-    while (st->connected == anchor_server::DISCONNECTED)
-        st->rpc_host->run_event_loop_once();
-    if (st->connected == anchor_server::ERROR)
-        throw std::runtime_error("Connection failure");
-    while (st->connected == anchor_server::CONNECTED)
+    while (st->stay_connected)
         st->rpc_host->run_event_loop_once();
 }
 
-
-void server_sm_handler(int, erpc::SmEventType type,
-        erpc::SmErrType error, void *context) {
-
-    auto server_thread = static_cast<ServerThread *>(context);
-    if (error != erpc::SmErrType::kNoError) {
-        server_thread->set_connection_status(anchor_server::ERROR);
-        return;
-    }
-    if (type == erpc::SmEventType::kConnected)
-        server_thread->set_connection_status(anchor_server::CONNECTED);
-    else if (type == erpc::SmEventType::kDisconnected)
-        server_thread->set_connection_status(anchor_server::DISCONNECTED);
-    else
-        server_thread->set_connection_status(anchor_server::ERROR);
-}
-
-
-void ServerThread::set_connection_status(
-        enum anchor_server::connection_status status) {
-    this->connected = status;
-}
 
 ServerThread::~ServerThread() {
     delete this->rpc_host;
@@ -101,5 +71,5 @@ void ServerThread::join() {
 }
 
 void ServerThread::terminate() {
-    this->set_connection_status(anchor_server::PERFORM_DISCONNECT);
+    this->stay_connected = false;
 }
