@@ -6,7 +6,6 @@
 #include "Server.h"
 #include "ServerThread.h"
 
-erpc::Rpc<erpc::CTransport> *rpc_host = nullptr;
 erpc::Nexus *nexus = nullptr;
 std::vector<thread *> *threads = nullptr;
 size_t max_msg_size;
@@ -85,26 +84,17 @@ err_host_server:
     return -1;
 }
 
-void anchor_server::run_event_loop(size_t timeout_millis) {
-    rpc_host->run_event_loop(timeout_millis);
-}
-
-void anchor_server::run_event_loop_n_times(size_t n) {
-    for (size_t i = 0; i < n; i++)
-        rpc_host->run_event_loop_once();
-}
 
 /**
  * Closes the connection that was before opened by a call to host_server
  */
 void anchor_server::close_connection() {
     delete threads;
-    delete rpc_host;
     delete nexus;
 }
 
 
-void send_encrypted_response(erpc::ReqHandle *req_handle,
+void send_encrypted_response(erpc::ReqHandle *req_handle, ServerThread *st,
         struct rdma_msg_header *header, struct rdma_enc_payload *payload) {
 
     unsigned char *ciphertext;
@@ -127,15 +117,15 @@ void send_encrypted_response(erpc::ReqHandle *req_handle,
         return;
     }
 
-    rpc_host->enqueue_response(req_handle, resp_buffer);
-
+    st->enqueue_response(req_handle, resp_buffer);
 }
 
 
-void send_empty_response(erpc::ReqHandle *req_handle, struct rdma_msg_header *header) {
+void send_empty_response(erpc::ReqHandle *req_handle, ServerThread *st,
+        struct rdma_msg_header *header) {
     header->key_len = 0;
     struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
-    send_encrypted_response(req_handle, header, &payload);
+    send_encrypted_response(req_handle, st, header, &payload);
 }
 
 /**
@@ -152,7 +142,7 @@ void send_response_get(erpc::ReqHandle *req_handle, ServerThread *st,
 
     if (!resp) {
         header->seq_op = st->get_next_seq(header->seq_op, RDMA_ERR);
-        send_empty_response(req_handle, header);
+        send_empty_response(req_handle, st, header);
         return;
     }
 
@@ -161,7 +151,7 @@ void send_response_get(erpc::ReqHandle *req_handle, ServerThread *st,
     header->key_len = 0;
     struct rdma_enc_payload payload = { nullptr, resp, resp_len };
 
-    send_encrypted_response(req_handle, header, &payload);
+    send_encrypted_response(req_handle, st, header, &payload);
 
 }
 
@@ -183,7 +173,7 @@ void send_response_put(erpc::ReqHandle *req_handle, ServerThread *st,
         header->seq_op = st->get_next_seq(header->seq_op, RDMA_PUT);
     }
     /* We only inform the client about whether the operation was successful or not */
-    send_empty_response(req_handle, header);
+    send_empty_response(req_handle, st, header);
 }
 
 
@@ -207,7 +197,7 @@ void send_response_delete(erpc::ReqHandle *req_handle, ServerThread *st,
         header->seq_op = st->get_next_seq(header->seq_op, RDMA_DELETE);
     }
     /* We only inform the client about whether the operation was successful or not */
-    send_empty_response(req_handle, header);
+    send_empty_response(req_handle, st, header);
 }
 
 

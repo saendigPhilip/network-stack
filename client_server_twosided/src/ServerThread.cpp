@@ -62,6 +62,11 @@ void ServerThread::connect_and_work(ServerThread *st) {
     delete st;
 }
 
+void ServerThread::enqueue_response(erpc::ReqHandle *handle,
+        erpc::MsgBuffer *resp) {
+    this->rpc_host->enqueue_response(handle, resp);
+}
+
 /* *
  * Checks if sequence number is valid by checking whether we expect the
  * according sequence number from the according client

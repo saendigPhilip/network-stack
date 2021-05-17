@@ -31,6 +31,7 @@ public:
 
     uint64_t get_next_seq(uint64_t sequence_number, uint8_t operation);
 
+    void enqueue_response(erpc::ReqHandle *handle, erpc::MsgBuffer *resp);
 
 };
 
