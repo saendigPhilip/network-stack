@@ -23,8 +23,6 @@ private:
 public:
     ServerThread(erpc::Nexus *nexus, int erpc_id, size_t max_msg_size);
 
-    ~ServerThread();
-
     bool is_seq_valid(uint64_t sequence_number);
 
     uint64_t get_next_seq(uint64_t sequence_number, uint8_t operation);

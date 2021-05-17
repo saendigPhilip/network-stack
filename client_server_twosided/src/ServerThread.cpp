@@ -25,12 +25,9 @@ void ServerThread::connect_and_work(ServerThread *st,
 
     while (st->stay_connected)
         st->rpc_host->run_event_loop_once();
+    delete st->rpc_host;
 }
 
-
-ServerThread::~ServerThread() {
-    delete this->rpc_host;
-}
 
 void ServerThread::enqueue_response(erpc::ReqHandle *handle,
         erpc::MsgBuffer *resp) {
