@@ -145,7 +145,7 @@ void issue_requests(anchor_client::Client *client) {
         }
         else if (deletes_performed < local_params->del_requests) {
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
-            if (0 > client->del((void *) key,
+            if (0 > client->del((void *) &key,
                     sizeof(size_t), del_callback, time_now)) {
                 cerr << "delete() failed" << endl;
             } else
