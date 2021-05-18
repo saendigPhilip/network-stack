@@ -84,11 +84,12 @@ int main(int argc, char *argv[]) {
     const uint16_t standard_udp_port = 31850;
     if (anchor_server::host_server(ip, standard_udp_port,
             key_do_not_use, TOTAL_CLIENTS, 0,
-            TEST_MAX_KEY_SIZE + TEST_MAX_VAL_SIZE, false,
+            TEST_MAX_KEY_SIZE + TEST_MAX_VAL_SIZE,
             kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
         return ret;
     }
+    cout << "Shutting down server" << endl;
 
     anchor_server::close_connection(false);
     return 0;
