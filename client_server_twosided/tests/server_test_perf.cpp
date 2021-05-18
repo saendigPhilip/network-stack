@@ -5,9 +5,7 @@
 #include "Server.h"
 #include "test_common.h"
 
-#define MAX_TEST_SIZE (1 << 16)
-
-void *test_kv_store[TEST_KV_SIZE] = { nullptr };
+char test_kv_store[TEST_KV_SIZE][TEST_MAX_VAL_SIZE];
 
 const void *kv_get(const void *key, size_t, size_t *data_len) {
     size_t index = *(size_t *) key;
@@ -20,11 +18,11 @@ const void *kv_get(const void *key, size_t, size_t *data_len) {
 }
 
 
-int kv_put(const void *key, size_t, void *value, size_t) {
+int kv_put(const void *key, size_t, void *value, size_t value_size) {
     auto index = *(size_t *) key;
     if (index < TEST_KV_SIZE) {
-        free(test_kv_store[index]);
-        test_kv_store[index] = value;
+        memcpy(test_kv_store[index], value, value_size);
+        free(value);
         return 0;
     }
     else 
@@ -34,8 +32,7 @@ int kv_put(const void *key, size_t, void *value, size_t) {
 int kv_delete(const void *key, size_t) {
     auto index = *(size_t *) key;
     if (index < TEST_KV_SIZE) {
-        free(test_kv_store[index]);
-        test_kv_store[index] = nullptr;
+        memset(test_kv_store[index], 0, TEST_MAX_VAL_SIZE);
         return 0;
     }
     else 
@@ -48,7 +45,6 @@ int kv_delete(const void *key, size_t) {
  */
 int initialize_kv_store() {
     for (size_t i = 0; i < TEST_KV_SIZE; i++) {
-        test_kv_store[i] = malloc(TEST_MAX_VAL_SIZE);
         if (!test_kv_store[i]) {
             cerr << "Memory allocation failure" << endl;
             for (size_t j = 0; j < i; j++)
@@ -58,13 +54,6 @@ int initialize_kv_store() {
         value_from_key(test_kv_store[i], (void *) &i, sizeof(size_t));
     }
     return 0;
-}
-
-void free_kv_store() {
-    for (auto& entry : test_kv_store) {
-        free(entry);
-        entry = nullptr;
-    }
 }
 
 
