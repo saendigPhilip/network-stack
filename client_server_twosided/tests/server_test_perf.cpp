@@ -21,7 +21,7 @@ const void *kv_get(const void *key, size_t, size_t *data_len) {
 
 
 int kv_put(const void *key, size_t, void *value, size_t) {
-    auto index = (size_t) key;
+    auto index = *(size_t *) key;
     if (index < TEST_KV_SIZE) {
         free(test_kv_store[index]);
         test_kv_store[index] = value;
@@ -32,7 +32,7 @@ int kv_put(const void *key, size_t, void *value, size_t) {
 }
 
 int kv_delete(const void *key, size_t) {
-    auto index = (size_t) key;
+    auto index = *(size_t *) key;
     if (index < TEST_KV_SIZE) {
         free(test_kv_store[index]);
         test_kv_store[index] = nullptr;

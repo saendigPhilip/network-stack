@@ -119,7 +119,7 @@ void issue_requests(anchor_client::Client *client) {
         if (client->queue_full()) {
             fprintf(stderr, "Thread %u: Queue full. Waiting for server\n",
                     local_params->id);
-            std::this_thread::sleep_for(5ms);
+            std::this_thread::sleep_for(chrono::microseconds(1));
             client->run_event_loop_n_times(20);
         }
 
