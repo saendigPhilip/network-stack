@@ -254,7 +254,7 @@ void Client::send_message(
         struct sent_message_tag *tag, size_t loop_iterations) {
 
     /* Skip one sequence number for the server response */
-    current_seq_op = NEXT_SEQ(NEXT_SEQ(current_seq_op));
+    this->current_seq_op = NEXT_SEQ(NEXT_SEQ(current_seq_op));
 
 
     client_rpc->enqueue_request(session_nr, DEFAULT_REQ_TYPE,
@@ -436,8 +436,6 @@ int Client::del(const void *key, size_t key_len,
 
     struct sent_message_tag *tag = prepare_new_request();
     fill_message_tag(tag, user_tag, callback);
-    if (!tag)
-        return -1;
 
     uint64_t delete_seq_number = SET_OP(current_seq_op, RDMA_DELETE);
     struct rdma_enc_payload payload;
