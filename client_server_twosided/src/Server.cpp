@@ -126,9 +126,11 @@ void send_encrypted_response(erpc::ReqHandle *req_handle, ServerThread *st,
     }
 
     if (0 != encrypt_message(header, payload, &ciphertext)) {
+        cerr << "Failed to encrypt message" << endl;
         return;
     }
 
+    cout << "Sending response" << endl;
     st->enqueue_response(req_handle, resp_buffer);
 }
 
@@ -226,8 +228,10 @@ void req_handler(erpc::ReqHandle *req_handle, void *context) {
     }
     size_t ciphertext_size = ciphertext_buf->get_data_size();
 
-    if (0 != decrypt_message(&header, &payload, ciphertext, ciphertext_size))
+    if (0 != decrypt_message(&header, &payload, ciphertext, ciphertext_size)) {
+        cerr << "Failed to decrypt message" << endl;
         goto end_req_handler;
+    }
 
     /* Check for replays by checking the sequence number: */
     if (!st->is_seq_valid(header.seq_op)) {
