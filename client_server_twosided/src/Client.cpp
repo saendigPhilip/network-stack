@@ -3,8 +3,8 @@
 #include "Client.h"
 #include "client_server_common.h"
 using namespace anchor_client;
-static erpc::Nexus *nexus;
-static size_t nexus_ref = 0;
+erpc::Nexus *nexus = nullptr;
+size_t nexus_ref = 0;
 
 /* Because the last bit is always the same at client side, we shift the sequence
  * number to the right in order to use the whole accepted array */
