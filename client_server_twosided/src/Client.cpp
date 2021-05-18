@@ -142,7 +142,7 @@ void Client::message_arrived(
     invalidate_message_tag(accepted + index);
 
     /* To make sure we're making progress, we invalidate all older requests: */
-    invalidate_old_requests(seq_op);
+    // invalidate_old_requests(seq_op);
 }
 
 /* Iterates over the accepted struct until a request is found that Deletes all requests that have a lower sequence number than seq and invokes
@@ -270,11 +270,13 @@ bool Client::queue_full() {
 
 struct sent_message_tag *Client::prepare_new_request() {
     size_t index = ACCEPTED_INDEX(this->current_seq_op);
-    if (!accepted[index].valid)
-        return accepted + index;
-    else
-        invalidate_old_requests(accepted[index].header.seq_op);
-    return accepted + index;
+    struct sent_message_tag *ret = accepted + index;
+    if (ret->valid) {
+        ret->callback(TIMEOUT, ret->user_tag);
+        invalidate_message_tag(ret);
+        // invalidate_old_requests(accepted[index].header.seq_op);
+    }
+    return ret;
 }
 
 void Client::send_disconnect_message() {
