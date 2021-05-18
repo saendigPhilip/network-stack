@@ -114,7 +114,8 @@ void issue_requests(anchor_client::Client *client) {
                 times + (req % anchor_client::MAX_ACCEPTED_RESPONSES);
 
         // Go easy on the server:
-        while (client->queue_full()) {
+        if (client->queue_full()) {
+            cerr << "Queue full. Waiting for server" << endl;
             std::this_thread::sleep_for(5ms);
             client->run_event_loop_n_times(20);
         }
