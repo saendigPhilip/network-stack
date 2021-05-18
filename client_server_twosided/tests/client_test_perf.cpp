@@ -291,6 +291,7 @@ int main(int argc, char *argv[]) {
         result = results + i;
         print_summary(false, param, result);
         add_result_to_final(&final, result);
+        delete clients[i];
     }
     print_summary(true, &total_params, &final);
 }
