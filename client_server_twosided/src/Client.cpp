@@ -303,7 +303,7 @@ void Client::send_disconnect_message() {
             static_cast<unsigned char **>(&(tag->request->buf))))
         goto err_send_disconnect_message;
 
-    this->send_message(tag, 10);
+    this->send_message(tag, 10000);
 
 err_send_disconnect_message:
     invalidate_message_tag(tag);

@@ -222,19 +222,22 @@ void print_summary(bool all, struct test_params *params,
     else 
         printf("Thread %2i: \n", params->id);
 
-    printf("put(): %zu/%zu successful, Total time: %lu, time/put: %f\n",
+    printf("put(): %zu/%zu successful, "
+           "Total time: %lu ns, time/put: %f ns\n",
             suc_puts, total_puts, put_time,
             static_cast<double>(put_time) / static_cast<double>(suc_puts));
-    printf("get(): %zu/%zu successful, Total time: %lu, time/get: %f\n",
+    printf("get(): %zu/%zu successful, "
+           "Total time: %lu ns, time/get: %f ns\n",
             suc_gets, total_gets, get_time,
             static_cast<double>(get_time) / static_cast<double>(suc_gets));
-    printf("delete(): %zu/%zu successful, Total time: %lu, time/delete: %f\n",
+    printf("delete(): %zu/%zu successful, "
+           "Total time: %lu ns, time/delete: %f ns\n",
             suc_dels, total_dels, del_time,
             static_cast<double>(del_time) / static_cast<double>(suc_dels));
 
     uint64_t total_time = put_time + get_time + del_time;
     size_t suc_total = suc_puts + suc_gets + suc_dels;
-    printf("Total time: %lu, time/operation: %f\n", total_time,
+    printf("Total time: %lu ns, time/operation: %f ns\n", total_time,
             static_cast<double>(total_time) / static_cast<double>(suc_total));
 }
 
