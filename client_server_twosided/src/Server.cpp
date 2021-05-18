@@ -24,6 +24,10 @@ void req_handler(erpc::ReqHandle *req_handle, void *context);
  *          Limits the number of clients
  * @param num_bg_threads Number of eRPC background threads for handling requests
  * @param max_entry_size Size of biggest key-value-pair in the KV-store
+ * @param asynchronous If true, the method terminates when the last spawned
+ *          thread has terminated. Other threads may still run after termination
+ *          of this method.
+ *          close_connection() still needs to be called afterwards
  * @param get Function of the KV-Store that is called on client get-requests
  * @param put Function of the KV-Store that is called on client put-requests
  * @param del Function of the KV-Store that is called on client delete-requests
@@ -33,7 +37,7 @@ int anchor_server::host_server(
         std::string& hostname, uint16_t udp_port,
         const unsigned char *encryption_key,
         uint8_t number_threads, size_t num_bg_threads,
-        size_t max_entry_size,
+        size_t max_entry_size, bool asynchronous,
         get_function get, put_function put, delete_function del) {
 
     max_msg_size = CIPHERTEXT_SIZE(max_entry_size);
@@ -67,9 +71,16 @@ int anchor_server::host_server(
     kv_put = put;
     kv_delete = del;
 
+    if (!asynchronous)
+        number_threads--;
     for (uint8_t id = 0; id < number_threads; id++) {
         threads->push_back(new ServerThread(nexus, id, max_msg_size));
     }
+    if (!asynchronous) {
+        ServerThread thread(nexus, number_threads, max_msg_size, false);
+    }
+
+
 
     return 0;
 err_host_server:

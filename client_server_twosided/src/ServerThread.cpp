@@ -7,14 +7,17 @@
 #include "ServerThread.h"
 
 
-ServerThread::ServerThread(
-        erpc::Nexus *nexus, int erpc_id, size_t max_msg_size) {
+ServerThread::ServerThread(erpc::Nexus *nexus,
+        int erpc_id, size_t max_msg_size, bool asynchronous) {
     this->client_id = erpc_id; // TODO: This is not secure. Find better solution
     this->next_seq = 0;
     this->stay_connected = true;
 
-    this->running_thread = std::thread(
-            connect_and_work, this, nexus, erpc_id, max_msg_size);
+    if (asynchronous)
+        this->running_thread = std::thread(
+                connect_and_work, this, nexus, erpc_id, max_msg_size);
+    else
+        connect_and_work(this, nexus, erpc_id, max_msg_size);
 }
 
 void ServerThread::connect_and_work(ServerThread *st,

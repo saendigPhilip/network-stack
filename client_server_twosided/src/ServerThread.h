@@ -21,7 +21,8 @@ private:
             uint8_t erpc_id, size_t max_msg_size);
 
 public:
-    ServerThread(erpc::Nexus *nexus, int erpc_id, size_t max_msg_size);
+    ServerThread(erpc::Nexus *nexus, int erpc_id, size_t max_msg_size,
+            bool asynchronous = true);
 
     bool is_seq_valid(uint64_t sequence_number);
 
