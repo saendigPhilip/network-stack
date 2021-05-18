@@ -76,11 +76,8 @@ int anchor_server::host_server(
     for (uint8_t id = 0; id < number_threads; id++) {
         threads->push_back(new ServerThread(nexus, id, max_msg_size));
     }
-    if (!asynchronous) {
+    if (!asynchronous)
         ServerThread thread(nexus, number_threads, max_msg_size, false);
-    }
-
-
 
     return 0;
 err_host_server:
@@ -130,7 +127,6 @@ void send_encrypted_response(erpc::ReqHandle *req_handle, ServerThread *st,
         return;
     }
 
-    cout << "Sending response" << endl;
     st->enqueue_response(req_handle, resp_buffer);
 }
 
