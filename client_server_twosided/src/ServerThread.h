@@ -9,6 +9,8 @@
 #include "rpc.h"
 #include "Server.h"
 
+static constexpr size_t SEQ_THRESHOLD = 32;
+
 class ServerThread {
 private:
     erpc::Rpc<erpc::CTransport> *rpc_host;
