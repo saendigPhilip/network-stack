@@ -82,6 +82,8 @@ namespace anchor_client {
         bool queue_full();
 
         int disconnect();
+
+        void run_event_loop_n_times(size_t n);
     };
 }
 

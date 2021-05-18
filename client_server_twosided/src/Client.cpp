@@ -462,4 +462,11 @@ err_delete:
     return -1;
 }
 
+void Client::run_event_loop_n_times(size_t n) {
+    if (this->client_rpc) {
+        for (size_t i = 0; i < n; i++)
+            this->client_rpc->run_event_loop_once();
+    }
+}
+
 
