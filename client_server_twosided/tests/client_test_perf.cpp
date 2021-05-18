@@ -150,14 +150,11 @@ void issue_requests(anchor_client::Client *client) {
 }
 
 void test_thread(struct test_params *params, struct test_results *results,
-        std::string *client_hostname, std::string *server_hostname) {
+        anchor_client::Client *client, std::string *server_hostname) {
 
     local_params = params;
     local_results = results;
-    anchor_client::Client client(
-            *client_hostname, params->port, params->id);
-
-    if (0 > client.connect(
+    if (0 > client->connect(
             *server_hostname, params->port, key_do_not_use)) {
         cerr << "Thread " << params->id
                 << ": Failed to connect to server" << endl;
@@ -165,8 +162,8 @@ void test_thread(struct test_params *params, struct test_results *results,
     }
     srand(static_cast<unsigned int>(params->id));
 
-    issue_requests(&client);
-    (void) client.disconnect();
+    issue_requests(client);
+    (void) client->disconnect();
 }
 
 void fill_params_structs(
@@ -254,15 +251,20 @@ int main(int argc, char *argv[]) {
     fill_params_structs(params, port);
     memset(results, 0, sizeof(results));
 
-    vector<thread *> threads;
+    vector<anchor_client::Client *> clients;
+    for (uint8_t id = 0; id < TOTAL_CLIENTS; id++) {
+        clients.emplace_back(
+                new anchor_client::Client(client_hostname, port, id));
+    }
 
+    vector<thread *> threads;
     /* Launch requester threads: */
     uint8_t i = 0;
     for (; i < TOTAL_CLIENTS - 1; i++) {
         threads.emplace_back(new thread(test_thread, params + i, results + i,
-                &client_hostname, &server_hostname));
+                clients[i], &server_hostname));
     }
-    test_thread(params + i, results + i, &client_hostname, &server_hostname);
+    test_thread(params + i, results + i, clients[i], &server_hostname);
 
 
     /* Wait for requester threads to finish: */
