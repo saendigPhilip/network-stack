@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstring>
 #include <ctime>
 #include <random>
@@ -107,45 +108,47 @@ void issue_requests(anchor_client::Client *client) {
     struct timespec times[anchor_client::MAX_ACCEPTED_RESPONSES];
     size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
     size_t key;
-    size_t req = 0;
-    for (; puts_performed < local_params->put_requests; req++) {
+    for (size_t req = 0; ; req++) {
         key = get_random_key();
         struct timespec *time_now =
                 times + (req % anchor_client::MAX_ACCEPTED_RESPONSES);
 
-        value_from_key((void *) value_buf, (void *) &key, sizeof(size_t));
-        (void) clock_gettime(CLOCK_MONOTONIC, time_now);
-        if (0 > client->put((void *) &key, sizeof(size_t),
-                (void *) value_buf, TEST_MAX_VAL_SIZE,
-                put_callback, time_now)) {
+        // Go easy on the server:
+        while (client->queue_full()) {
+            std::this_thread::sleep_for(5ms);
+            client->run_event_loop_n_times(20);
+        }
 
-            cerr << "put() failed" << endl;
+        if (puts_performed < local_params->put_requests) {
+            value_from_key((void *) value_buf, (void *) &key, sizeof(size_t));
+            (void) clock_gettime(CLOCK_MONOTONIC, time_now);
+            if (0 > client->put((void *) &key, sizeof(size_t),
+                    (void *) value_buf, TEST_MAX_VAL_SIZE,
+                    put_callback, time_now)) {
+
+                cerr << "put() failed" << endl;
+            } else
+                puts_performed++;
+        }
+        else if (gets_performed < local_params->get_requests) {
+            (void) clock_gettime(CLOCK_MONOTONIC, time_now);
+            if (0 > client->get((void *) &key, sizeof(size_t),
+                    (void *) value_buf, TEST_MAX_VAL_SIZE, nullptr,
+                    get_callback, time_now)) {
+                cerr << "get() failed" << endl;
+            } else
+                gets_performed++;
+        }
+        else if (deletes_performed < local_params->del_requests) {
+            (void) clock_gettime(CLOCK_MONOTONIC, time_now);
+            if (0 > client->del((void *) key,
+                    sizeof(size_t), del_callback, time_now)) {
+                cerr << "delete() failed" << endl;
+            } else
+                deletes_performed++;
         }
         else
-            puts_performed++;
-    }
-    for (; gets_performed < local_params->get_requests; req++) {
-        key = get_random_key();
-        struct timespec *time_now =
-                times + (req % anchor_client::MAX_ACCEPTED_RESPONSES);
-        (void) clock_gettime(CLOCK_MONOTONIC, time_now);
-        if (0 > client->get((void *) &key, sizeof(size_t),
-                (void *) value_buf, TEST_MAX_VAL_SIZE, nullptr,
-                get_callback, time_now)) {
-            cerr << "get() failed" << endl;
-        } else
-            gets_performed++;
-    }
-    for (; deletes_performed < local_params->del_requests; req++) {
-        key = get_random_key();
-        struct timespec *time_now =
-                times + (req % anchor_client::MAX_ACCEPTED_RESPONSES);
-        (void) clock_gettime(CLOCK_MONOTONIC, time_now);
-        if (0 > client->del((void *) key,
-                sizeof(size_t), del_callback, time_now)) {
-            cerr << "delete() failed" << endl;
-        } else
-            deletes_performed++;
+            break;
     }
 }
 
