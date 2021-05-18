@@ -68,15 +68,15 @@ namespace anchor_client {
         int get(const void *key, size_t key_len,
                 void *value, size_t max_value_len, size_t *value_len,
                 anchor_client::status_callback callback, const void *user_tag,
-                size_t loop_iterations = 10000);
+                size_t loop_iterations = 1000);
 
         int put(const void *key, size_t key_len, const void *value, size_t value_len,
                 anchor_client::status_callback callback, const void *user_tag,
-                size_t loop_iterations = 10000);
+                size_t loop_iterations = 1000);
 
         int del(const void *key, size_t key_len,
                 anchor_client::status_callback callback, const void *user_tag,
-                size_t loop_iterations = 10000);
+                size_t loop_iterations = 1000);
 
 
         bool queue_full();
