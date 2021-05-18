@@ -45,8 +45,7 @@ void ServerThread::enqueue_response(erpc::ReqHandle *handle,
 bool ServerThread::is_seq_valid(uint64_t sequence_number) {
     uint8_t id = ID_FROM_SEQ_OP(sequence_number);
     if (id != this->client_id) {
-        cerr << "Invalid Client ID. Expected: ";
-        cerr << this->client_id << ", Got: " << id << endl;
+        cerr << "Invalid Client ID" << endl;
         return false;
     }
     if (this->next_seq == 0) {
