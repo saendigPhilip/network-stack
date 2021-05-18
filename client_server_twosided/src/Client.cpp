@@ -114,8 +114,10 @@ void Client::decrypt_cont_func(void *context, void *message_tag) {
     incoming_op = OP_FROM_SEQ_OP(incoming_header.seq_op);
     // This is most likely a message that has already been processed (timeout)
     // If it's not, it's a replay or similar, so we don't care about it
-    if (incoming_header.seq_op != NEXT_SEQ(tag->header.seq_op))
+    if (incoming_header.seq_op != NEXT_SEQ(tag->header.seq_op)) {
+        cerr << "Message with old sequence number arrived" << endl;
         return;
+    }
 
     if (expected_op != incoming_op) {
         ret = ret_val::OP_FAILED;
@@ -136,8 +138,10 @@ void Client::message_arrived(
 
     size_t index = ACCEPTED_INDEX(seq_op);
     /* If this is an expired answer to a request or a replay, we're done */
-    if (!(this->accepted[index].valid))
+    if (!(this->accepted[index].valid)) {
+        cerr << "Expired message arrived" << endl;
         return;
+    }
 
     /* Call the Client callback and invalidate */
     if (this->accepted[index].callback)
