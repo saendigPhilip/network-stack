@@ -81,8 +81,10 @@ Client::~Client() {
     (void) disconnect();
     for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++)
         free_message_tag(accepted + i);
-    if (nexus_ref == 0)
+    if (nexus_ref == 0 && nexus) {
         delete nexus;
+        nexus = nullptr;
+    }
 }
 /**
  * Continuation function that is called when a server response arrives
@@ -225,8 +227,8 @@ int Client::disconnect() {
     send_disconnect_message();
     int ret = client_rpc->destroy_session(session_nr);
     invalidate_old_requests(this->current_seq_op);
-    delete client_rpc;
-    client_rpc = nullptr;
+    delete this->client_rpc;
+    this->client_rpc = nullptr;
     nexus_ref--;
     return ret;
 }
