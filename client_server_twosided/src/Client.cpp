@@ -197,7 +197,7 @@ int Client::connect(std::string& server_hostname,
     client_rpc = new erpc::Rpc<erpc::CTransport>(
             nexus, this, this->erpc_id, empty_sm_handler, 0);
 
-    session_nr = client_rpc->create_session(server_uri, 0);
+    session_nr = client_rpc->create_session(server_uri, this->erpc_id);
     if (session_nr < 0) {
         cout << "Error: " << strerror(-session_nr) <<
             " Could not establish session with server at " << server_uri << endl;
