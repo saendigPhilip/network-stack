@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     const uint8_t num_clients = 1;
     if (anchor_server::host_server(ip, standard_udp_port,
             key_do_not_use, num_clients, 0,
-            TEST_MAX_KEY_SIZE + TEST_MAX_VAL_SIZE,
+            TEST_MAX_KEY_SIZE + TEST_MAX_VAL_SIZE, true,
             kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
         return ret;
