@@ -22,7 +22,6 @@ int kv_put(const void *key, size_t, void *value, size_t value_size) {
     auto index = *(size_t *) key;
     if (index < TEST_KV_SIZE) {
         memcpy(test_kv_store[index], value, value_size);
-        free(value);
         return 0;
     }
     else 
