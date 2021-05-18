@@ -46,19 +46,19 @@ int main(int argc, char *argv[]) {
     BEGIN_TEST_DELIMITER("put operation");
     EXPECT_EQUAL(0, client.put((void *) test_key, sizeof(test_key),
             (void*) test_value, sizeof(test_value), test_callback,
-            (void *) test_key, 100000))
+            (void *) test_key, 10000))
     END_TEST_DELIMITER();
     
     BEGIN_TEST_DELIMITER("get operation");
     EXPECT_EQUAL(0, client.get((void *) test_key, sizeof(test_key),
             incoming_test_value, TEST_MAX_VAL_SIZE, nullptr, test_callback,
-            test_key, 100000))
+            test_key, 10000))
     EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, TEST_MAX_VAL_SIZE))
     END_TEST_DELIMITER();
 
     BEGIN_TEST_DELIMITER("delete operation");
     EXPECT_EQUAL(0, client.del((void *) test_key, sizeof(test_key),
-            test_callback, (void *) test_key, 100000));
+            test_callback, (void *) test_key, 10000));
     END_TEST_DELIMITER();
 
 
