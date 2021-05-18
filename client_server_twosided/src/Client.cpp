@@ -114,7 +114,8 @@ void Client::decrypt_cont_func(void *context, void *message_tag) {
     incoming_op = OP_FROM_SEQ_OP(incoming_header.seq_op);
     // This is most likely a message that has already been processed (timeout)
     // If it's not, it's a replay or similar, so we don't care about it
-    if (incoming_header.seq_op != NEXT_SEQ(tag->header.seq_op)) {
+    if ((incoming_header.seq_op & SEQ_MASK) !=
+            (NEXT_SEQ(tag->header.seq_op) & SEQ_MASK)) {
         cerr << "Message with old sequence number arrived" << endl;
         return;
     }
