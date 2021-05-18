@@ -44,12 +44,15 @@ inline uint64_t time_diff(
 void evaluate_status(anchor_client::ret_val status) {
     switch(status) {
         case anchor_client::OP_FAILED:
+            fprintf(stderr, "Thread %u: OP failed\n", local_params->id);
             local_results->failed_operations++;
             break;
         case anchor_client::TIMEOUT:
+            fprintf(stderr, "Thread %u: Timeout\n", local_params->id);
             local_results->timeouts++;
             break;
         case anchor_client::INVALID_RESPONSE:
+            fprintf(stderr, "Thread %u: Invalid resp.\n", local_params->id);
             local_results->invalid_responses++;
             break;
         default:
@@ -117,8 +120,6 @@ void issue_requests(anchor_client::Client *client) {
 
         // Go easy on the server:
         if (client->queue_full()) {
-            fprintf(stderr, "Thread %u: Queue full. Waiting for server\n",
-                    local_params->id);
             std::this_thread::sleep_for(chrono::microseconds(1));
             client->run_event_loop_n_times(20);
         }
@@ -279,11 +280,9 @@ int main(int argc, char *argv[]) {
     memset(&final, 0, sizeof(final));
     struct test_params *param;
     struct test_results *result;
-    for (i = 0; i < TOTAL_CLIENTS; i++) {
-        if (i < TOTAL_CLIENTS - 1) {
-            threads[i]->join();
-            delete threads[i];
-        }
+    for (i = 0; i < TOTAL_CLIENTS - 1; i++) {
+        threads[i]->join();
+        delete threads[i];
     }
 
     for (i = 0; i < TOTAL_CLIENTS; i++) {
