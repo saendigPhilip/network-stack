@@ -70,6 +70,7 @@ Client::Client(
         nexus = new erpc::Nexus(client_uri, 0, 0);
     nexus_ref++;
     current_seq_op = SET_ID(current_seq_op, id);
+    this->erpc_id = id;
     for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++)
         init_message_tag(accepted + i);
 
@@ -194,7 +195,7 @@ int Client::connect(std::string& server_hostname,
         (void) disconnect();
     }
     client_rpc = new erpc::Rpc<erpc::CTransport>(
-            nexus, this, 0, empty_sm_handler, 0);
+            nexus, this, this->erpc_id, empty_sm_handler, 0);
 
     session_nr = client_rpc->create_session(server_uri, 0);
     if (session_nr < 0) {

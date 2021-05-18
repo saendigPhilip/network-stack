@@ -28,10 +28,10 @@ namespace anchor_client {
 
     class Client {
     private:
-        // static erpc::Nexus *nexus;
 
         /* eRPC session number */
         int session_nr;
+        uint8_t erpc_id;
         /* This is always the next sequence number that the Client sends */
         uint64_t current_seq_op = 0;
         erpc::Rpc<erpc::CTransport> *client_rpc;
