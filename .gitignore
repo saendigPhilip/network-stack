@@ -12,9 +12,13 @@ client_server_twosided/server
 client_server_twosided/client
 client_server_twosided/CMakeFiles/**
 client_server_twosided/build/**
+client_server_twosided/Makefile
+client_server_twosided/CMakeCache.txt
+client_server_twosided/*.cmake
 !playground_onesided/
 !client_server_twosided/
 !**/*.[ch]
 !**/*.sh
-!**/Makefile
+!**/*.cpp
+!client_server_onesided/**/Makefile
 !.gitignore
