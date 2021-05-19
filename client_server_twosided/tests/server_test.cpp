@@ -5,13 +5,15 @@
 #include "simple_unit_test.h"
 #include "test_common.h"
 
+constexpr size_t TEST_KV_SIZE = 256;
+
 char *test_kv_store[TEST_KV_SIZE] = {nullptr};
 
 long int get_index(const char *key) {
     char *err;
     long int index = strtol(key, &err, 0);
     if (*key != '\0' && *err == '\0' &&
-            index >= 0 && (size_t) index < TEST_KV_SIZE) {
+            index >= 0 && (size_t) index < KV_SIZE) {
         return index;
     }
     return -1;
@@ -20,7 +22,7 @@ long int get_index(const char *key) {
 const void *kv_get(const void *key, size_t, size_t *data_len) {
     long int index = get_index((char *) key);
     if (index >= 0 && test_kv_store[index]) {
-        *data_len = TEST_MAX_VAL_SIZE;
+        *data_len = MAX_VAL_SIZE;
         return static_cast<const void*>(test_kv_store[index]);
     }
     else 
@@ -39,7 +41,7 @@ int kv_put(const void *key, size_t, void *value, size_t value_size) {
         test_kv_store[index] = nullptr;
         return 0;
     }
-    test_kv_store[index] = static_cast<char *>(malloc(TEST_MAX_VAL_SIZE));
+    test_kv_store[index] = static_cast<char *>(malloc(MAX_VAL_SIZE));
     if (!test_kv_store[index]) {
         cerr << "Memory allocation failure" << endl;
         return -1;
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]) {
     const uint8_t num_clients = 1;
     if (anchor_server::host_server(ip, standard_udp_port,
             key_do_not_use, num_clients, 0,
-            TEST_MAX_KEY_SIZE + TEST_MAX_VAL_SIZE, true,
+            MAX_KEY_SIZE + MAX_VAL_SIZE, true,
             kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
         return ret;

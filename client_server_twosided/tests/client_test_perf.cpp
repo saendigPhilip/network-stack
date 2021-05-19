@@ -1,14 +1,17 @@
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <random>
 #include "Client.h"
 #include "test_common.h"
 
-char test_value[TEST_MAX_VAL_SIZE];
-char incoming_test_value[TEST_MAX_VAL_SIZE];
+uint16_t port = 31850;
 
-thread_local unsigned char value_buf[TEST_MAX_VAL_SIZE];
+char test_value[MAX_VAL_SIZE];
+char incoming_test_value[MAX_VAL_SIZE];
+
+thread_local unsigned char value_buf[MAX_VAL_SIZE];
 thread_local struct test_params *local_params;
 thread_local struct test_results *local_results;
 
@@ -44,15 +47,15 @@ inline uint64_t time_diff(
 void evaluate_status(anchor_client::ret_val status) {
     switch(status) {
         case anchor_client::OP_FAILED:
-            fprintf(stderr, "Thread %u: OP failed\n", local_params->id);
+            // fprintf(stderr, "Thread %u: OP failed\n", local_params->id);
             local_results->failed_operations++;
             break;
         case anchor_client::TIMEOUT:
-            fprintf(stderr, "Thread %u: Timeout\n", local_params->id);
+            // fprintf(stderr, "Thread %u: Timeout\n", local_params->id);
             local_results->timeouts++;
             break;
         case anchor_client::INVALID_RESPONSE:
-            fprintf(stderr, "Thread %u: Invalid resp.\n", local_params->id);
+            // fprintf(stderr, "Thread %u: Invalid resp.\n", local_params->id);
             local_results->invalid_responses++;
             break;
         default:
@@ -103,7 +106,7 @@ void del_callback(anchor_client::ret_val status, const void *tag) {
 }
 
 inline size_t get_random_key() {
-    return static_cast<size_t>(rand()) % TEST_KV_SIZE;
+    return static_cast<size_t>(rand()) % KV_SIZE;
 }
 
 void issue_requests(anchor_client::Client *client) {
@@ -128,8 +131,8 @@ void issue_requests(anchor_client::Client *client) {
             value_from_key((void *) value_buf, (void *) &key, sizeof(size_t));
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
             if (0 > client->put((void *) &key, sizeof(size_t),
-                    (void *) value_buf, TEST_MAX_VAL_SIZE,
-                    put_callback, time_now)) {
+                    (void *) value_buf, VAL_SIZE,
+                    put_callback, time_now, LOOP_ITERATIONS)) {
 
                 cerr << "put() failed" << endl;
             } else
@@ -138,8 +141,8 @@ void issue_requests(anchor_client::Client *client) {
         else if (gets_performed < local_params->get_requests) {
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
             if (0 > client->get((void *) &key, sizeof(size_t),
-                    (void *) value_buf, TEST_MAX_VAL_SIZE, nullptr,
-                    get_callback, time_now)) {
+                    (void *) value_buf, VAL_SIZE, nullptr,
+                    get_callback, time_now, LOOP_ITERATIONS)) {
                 cerr << "get() failed" << endl;
             } else
                 gets_performed++;
@@ -147,7 +150,7 @@ void issue_requests(anchor_client::Client *client) {
         else if (deletes_performed < local_params->del_requests) {
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
             if (0 > client->del((void *) &key,
-                    sizeof(size_t), del_callback, time_now)) {
+                    sizeof(size_t), del_callback, time_now, LOOP_ITERATIONS)) {
                 cerr << "delete() failed" << endl;
             } else
                 deletes_performed++;
@@ -174,9 +177,7 @@ void test_thread(struct test_params *params, struct test_results *results,
     (void) client->disconnect();
 }
 
-void fill_params_structs(
-        struct test_params *params, uint16_t port) {
-
+void fill_params_structs(struct test_params *params) {
     struct test_params default_params = {
             port,
             0,
@@ -184,7 +185,7 @@ void fill_params_structs(
             GET_REQUESTS_PER_CLIENT,
             DELETE_REQUESTS_PER_CLIENT
     };
-    for (uint8_t id = 0; id < TOTAL_CLIENTS; id++) {
+    for (uint8_t id = 0; id < NUM_CLIENTS; id++) {
         memcpy(static_cast<void *>(params + id), &default_params,
             sizeof(struct test_params));
         params[id].id = id;
@@ -217,8 +218,12 @@ void print_summary(bool all, struct test_params *params,
     size_t suc_dels = result->successful_deletes;
     uint64_t del_time = result->delete_time;
 
-    if (all)
-        printf("\n\n--------------------Summary--------------------\n\n\n");
+    if (all) {
+        printf("\n\n--------------------Summary--------------------\n\n");
+        printf("Key size: %lu, Value size: %lu\n", KEY_SIZE, VAL_SIZE);
+        printf("KV-store entries: %lu, Number of Clients/Threads: %u\n\n",
+                KV_SIZE, NUM_CLIENTS);
+    }
     else 
         printf("Thread %2i: \n", params->id);
 
@@ -239,31 +244,33 @@ void print_summary(bool all, struct test_params *params,
     size_t suc_total = suc_puts + suc_gets + suc_dels;
     printf("Total time: %lu ns, time/operation: %f ns\n", total_time,
             static_cast<double>(total_time) / static_cast<double>(suc_total));
+    printf("Failed operations: %lu, Timeouts: %lu, Invalid responses: %lu\n\n",
+            result->failed_operations, result->timeouts,
+            result->invalid_responses);
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        cerr << "Usage: " << argv[0] <<
-            " <client ip-address> <server ip-address>" << endl;
-        return -1;
-    }
-    string client_hostname(argv[1]);
-    string server_hostname(argv[2]);
-    uint16_t port = 31850;
+void perform_tests(string& client_hostname, string& server_hostname) {
+
     struct test_params total_params = {
             port,
             0,
-            PUT_REQUESTS_PER_CLIENT * TOTAL_CLIENTS,
-            GET_REQUESTS_PER_CLIENT * TOTAL_CLIENTS,
-            DELETE_REQUESTS_PER_CLIENT * TOTAL_CLIENTS
+            PUT_REQUESTS_PER_CLIENT * NUM_CLIENTS,
+            GET_REQUESTS_PER_CLIENT * NUM_CLIENTS,
+            DELETE_REQUESTS_PER_CLIENT * NUM_CLIENTS
     };
-    struct test_params params[TOTAL_CLIENTS];
-    struct test_results results[TOTAL_CLIENTS];
-    fill_params_structs(params, port);
-    memset(results, 0, sizeof(results));
+    auto params = static_cast<struct test_params *>(
+            malloc(NUM_CLIENTS * sizeof(struct test_params)));
+
+    size_t results_size = NUM_CLIENTS * sizeof(struct test_results);
+    auto results = static_cast<struct test_results *>(
+            malloc(results_size));
+
+    assert(params != nullptr && results != nullptr);
+    fill_params_structs(params);
+    memset(results, 0, results_size);
 
     vector<anchor_client::Client *> clients;
-    for (uint8_t id = 0; id < TOTAL_CLIENTS; id++) {
+    for (uint8_t id = 0; id < NUM_CLIENTS; id++) {
         clients.emplace_back(
                 new anchor_client::Client(client_hostname, port, id));
     }
@@ -271,7 +278,7 @@ int main(int argc, char *argv[]) {
     vector<thread *> threads;
     /* Launch requester threads: */
     uint8_t i = 0;
-    for (; i < TOTAL_CLIENTS - 1; i++) {
+    for (; i < NUM_CLIENTS - 1; i++) {
         threads.emplace_back(new thread(test_thread, params + i, results + i,
                 clients[i], &server_hostname));
     }
@@ -281,19 +288,34 @@ int main(int argc, char *argv[]) {
     /* Wait for requester threads to finish: */
     struct test_results final;
     memset(&final, 0, sizeof(final));
-    struct test_params *param;
     struct test_results *result;
-    for (i = 0; i < TOTAL_CLIENTS - 1; i++) {
+    for (i = 0; i < NUM_CLIENTS - 1; i++) {
         threads[i]->join();
         delete threads[i];
     }
 
-    for (i = 0; i < TOTAL_CLIENTS; i++) {
-        param = params + i;
+    for (i = 0; i < NUM_CLIENTS; i++) {
         result = results + i;
-        print_summary(false, param, result);
+        // print_summary(false, param, result);
         add_result_to_final(&final, result);
         delete clients[i];
     }
     print_summary(true, &total_params, &final);
+    free(params);
+    free(results);
+}
+
+
+int main(int argc, char *argv[]) {
+    if (argc < 3) {
+        cerr << "Usage: " << argv[0] <<
+            " <client ip-address> <server ip-address>" << endl;
+        return -1;
+    }
+    string client_hostname(argv[1]);
+    string server_hostname(argv[2]);
+    for (size_t i = 0; i < NUMBER_TESTS; i++) {
+        fill_global_test_params(i);
+        perform_tests(client_hostname, server_hostname);
+    }
 }

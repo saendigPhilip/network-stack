@@ -5,8 +5,8 @@
 #include "simple_unit_test.h"
 
 const char test_key[] = "42";
-char test_value[TEST_MAX_VAL_SIZE];
-char incoming_test_value[TEST_MAX_VAL_SIZE];
+char test_value[MAX_VAL_SIZE];
+char incoming_test_value[MAX_VAL_SIZE];
 
 void test_callback(enum anchor_client::ret_val status, const void *tag) {
     switch (status) {
@@ -51,9 +51,9 @@ int main(int argc, char *argv[]) {
     
     BEGIN_TEST_DELIMITER("get operation");
     EXPECT_EQUAL(0, client.get((void *) test_key, sizeof(test_key),
-            incoming_test_value, TEST_MAX_VAL_SIZE, nullptr, test_callback,
+            incoming_test_value, MAX_VAL_SIZE, nullptr, test_callback,
             test_key, 10000))
-    EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, TEST_MAX_VAL_SIZE))
+    EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, MAX_VAL_SIZE))
     END_TEST_DELIMITER();
 
     BEGIN_TEST_DELIMITER("delete operation");
