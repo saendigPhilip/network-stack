@@ -100,6 +100,7 @@ void anchor_server::close_connection(bool force) {
     }
     delete threads;
     delete nexus;
+    nexus = nullptr;
 }
 
 
@@ -229,13 +230,19 @@ void req_handler(erpc::ReqHandle *req_handle, void *context) {
         goto end_req_handler;
     }
 
+    /* Always disconnect, if the client requests it: */
+    op = OP_FROM_SEQ_OP(header.seq_op);
+    if (op == RDMA_ERR) {
+        st->terminate();
+        goto end_req_handler;
+    }
+
     /* Check for replays by checking the sequence number: */
     if (!st->is_seq_valid(header.seq_op)) {
         cerr << "Invalid sequence number" << endl;
         goto end_req_handler;
     }
 
-    op = OP_FROM_SEQ_OP(header.seq_op);
     switch (op) {
         case RDMA_GET:
             send_response_get(req_handle, st, &header, payload.key);
@@ -245,9 +252,6 @@ void req_handler(erpc::ReqHandle *req_handle, void *context) {
             break;
         case RDMA_DELETE:
             send_response_delete(req_handle, st, &header, payload.key);
-            break;
-        case RDMA_ERR:
-            st->terminate();
             break;
         default:
             cerr << "Invalid operation: " << op << endl;
