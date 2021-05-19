@@ -49,6 +49,31 @@ static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
 */
 
 
+/* Variable KV-store size: */ /*
+static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
+        {64, 256, 1, 8, 1000},
+        {64, 256, 4, 8, 1000},
+        {64, 256, 16, 8, 1000},
+        {64, 256, 64, 8, 1000},
+        {64, 256, 256, 8, 1000},
+        {64, 256, 1024, 8, 1000},
+        {64, 256, 4096, 8, 1000},
+        {64, 256, 16384, 8, 1000}
+};
+*/
+
+
+/* Variable Number of Threads: */ /*
+static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
+        {64, 256, 64, 1, 1000},
+        {64, 256, 64, 2, 1000},
+        {64, 256, 64, 4, 1000},
+        {64, 256, 64, 8, 1000},
+        {64, 256, 64, 16, 1000}
+};
+ */
+
+
 static constexpr size_t PUT_REQUESTS_PER_CLIENT = (1 << 20);
 static constexpr size_t GET_REQUESTS_PER_CLIENT = (1 << 20);
 static constexpr size_t DELETE_REQUESTS_PER_CLIENT = (1 << 20);
