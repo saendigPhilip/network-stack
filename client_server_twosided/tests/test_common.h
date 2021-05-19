@@ -24,52 +24,52 @@ static constexpr size_t NUMBER_TESTS = 8;
 
 /* Variable Loop iteration size: */
 static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
-        {64, 256, 64, 8, 32},
-        {64, 256, 64, 8, 64},
-        {64, 256, 64, 8, 128},
-        {64, 256, 64, 8, 256},
-        {64, 256, 64, 8, 512},
-        {64, 256, 64, 8, 1024},
-        {64, 256, 64, 8, 2048},
-        {64, 256, 64, 8, 4096}
+        {sizeof(size_t), 256, 64, 8, 32},
+        {sizeof(size_t), 256, 64, 8, 64},
+        {sizeof(size_t), 256, 64, 8, 128},
+        {sizeof(size_t), 256, 64, 8, 256},
+        {sizeof(size_t), 256, 64, 8, 512},
+        {sizeof(size_t), 256, 64, 8, 1024},
+        {sizeof(size_t), 256, 64, 8, 2048},
+        {sizeof(size_t), 256, 64, 8, 4096}
 };
 
 
 /* Variable Value size: */ /*
 static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
-        {64, 64, 64, 8, 1000},
-        {64, 128, 64, 8, 1000},
-        {64, 256, 64, 8, 1000},
-        {64, 512, 64, 8, 1000},
-        {64, 1024, 64, 8, 1000},
-        {64, 2048, 64, 8, 1000},
-        {64, 4096, 64, 8, 1000},
-        {64, 8192, 64, 8, 1000}
+        {sizeof(size_t), 64, 64, 8, 1000},
+        {sizeof(size_t), 128, 64, 8, 1000},
+        {sizeof(size_t), 256, 64, 8, 1000},
+        {sizeof(size_t), 512, 64, 8, 1000},
+        {sizeof(size_t), 1024, 64, 8, 1000},
+        {sizeof(size_t), 2048, 64, 8, 1000},
+        {sizeof(size_t), 4096, 64, 8, 1000},
+        {sizeof(size_t), 8192, 64, 8, 1000}
 };
 */
 
 
 /* Variable KV-store size: */ /*
 static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
-        {64, 256, 1, 8, 1000},
-        {64, 256, 4, 8, 1000},
-        {64, 256, 16, 8, 1000},
-        {64, 256, 64, 8, 1000},
-        {64, 256, 256, 8, 1000},
-        {64, 256, 1024, 8, 1000},
-        {64, 256, 4096, 8, 1000},
-        {64, 256, 16384, 8, 1000}
+        {sizeof(size_t), 256, 1, 8, 1000},
+        {sizeof(size_t), 256, 4, 8, 1000},
+        {sizeof(size_t), 256, 16, 8, 1000},
+        {sizeof(size_t), 256, 64, 8, 1000},
+        {sizeof(size_t), 256, 256, 8, 1000},
+        {sizeof(size_t), 256, 1024, 8, 1000},
+        {sizeof(size_t), 256, 4096, 8, 1000},
+        {sizeof(size_t), 256, 16384, 8, 1000}
 };
 */
 
 
 /* Variable Number of Threads: */ /*
 static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
-        {64, 256, 64, 1, 1000},
-        {64, 256, 64, 2, 1000},
-        {64, 256, 64, 4, 1000},
-        {64, 256, 64, 8, 1000},
-        {64, 256, 64, 16, 1000}
+        {sizeof(size_t), 256, 64, 1, 1000},
+        {sizeof(size_t), 256, 64, 2, 1000},
+        {sizeof(size_t), 256, 64, 4, 1000},
+        {sizeof(size_t), 256, 64, 8, 1000},
+        {sizeof(size_t), 256, 64, 16, 1000}
 };
  */
 
@@ -89,7 +89,8 @@ static const unsigned char key_do_not_use[16] =
  * so the KV-store is kept consistent and we can eventually perform
  * checks on the correctness of the returned and put values
  */
-void value_from_key(void *value, const void *key, size_t key_len);
+void value_from_key(
+        void *value, size_t value_len, const void *key, size_t key_len);
 
 void fill_global_test_params(size_t test_num);
 

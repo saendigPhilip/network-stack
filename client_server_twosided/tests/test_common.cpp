@@ -11,10 +11,11 @@ size_t KV_SIZE;
 uint8_t NUM_CLIENTS;
 size_t LOOP_ITERATIONS;
 
-void value_from_key(void *value, const void *key, size_t key_len) {
+void value_from_key(
+        void *value, size_t value_len, const void *key, size_t key_len) {
     size_t to_copy;
-    for (size_t i = 0; i < MAX_VAL_SIZE; i += to_copy) {
-        to_copy = min(key_len, MAX_VAL_SIZE - i);
+    for (size_t i = 0; i < value_len; i += to_copy) {
+        to_copy = min(key_len, value_len - i);
         memcpy(value, key, to_copy);
         value = (void *) ((uint8_t *)value + to_copy);
     }

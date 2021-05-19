@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
     if (0 > client.connect(server_hostname, port, key_do_not_use))
         return -1;
 
-    value_from_key(test_value, test_key, sizeof(test_key));
+    value_from_key(test_value, MAX_VAL_SIZE, test_key, sizeof(test_key));
 
     BEGIN_TEST_DELIMITER("put operation");
     EXPECT_EQUAL(0, client.put((void *) test_key, sizeof(test_key),

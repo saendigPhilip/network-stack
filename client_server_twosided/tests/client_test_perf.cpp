@@ -128,7 +128,8 @@ void issue_requests(anchor_client::Client *client) {
         }
 
         if (puts_performed < local_params->put_requests) {
-            value_from_key((void *) value_buf, (void *) &key, sizeof(size_t));
+            value_from_key(
+                    (void *) value_buf, VAL_SIZE, (void *) &key, KEY_SIZE);
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
             if (0 > client->put((void *) &key, sizeof(size_t),
                     (void *) value_buf, VAL_SIZE,
@@ -315,7 +316,7 @@ int main(int argc, char *argv[]) {
     string client_hostname(argv[1]);
     string server_hostname(argv[2]);
     for (size_t i = 0; i < NUMBER_TESTS; i++) {
-        cout << "\n\n\n-----Starting test" << i << "-----\n" << endl;
+        cout << "\n\n\n-----Starting test " << i << "-----\n" << endl;
         fill_global_test_params(i);
         perform_tests(client_hostname, server_hostname);
         // Wait for the server to prepare:
