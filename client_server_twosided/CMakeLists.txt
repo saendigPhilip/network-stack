@@ -6,14 +6,13 @@ project(twosided_network_stack)
 include(CMakeDependentOption)
 
 # Pick a compiler
-#set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_CXX_COMPILER g++)
 
-add_definitions(-std=c++11 -march=native)
-add_definitions(-Wall -Wextra -pedantic -Wsign-conversion -Wold-style-cast)
-add_definitions(-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro -msse4.1)
+add_definitions(-std=c++14 -march=native)
+add_definitions(-Wall -Wextra -pedantic -Wsign-conversion)
+add_definitions(-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro -Wno-deprecated-declarations -msse4.1)
 
-set(LIBRARIES ${LIBRARIES} rt numa pthread gflags)
+set(LIBRARIES ${LIBRARIES} erpc pthread numa dl ssl crypto)
 
 # Unit tests
 enable_testing()
@@ -32,21 +31,13 @@ set(COMPILE_ERPC_LIB ON)
 # Options exposed to the user
 set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/raw/dpdk)")
 option(ROCE "Use RoCE if TRANSPORT is infiniband" OFF)
-option(PERF "Compile for performance" ON)
 set(PGO "none" CACHE STRING "Profile-guided optimization (generate/use/none)")
 set(LOG_LEVEL "warn" CACHE STRING "Logging level (none/error/warn/info/reorder/trace/cc)") 
 cmake_dependent_option(LTO "Use link time optimization" ON "PERF" OFF)
 
-# Parse the user-exposed options
-if(PERF)
-  message(STATUS "Compilation optimized for performance.")
-  set(DEBUG OFF)
-  set(TESTING OFF)
-else(PERF)
-  message(STATUS "Compilation not optimized for performance.")
-  set(DEBUG ON)
-  set(TESTING ON)
-endif(PERF)
+message(STATUS "Compilation optimized for performance.")
+set(DEBUG OFF)
+set(TESTING OFF)
 
 # Profile-guided optimization
 if(PGO STREQUAL "generate")
@@ -91,6 +82,7 @@ endif()
 
 # Debug mode
 if(DEBUG)
+  add_definitions(-g)
   message(STATUS "Debugging is enabled. Perf will be low.")
 else(DEBUG)
   message(STATUS "Debugging is disabled.")
@@ -99,13 +91,8 @@ else(DEBUG)
 endif(DEBUG)
 
 # Testing for packet loss, machine failure, etc
-if(TESTING)
-  message(STATUS "Testing is enabled. Performance will be low.")
-  add_definitions(-DERPC_TESTING=true)
-else(TESTING)
-  message(STATUS "Testing is disabled, so tests may fail.")
-  add_definitions(-DERPC_TESTING=false)
-endif(TESTING)
+message(STATUS "Testing is disabled, so tests may fail.")
+add_definitions(-DERPC_TESTING=false)
 
 # Link-time optimization
 if(LTO)
@@ -152,6 +139,9 @@ set(SOURCES
   src/client_server_common.cpp
   tests/test_common.cpp)
 
+include_directories(SYSTEM ${SRC}/)
+link_libraries(-L../../eRPC/build/)
+
 # Boost
 find_package(Boost)
 if(Boost_FOUND)
@@ -176,10 +166,6 @@ if(TRANSPORT STREQUAL "dpdk")
     message(FATAL_ERROR "DPDK library not found")
   endif()
 
-  set(LIBRARIES ${LIBRARIES} -L../../eRPC/dpdk/x86_64-native-linuxapp-gcc/lib/ dpdk dl)
-  set(CONFIG_TRANSPORT "DpdkTransport")
-  set(CONFIG_HEADROOM 40)
-
   # DPDK include directory. Locating rte_config.h does not work on some systems.
   # Example: it may be kept in /usr/include/x86_64-linux-gnu/, and symlinked
   # from the real DPDK include directory (/usr/include/dpdk/).
@@ -191,6 +177,12 @@ if(TRANSPORT STREQUAL "dpdk")
     message(FATAL_ERROR "DPDK include directory not found")
   endif()
   include_directories(SYSTEM ${DPDK_INCLUDE_DIR})
+  set(LIBRARIES 
+	  ${LIBRARIES} 
+	  -L../../eRPC/dpdk/x86_64-native-linuxapp-gcc/lib/ -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port 
+	  -libverbs)
+  set(CONFIG_TRANSPORT "DpdkTransport")
+  set(CONFIG_HEADROOM 40)
 else()
   find_library(IBVERBS_LIB ibverbs)
   if(NOT IBVERBS_LIB)
@@ -218,10 +210,11 @@ endif()
 if(COMPILE_ERPC_LIB)
   message(STATUS "Compiling eRPC as a library")
   add_library(erpc ${SOURCES})
-else() # Compile our executable
+else() # Compile our executables
   message(STATUS "Compiling network stack")
 
-  include_directories(src/)
+  include_directories(src/ ../../eRPC/src)
+  link_libraries(${LIBRARIES})
 
   add_executable(server_test
     ${SOURCES}
