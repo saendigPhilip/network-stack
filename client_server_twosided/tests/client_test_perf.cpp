@@ -315,7 +315,10 @@ int main(int argc, char *argv[]) {
     string client_hostname(argv[1]);
     string server_hostname(argv[2]);
     for (size_t i = 0; i < NUMBER_TESTS; i++) {
+        cout << "\n\n\n-----Starting test" << i << "-----\n" << endl;
         fill_global_test_params(i);
         perform_tests(client_hostname, server_hostname);
+        // Wait for the server to prepare:
+        this_thread::sleep_for(2s);
     }
 }

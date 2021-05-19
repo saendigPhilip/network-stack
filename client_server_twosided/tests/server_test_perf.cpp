@@ -66,6 +66,7 @@ int main(int argc, char *argv[]) {
     int ret = -1;
     const uint16_t standard_udp_port = 31850;
     for (size_t i = 0; i < NUMBER_TESTS; i++) {
+        cout << "\n\n\n-----Starting test" << i << "-----\n" << endl;
         fill_global_test_params(i);
         if (0 > initialize_kv_store()) {
             cerr << "Failed initializing KV-store. Aborting" << endl;
