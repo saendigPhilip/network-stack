@@ -1,6 +1,6 @@
 # CMakeLists.txt, mostly taken from eRPC: 
 # https://github.com/erpc-io/eRPC/blob/35270933836410d6779f9f2d4e1d8aaa1291a5d8/CMakeLists.txt
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.13)
 project(twosided_network_stack)
 
 include(CMakeDependentOption)
@@ -82,7 +82,8 @@ endif()
 
 # Debug mode
 if(DEBUG)
-  add_definitions(-g)
+  add_definitions(-g -fsanitize=address)
+  add_link_options(-fsanitize=address)
   message(STATUS "Debugging is enabled. Perf will be low.")
 else(DEBUG)
   message(STATUS "Debugging is disabled.")
