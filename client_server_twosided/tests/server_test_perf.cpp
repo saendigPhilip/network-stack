@@ -30,6 +30,7 @@ int kv_put(const void *key, size_t, void *value, size_t value_size) {
         return -1;
 }
 
+/* The delete operation is O(1) and can be used for simple latency tests */
 int kv_delete(const void *key, size_t) {
     auto index = *(size_t *) key;
     if (index < KV_SIZE) {
