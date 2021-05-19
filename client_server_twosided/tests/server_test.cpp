@@ -13,7 +13,7 @@ long int get_index(const char *key) {
     char *err;
     long int index = strtol(key, &err, 0);
     if (*key != '\0' && *err == '\0' &&
-            index >= 0 && (size_t) index < KV_SIZE) {
+            index >= 0 && (size_t) index < TEST_KV_SIZE) {
         return index;
     }
     return -1;
