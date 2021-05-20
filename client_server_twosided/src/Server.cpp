@@ -212,6 +212,15 @@ void send_response_delete(erpc::ReqHandle *req_handle, ServerThread *st,
 }
 
 
+void send_response_disconnect(erpc::ReqHandle *req_handle, ServerThread *st,
+        struct rdma_msg_header *header) {
+
+    /* Call KV-store: */
+    header->seq_op = st->get_next_seq(header->seq_op, RDMA_ERR);
+    /* We only inform the client about whether the operation was successful or not */
+    send_empty_response(req_handle, st, header);
+}
+
 void req_handler(erpc::ReqHandle *req_handle, void *context) {
     struct rdma_msg_header header;
     uint8_t op;
@@ -233,6 +242,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *context) {
     /* Always disconnect, if the client requests it: */
     op = OP_FROM_SEQ_OP(header.seq_op);
     if (op == RDMA_ERR) {
+        send_response_disconnect(req_handle, st, &header);
         st->terminate();
         goto end_req_handler;
     }
