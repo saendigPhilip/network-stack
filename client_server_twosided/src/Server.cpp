@@ -14,6 +14,25 @@ anchor_server::put_function kv_put;
 anchor_server::delete_function kv_delete;
 
 void req_handler(erpc::ReqHandle *req_handle, void *context);
+
+int anchor_server::init(string &hostname, uint16_t udp_port) {
+    std::string server_uri = hostname + ":" + std::to_string(udp_port);
+    nexus = new erpc::Nexus(server_uri, 0, 0);
+    if (nexus->register_req_func(DEFAULT_REQ_TYPE, req_handler)) {
+        cerr << "Failed to initialize Server" << endl;
+        terminate();
+        return -1;
+    }
+    return 0;
+}
+
+void anchor_server::terminate() {
+    if (nexus) {
+        delete nexus;
+        nexus = nullptr;
+    }
+}
+
 /**
  * Hosts a server that answers client put/get/delete requests
  *
@@ -34,9 +53,8 @@ void req_handler(erpc::ReqHandle *req_handle, void *context);
  * @return 0 if Server was hosted successfully, -1 on error
  */
 int anchor_server::host_server(
-        std::string& hostname, uint16_t udp_port,
         const unsigned char *encryption_key,
-        uint8_t number_threads, size_t num_bg_threads,
+        uint8_t number_threads,
         size_t max_entry_size, bool asynchronous,
         get_function get, put_function put, delete_function del) {
 
@@ -46,15 +64,6 @@ int anchor_server::host_server(
         cerr << "Maximum supported entry size: ";
         cerr << PAYLOAD_SIZE(erpc::Rpc<erpc::CTransport>::kMaxMsgSize) << endl;
         return -1;
-    }
-
-    std::string server_uri = hostname + ":" + std::to_string(udp_port);
-    if (!nexus) {
-        nexus = new erpc::Nexus(server_uri, 0, num_bg_threads);
-        if (nexus->register_req_func(DEFAULT_REQ_TYPE, req_handler)) {
-            cerr << "Failed to host Server" << endl;
-            goto err_host_server;
-        }
     }
 
     if (RAND_status() != 1) {
@@ -80,9 +89,6 @@ int anchor_server::host_server(
         ServerThread thread(nexus, number_threads, max_msg_size, false);
 
     return 0;
-err_host_server:
-    delete nexus;
-    return -1;
 }
 
 

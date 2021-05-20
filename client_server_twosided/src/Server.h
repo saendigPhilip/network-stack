@@ -9,14 +9,17 @@ namespace anchor_server {
     typedef int (*put_function)(const void *key, size_t key_len, void *value, size_t value_len);
     typedef int (*delete_function)(const void *key, size_t key_len);
 
+    int init(string& hostname, uint16_t udp_port);
+
     int host_server(
-            std::string& hostname, uint16_t udp_port,
             const unsigned char *encryption_key,
-            uint8_t number_threads, size_t num_bg_threads,
+            uint8_t number_threads,
             size_t max_entry_size, bool asynchronous,
             get_function get, put_function put, delete_function del);
 
     void close_connection(bool force);
+
+    void terminate();
 }
 
 
