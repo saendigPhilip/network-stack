@@ -304,6 +304,7 @@ void Client::send_disconnect_message() {
         goto err_send_disconnect_message;
 
     this->send_message(tag, 10000);
+    return;
 
 err_send_disconnect_message:
     invalidate_message_tag(tag);
