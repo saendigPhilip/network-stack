@@ -291,22 +291,24 @@ struct sent_message_tag *Client::prepare_new_request() {
 
 void Client::send_disconnect_message() {
     struct sent_message_tag *tag = prepare_new_request();
+    fill_message_tag(tag, nullptr, nullptr);
     tag->header = { SET_OP(current_seq_op, RDMA_ERR), 0 };
     struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
 
     if (0 != allocate_req_buffers(
             tag->request, MIN_MSG_LEN, tag->response, MIN_MSG_LEN)) {
-        goto err_send_disconnect_message;
+        goto end_send_disconnect_message;
     }
 
     if (0 > encrypt_message(&(tag->header), &payload,
             static_cast<unsigned char **>(&(tag->request->buf))))
-        goto err_send_disconnect_message;
+        goto end_send_disconnect_message;
 
     this->send_message(tag, 10000);
-    return;
 
-err_send_disconnect_message:
+
+end_send_disconnect_message:
+    // We don't expect an answer:
     invalidate_message_tag(tag);
 }
 
