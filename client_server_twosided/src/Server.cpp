@@ -105,8 +105,6 @@ void anchor_server::close_connection(bool force) {
         delete thread;
     }
     delete threads;
-    delete nexus;
-    nexus = nullptr;
 }
 
 
