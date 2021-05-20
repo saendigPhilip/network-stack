@@ -59,7 +59,9 @@ namespace anchor_client {
 
     public:
 
-        Client(std::string& client_hostname, uint16_t udp_port, uint8_t id);
+        static void init(std::string& client_hostname, uint16_t udp_port);
+
+        explicit Client(uint8_t id);
         ~Client();
 
         int connect(std::string& server_hostname,
@@ -84,6 +86,8 @@ namespace anchor_client {
         int disconnect();
 
         void run_event_loop_n_times(size_t n);
+
+        static void terminate();
     };
 }
 

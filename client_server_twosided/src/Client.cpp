@@ -4,7 +4,6 @@
 #include "client_server_common.h"
 using namespace anchor_client;
 erpc::Nexus *nexus = nullptr;
-size_t nexus_ref = 0;
 
 /* Because the last bit is always the same at client side, we shift the sequence
  * number to the right in order to use the whole accepted array */
@@ -53,10 +52,18 @@ void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
 
 }
 
-Client::Client(
-        std::string& client_hostname, uint16_t udp_port, uint8_t id) {
-
+void Client::init(std::string &client_hostname, uint16_t udp_port) {
     std::string client_uri = client_hostname + ":" + std::to_string(udp_port);
+    nexus = new erpc::Nexus(client_uri, 0, 0);
+}
+
+void Client::terminate() {
+    delete nexus;
+    nexus = nullptr;
+}
+
+Client::Client(uint8_t id) {
+
     if (RAND_status() != 1) {
         if (RAND_poll() != 1) {
             throw std::runtime_error("Couldn't initialize RNG");
@@ -66,9 +73,7 @@ Client::Client(
             sizeof(current_seq_op))) {
         throw std::runtime_error("Couldn't generate initial sequence number");
     }
-    if (!nexus)
-        nexus = new erpc::Nexus(client_uri, 0, 0);
-    nexus_ref++;
+    assert(nexus);
     current_seq_op = SET_ID(current_seq_op, id);
     this->erpc_id = id;
     for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++)
@@ -81,10 +86,6 @@ Client::~Client() {
     (void) disconnect();
     for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++)
         free_message_tag(accepted + i);
-    if (nexus_ref == 0 && nexus) {
-        delete nexus;
-        nexus = nullptr;
-    }
 }
 /**
  * Continuation function that is called when a server response arrives
@@ -230,7 +231,6 @@ int Client::disconnect() {
     invalidate_old_requests(this->current_seq_op);
     delete this->client_rpc;
     this->client_rpc = nullptr;
-    nexus_ref--;
     return ret;
 }
 
