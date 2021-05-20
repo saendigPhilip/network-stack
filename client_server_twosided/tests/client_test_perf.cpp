@@ -159,6 +159,7 @@ void issue_requests(anchor_client::Client *client) {
         else
             break;
     }
+    (void) client->disconnect();
 }
 
 void test_thread(struct test_params *params, struct test_results *results,
@@ -175,7 +176,6 @@ void test_thread(struct test_params *params, struct test_results *results,
     srand(static_cast<unsigned int>(params->id));
 
     issue_requests(client);
-    (void) client->disconnect();
 }
 
 void fill_params_structs(struct test_params *params) {
