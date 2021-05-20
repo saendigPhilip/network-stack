@@ -21,8 +21,8 @@ void value_from_key(
     }
 }
 
-void fill_global_test_params(size_t test_num) {
-    struct global_test_params param = TEST_PARAMS[test_num];
+void fill_global_test_params() {
+    struct global_test_params param = TEST_PARAMS;
     assert(param.val_size <= MAX_VAL_SIZE);
     KEY_SIZE = param.key_size;
     VAL_SIZE = param.val_size;

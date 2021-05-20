@@ -20,11 +20,11 @@ struct global_test_params {
     const uint8_t num_clients;
     const size_t event_loop_iterations;
 };
-static constexpr size_t NUMBER_TESTS = 8;
 
 /* Variable Loop iteration size: */
-static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
-        {sizeof(size_t), 256, 64, 8, 32},
+static constexpr struct global_test_params TEST_PARAMS =
+        {sizeof(size_t), 256, 64, 8, 32};
+/*
         {sizeof(size_t), 256, 64, 8, 64},
         {sizeof(size_t), 256, 64, 8, 128},
         {sizeof(size_t), 256, 64, 8, 256},
@@ -32,8 +32,7 @@ static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
         {sizeof(size_t), 256, 64, 8, 1024},
         {sizeof(size_t), 256, 64, 8, 2048},
         {sizeof(size_t), 256, 64, 8, 4096}
-};
-
+*/
 
 /* Variable Value size: */ /*
 static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
@@ -92,7 +91,7 @@ static const unsigned char key_do_not_use[16] =
 void value_from_key(
         void *value, size_t value_len, const void *key, size_t key_len);
 
-void fill_global_test_params(size_t test_num);
+void fill_global_test_params();
 
 
 #endif //TWOSIDED_COMMUNICATION_TEST_COMMON_H

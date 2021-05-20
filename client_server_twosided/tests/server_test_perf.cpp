@@ -67,24 +67,22 @@ int main(int argc, char *argv[]) {
     const uint16_t standard_udp_port = 31850;
     if (0 != anchor_server::init(ip, standard_udp_port))
         return 1;
-    for (size_t i = 0; i < NUMBER_TESTS; i++) {
-        cout << "\n\n\n-----Starting test " << i << "-----\n" << endl;
-        fill_global_test_params(i);
-        if (0 > initialize_kv_store()) {
-            cerr << "Failed initializing KV-store. Aborting" << endl;
-            return -1;
-        }
-        if (anchor_server::host_server(
-                key_do_not_use, NUM_CLIENTS,
-                KEY_SIZE + VAL_SIZE, false,
-                kv_get, kv_put, kv_delete)) {
-            cerr << "Failed to host server" << endl;
-            return ret;
-        }
 
-        anchor_server::close_connection(false);
-        free(test_kv_store);
+    fill_global_test_params();
+    if (0 > initialize_kv_store()) {
+        cerr << "Failed initializing KV-store. Aborting" << endl;
+        return -1;
     }
+    if (anchor_server::host_server(
+            key_do_not_use, NUM_CLIENTS,
+            KEY_SIZE + VAL_SIZE, false,
+            kv_get, kv_put, kv_delete)) {
+        cerr << "Failed to host server" << endl;
+        return ret;
+    }
+
+    anchor_server::close_connection(false);
+    free(test_kv_store);
     anchor_server::terminate();
     return 0;
 }
