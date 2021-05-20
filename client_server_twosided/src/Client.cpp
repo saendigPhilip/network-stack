@@ -177,8 +177,9 @@ void Client::invalidate_old_requests(uint64_t seq_op) {
         diff = (int64_t) (orig_seq - current_seq);
         if (diff < 0)
             break;
-        accepted[index].callback(
-                ret_val::TIMEOUT, accepted[index].user_tag);
+        if (accepted[index].callback)
+            accepted[index].callback(
+                    ret_val::TIMEOUT, accepted[index].user_tag);
         invalidate_message_tag(accepted + index);
     }
 }
