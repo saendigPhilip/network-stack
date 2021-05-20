@@ -37,7 +37,8 @@ int main(int argc, char *argv[]) {
     std::string server_hostname(argv[2]);
     uint16_t port = 31850;
     uint8_t id = 0;
-    anchor_client::Client client(client_hostname, port, id);
+    anchor_client::Client::init(client_hostname, port);
+    anchor_client::Client client(id);
     if (0 > client.connect(server_hostname, port, key_do_not_use))
         return -1;
 
@@ -61,8 +62,8 @@ int main(int argc, char *argv[]) {
             test_callback, (void *) test_key, 10000));
     END_TEST_DELIMITER();
 
-
     (void ) client.disconnect();
+    anchor_client::Client::terminate();
     PRINT_TEST_SUMMARY();
     return 0;
 }

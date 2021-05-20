@@ -250,7 +250,7 @@ void print_summary(bool all, struct test_params *params,
             result->invalid_responses);
 }
 
-void perform_tests(string& client_hostname, string& server_hostname) {
+void perform_tests(string& server_hostname) {
 
     struct test_params total_params = {
             port,
@@ -273,7 +273,7 @@ void perform_tests(string& client_hostname, string& server_hostname) {
     vector<anchor_client::Client *> clients;
     for (uint8_t id = 0; id < NUM_CLIENTS; id++) {
         clients.emplace_back(
-                new anchor_client::Client(client_hostname, port, id));
+                new anchor_client::Client(id));
     }
 
     vector<thread *> threads;
@@ -315,11 +315,13 @@ int main(int argc, char *argv[]) {
     }
     string client_hostname(argv[1]);
     string server_hostname(argv[2]);
+    anchor_client::Client::init(client_hostname, port);
     for (size_t i = 0; i < NUMBER_TESTS; i++) {
         cout << "\n\n\n-----Starting test " << i << "-----\n" << endl;
         fill_global_test_params(i);
-        perform_tests(client_hostname, server_hostname);
+        perform_tests(server_hostname);
         // Wait for the server to prepare:
         this_thread::sleep_for(2s);
     }
+    anchor_client::Client::terminate();
 }
