@@ -297,18 +297,17 @@ void Client::send_disconnect_message() {
 
     if (0 != allocate_req_buffers(
             tag->request, MIN_MSG_LEN, tag->response, MIN_MSG_LEN)) {
-        goto end_send_disconnect_message;
+        goto err_send_disconnect_message;
     }
 
     if (0 > encrypt_message(&(tag->header), &payload,
             static_cast<unsigned char **>(&(tag->request->buf))))
-        goto end_send_disconnect_message;
+        goto err_send_disconnect_message;
 
     this->send_message(tag, 10000);
+    return;
 
-
-end_send_disconnect_message:
-    // We don't expect an answer:
+err_send_disconnect_message:
     invalidate_message_tag(tag);
 }
 
