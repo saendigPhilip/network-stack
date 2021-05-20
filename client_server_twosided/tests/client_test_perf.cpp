@@ -6,6 +6,8 @@
 #include "Client.h"
 #include "test_common.h"
 
+#define MEASURE_LATENCY 0
+
 uint16_t port = 31850;
 
 char test_value[MAX_VAL_SIZE];
@@ -33,6 +35,7 @@ struct test_results {
     size_t failed_operations;
     size_t timeouts;
     size_t invalid_responses;
+    uint64_t time_all;
 };
 
 
@@ -64,42 +67,53 @@ void evaluate_status(anchor_client::ret_val status) {
 }
 
 void put_callback(anchor_client::ret_val status, const void *tag) {
+#if MEASURE_LATENCY
     struct timespec end_time;
     (void) clock_gettime(CLOCK_MONOTONIC, &end_time);
     const struct timespec *start_time = (struct timespec *) tag;
     uint64_t diff = time_diff(start_time, &end_time);
+#endif // MEASURE_LATENCY
 
     if (status == anchor_client::OP_SUCCESS) {
         local_results->successful_puts++;
+#if MEASURE_LATENCY
         local_results->put_time += diff;
+#endif
     }
     else
         evaluate_status(status);
 }
 
 void get_callback(anchor_client::ret_val status, const void *tag) {
+#if MEASURE_LATENCY
     struct timespec end_time;
     (void) clock_gettime(CLOCK_MONOTONIC, &end_time);
     const struct timespec *start_time = (struct timespec *) tag;
     uint64_t diff = time_diff(start_time, &end_time);
+#endif // MEASURE_LATENCY
 
     if (anchor_client::OP_SUCCESS == status) {
         local_results->successful_gets++;
+#if MEASURE_LATENCY
         local_results->get_time += diff;
+#endif
     }
     else
         evaluate_status(status);
 }
 
 void del_callback(anchor_client::ret_val status, const void *tag) {
+#if MEASURE_LATENCY
     struct timespec end_time;
     (void) clock_gettime(CLOCK_MONOTONIC, &end_time);
     const struct timespec *start_time = (struct timespec *) tag;
     uint64_t diff = time_diff(start_time, &end_time);
-
+#endif // MEASURE_LATENCY
     if (status == anchor_client::OP_SUCCESS) {
         local_results->successful_deletes++;
+#if MEASURE_LATENCY
         local_results->delete_time += diff;
+#endif
     }
     else
         evaluate_status(status);
@@ -113,13 +127,20 @@ void issue_requests(anchor_client::Client *client) {
     /* We have all start times in an array and pass the pointers
      * to the put/get functions as a tag that is returned in the callback
      */
+#if MEASURE_LATENCY
     struct timespec times[anchor_client::MAX_ACCEPTED_RESPONSES];
+#endif
+
     size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
     size_t key;
     for (size_t req = 0; ; req++) {
         key = get_random_key();
+#if MEASURE_LATENCY
         struct timespec *time_now =
                 times + (req % anchor_client::MAX_ACCEPTED_RESPONSES);
+#else
+        struct timespec *time_now = nullptr;
+#endif
 
         // Go easy on the server:
         if (client->queue_full()) {
@@ -130,7 +151,9 @@ void issue_requests(anchor_client::Client *client) {
         if (puts_performed < local_params->put_requests) {
             value_from_key(
                     (void *) value_buf, VAL_SIZE, (void *) &key, KEY_SIZE);
+#if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
+#endif
             if (0 > client->put((void *) &key, sizeof(size_t),
                     (void *) value_buf, VAL_SIZE,
                     put_callback, time_now, LOOP_ITERATIONS)) {
@@ -140,7 +163,9 @@ void issue_requests(anchor_client::Client *client) {
                 puts_performed++;
         }
         else if (gets_performed < local_params->get_requests) {
+#if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
+#endif
             if (0 > client->get((void *) &key, sizeof(size_t),
                     (void *) value_buf, VAL_SIZE, nullptr,
                     get_callback, time_now, LOOP_ITERATIONS)) {
@@ -149,7 +174,9 @@ void issue_requests(anchor_client::Client *client) {
                 gets_performed++;
         }
         else if (deletes_performed < local_params->del_requests) {
+#if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
+#endif
             if (0 > client->del((void *) &key,
                     sizeof(size_t), del_callback, time_now, LOOP_ITERATIONS)) {
                 cerr << "delete() failed" << endl;
@@ -248,6 +275,23 @@ void print_summary(bool all, struct test_params *params,
     printf("Failed operations: %lu, Timeouts: %lu, Invalid responses: %lu\n\n",
             result->failed_operations, result->timeouts,
             result->invalid_responses);
+    if (all) {
+        printf("Total time needed for tests: %lu\n", result->time_all);
+        printf("Time per operation in total: %f\n",
+                static_cast<double>(result->time_all) /
+                static_cast<double>(suc_total));
+        // TODO: Add add macro for getting package size
+        auto uplink_volume = static_cast<double>(
+                (total_puts + total_gets + total_dels) *
+                CIPHERTEXT_SIZE(KEY_SIZE) +
+                total_puts * CIPHERTEXT_SIZE(VAL_SIZE));
+        auto downlink_volume = static_cast<double>(
+                (suc_puts + suc_gets + suc_dels) * MIN_MSG_LEN
+                + suc_gets * CIPHERTEXT_SIZE(VAL_SIZE));
+        printf("Total uplink speed: %f B/s. Total downlink speed: %f B/s\n\n",
+                uplink_volume / static_cast<double>(result->time_all),
+                downlink_volume / static_cast<double>(result->time_all));
+    }
 }
 
 void perform_tests(string& server_hostname) {
@@ -278,6 +322,8 @@ void perform_tests(string& server_hostname) {
 
     vector<thread *> threads;
     /* Launch requester threads: */
+    struct timespec total_time_begin, total_time_end;
+    (void) clock_gettime(CLOCK_MONOTONIC, &total_time_begin);
     uint8_t i = 0;
     for (; i < NUM_CLIENTS - 1; i++) {
         threads.emplace_back(new thread(test_thread, params + i, results + i,
@@ -287,21 +333,23 @@ void perform_tests(string& server_hostname) {
 
 
     /* Wait for requester threads to finish: */
-    struct test_results final;
-    memset(&final, 0, sizeof(final));
-    struct test_results *result;
     for (i = 0; i < NUM_CLIENTS - 1; i++) {
         threads[i]->join();
         delete threads[i];
     }
+    (void) clock_gettime(CLOCK_MONOTONIC, &total_time_end);
 
+    struct test_results final_results;
+    memset(&final_results, 0, sizeof(final_results));
+    struct test_results *result;
     for (i = 0; i < NUM_CLIENTS; i++) {
         result = results + i;
         // print_summary(false, param, result);
-        add_result_to_final(&final, result);
+        add_result_to_final(&final_results, result);
         delete clients[i];
     }
-    print_summary(true, &total_params, &final);
+    final_results.time_all = time_diff(&total_time_begin, &total_time_end);
+    print_summary(true, &total_params, &final_results);
     free(params);
     free(results);
 }
