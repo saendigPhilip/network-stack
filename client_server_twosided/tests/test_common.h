@@ -74,9 +74,9 @@ static constexpr struct global_test_params TEST_PARAMS[NUMBER_TESTS] = {
  */
 
 
-static constexpr size_t PUT_REQUESTS_PER_CLIENT = (1 << 20);
-static constexpr size_t GET_REQUESTS_PER_CLIENT = (1 << 20);
-static constexpr size_t DELETE_REQUESTS_PER_CLIENT = (1 << 20);
+static constexpr size_t PUT_REQUESTS_PER_CLIENT = (1 << 10);
+static constexpr size_t GET_REQUESTS_PER_CLIENT = (1 << 10);
+static constexpr size_t DELETE_REQUESTS_PER_CLIENT = (1 << 10);
 
 static constexpr size_t MAX_KEY_SIZE = 8192;
 static constexpr size_t MAX_VAL_SIZE = 8192;
