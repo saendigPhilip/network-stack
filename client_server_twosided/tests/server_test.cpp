@@ -70,9 +70,12 @@ int main(int argc, char *argv[]) {
     int ret = -1;
     std::string ip(argv[1]);
     const uint16_t standard_udp_port = 31850;
+    if (0 != anchor_server::init(ip, standard_udp_port))
+        return 1;
+
     const uint8_t num_clients = 1;
-    if (anchor_server::host_server(ip, standard_udp_port,
-            key_do_not_use, num_clients, 0,
+    if (anchor_server::host_server(
+            key_do_not_use, num_clients,
             MAX_KEY_SIZE + MAX_VAL_SIZE, true,
             kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
@@ -85,6 +88,6 @@ int main(int argc, char *argv[]) {
     for(auto entry : test_kv_store)
         free(entry);
 
-    PRINT_TEST_SUMMARY();
+    anchor_server::terminate();
     return 0;
 }
