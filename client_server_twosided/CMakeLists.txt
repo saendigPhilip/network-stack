@@ -9,7 +9,7 @@ add_definitions(
   -Wno-deprecated-declarations)
 add_definitions(-msse4.1)
 
-set(LIBRARIES ${LIBRARIES} erpc pthread numa dl ibverbs ssl crypto)
+set(LIBRARIES erpc pthread numa dl ibverbs ssl crypto)
 
 # Option for user: Can decide between infiniband or dpdk
 set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
@@ -85,12 +85,10 @@ elseif(TRANSPORT STREQUAL "dpdk")
   set(DPDK_INCLUDE_DIR ${DPDK_PATH}/include/)
   message(STATUS "DPDK include directory = ${DPDK_INCLUDE_DIR}")
   include_directories(SYSTEM ${DPDK_INCLUDE_DIR})
-  
-  set(LIBRARIES
-    ${LIBRARIES}
-    -L ${DPDK_PATH}/lib/
-    -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,
-    -lrte_port)
+  set(LIBRARIES 
+	  ${LIBRARIES} 
+	  -L${DPDK_PATH}/lib/ -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port
+	  -libverbs)
 
 else()
     message(FATAL_ERROR "Invalid transport: ${TRANSPORT}")
