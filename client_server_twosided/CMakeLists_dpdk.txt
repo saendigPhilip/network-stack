@@ -14,6 +14,8 @@ add_definitions(-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro -
 
 set(LIBRARIES ${LIBRARIES} erpc pthread numa dl ssl crypto)
 
+set(DPDK_PATH ../../eRPC/dpdk/x86_64-native-linuxapp-gcc)
+
 # Unit tests
 enable_testing()
 find_package(GTest REQUIRED)
@@ -29,13 +31,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
 set(COMPILE_ERPC_LIB ON)
 
 # Options exposed to the user
-set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/raw/dpdk)")
-option(ROCE "Use RoCE if TRANSPORT is infiniband" OFF)
+set(TRANSPORT "dpdk")
 set(PGO "none" CACHE STRING "Profile-guided optimization (generate/use/none)")
 set(LOG_LEVEL "warn" CACHE STRING "Logging level (none/error/warn/info/reorder/trace/cc)") 
 cmake_dependent_option(LTO "Use link time optimization" ON "PERF" OFF)
 
-message(STATUS "Compilation optimized for performance.")
 set(DEBUG OFF)
 set(TESTING OFF)
 
@@ -162,7 +162,7 @@ set(CONFIG_IS_ROCE false)
 
 if(TRANSPORT STREQUAL "dpdk")
   # find_library(DPDK_LIB dpdk)
-  set(DPDK_LIB ../../eRPC/dpdk/x86_64-native-linuxapp-gcc/lib/libdpdk.a)
+  set(DPDK_LIB ${DPDK_PATH}/lib/libdpdk.a)
   if(NOT DPDK_LIB)
     message(FATAL_ERROR "DPDK library not found")
   endif()
@@ -171,7 +171,7 @@ if(TRANSPORT STREQUAL "dpdk")
   # Example: it may be kept in /usr/include/x86_64-linux-gnu/, and symlinked
   # from the real DPDK include directory (/usr/include/dpdk/).
   # find_path(DPDK_INCLUDE_DIR NAMES rte_ethdev.h PATH_SUFFIXES dpdk)
-  set(DPDK_INCLUDE_DIR ../../eRPC/dpdk/x86_64-native-linuxapp-gcc/include/)
+  set(DPDK_INCLUDE_DIR ${DPDK_PATH}/include/)
   if (DPDK_INCLUDE_DIR)
     message(STATUS "DPDK include directory = ${DPDK_INCLUDE_DIR}")
   else()
@@ -180,8 +180,8 @@ if(TRANSPORT STREQUAL "dpdk")
   include_directories(SYSTEM ${DPDK_INCLUDE_DIR})
   set(LIBRARIES 
 	  ${LIBRARIES} 
-	  -L../../eRPC/dpdk/x86_64-native-linuxapp-gcc/lib/ -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port 
-	  -libverbs)
+      -L ${DPDK_PATH}/lib/ 
+      -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port -libverbs)
   set(CONFIG_TRANSPORT "DpdkTransport")
   set(CONFIG_HEADROOM 40)
 else()
@@ -238,5 +238,6 @@ else() # Compile our executables
     ${SOURCES}
     src/Client.cpp
     tests/client_test_perf.cpp)
+
 endif()
 
