@@ -1,60 +1,157 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.13)
 project(client_server_twosided)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_definitions(-Wall -Wextra -Wpedantic -Wsign-conversion  -Wunused -DERPC_INFINIBAND=true)
+add_definitions(-Wall -Wextra -Wpedantic -Wsign-conversion -Wunused)
+add_definitions(
+  -Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro 
+  -Wno-deprecated-declarations)
+add_definitions(-msse4.1)
+
 set(LIBRARIES ${LIBRARIES} erpc pthread numa dl ibverbs ssl crypto)
 
-set(eRPC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC")
-message(STATUS "eRPC-path: ${eRPC_PATH}")
+# Option for user: Can decide between infiniband or dpdk
+set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
 
-include_directories(SYSTEM ${eRPC_PATH}/src)
-include_directories(src)
-include_directories(tests)
-link_directories(${eRPC_PATH}/build)
+
+# These two paths might need to be changed:
+set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC")
+set(DPDK_PATH 
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC/dpdk/x86_64-native-linuxapp-gcc)
+
+message(STATUS "eRPC-path: ${ERPC}")
+
+
+set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(TESTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+set(SOURCES)
+
+if(TRANSPORT STREQUAL "infiniband")
+  # Infiniband is nice and doesn't cause any problems
+  message(STATUS "Compiling with infiniband")
+  add_definitions(-DERPC_INFINIBAND=true)
+
+elseif(TRANSPORT STREQUAL "dpdk") 
+  message(STATUS "Compiling with DPDK")
+  add_definitions(-DERPC_DPDK=true)
+
+
+  # DPDK only works with an old version of eRPC
+  # In this version, we have to compile eRPC along with our code to get
+  # the best performance
+  set(SOURCES ${SOURCES}
+    ${ERPC}/src/nexus_impl/nexus.cc
+    ${ERPC}/src/nexus_impl/nexus_bg_thread.cc
+    ${ERPC}/src/nexus_impl/nexus_sm_thread.cc
+    ${ERPC}/src/rpc_impl/rpc.cc
+    ${ERPC}/src/rpc_impl/rpc_queues.cc
+    ${ERPC}/src/rpc_impl/rpc_rfr.cc
+    ${ERPC}/src/rpc_impl/rpc_cr.cc
+    ${ERPC}/src/rpc_impl/rpc_kick.cc
+    ${ERPC}/src/rpc_impl/rpc_req.cc
+    ${ERPC}/src/rpc_impl/rpc_resp.cc
+    ${ERPC}/src/rpc_impl/rpc_ev_loop.cc
+    ${ERPC}/src/rpc_impl/rpc_fault_inject.cc
+    ${ERPC}/src/rpc_impl/rpc_pkt_loss.cc
+    ${ERPC}/src/rpc_impl/rpc_rx.cc
+    ${ERPC}/src/rpc_impl/rpc_connect_handlers.cc
+    ${ERPC}/src/rpc_impl/rpc_disconnect_handlers.cc
+    ${ERPC}/src/rpc_impl/rpc_reset_handlers.cc
+    ${ERPC}/src/rpc_impl/rpc_sm_api.cc
+    ${ERPC}/src/rpc_impl/rpc_sm_helpers.cc
+    ${ERPC}/src/transport_impl/transport.cc
+    ${ERPC}/src/transport_impl/dpdk/dpdk_transport.cc
+    ${ERPC}/src/transport_impl/dpdk/dpdk_transport_datapath.cc
+    ${ERPC}/src/transport_impl/infiniband/ib_transport.cc
+    ${ERPC}/src/transport_impl/infiniband/ib_transport_datapath.cc
+    ${ERPC}/src/transport_impl/raw/raw_transport.cc
+    ${ERPC}/src/transport_impl/raw/raw_transport_datapath.cc
+    ${ERPC}/src/util/huge_alloc.cc
+    ${ERPC}/src/util/externs.cc
+    ${ERPC}/src/util/tls_registry.cc)
+
+
+  find_package(Boost)
+  if(Boost_FOUND)
+    message(STATUS "Boost include directory = ${Boost_INCLUDE_DIRS}")
+    include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+  else()
+    message(FATAL_ERROR "Boost not found.")
+  endif()
+   
+  set(DPDK_LIB ${DPDK_PATH}/lib/libdpdk.a)
+
+  set(DPDK_INCLUDE_DIR ${DPDK_PATH}/include/)
+  message(STATUS "DPDK include directory = ${DPDK_INCLUDE_DIR}")
+  include_directories(SYSTEM ${DPDK_INCLUDE_DIR})
+  
+  set(LIBRARIES
+    ${LIBRARIES}
+    -L ${DPDK_PATH}/lib/
+    -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,
+    -lrte_port)
+
+else()
+    message(FATAL_ERROR "Invalid transport: ${TRANSPORT}")
+endif()
+
+
+include_directories(SYSTEM ${ERPC}/src)
+include_directories(${SRC} ${TESTS})
+
+link_directories(${ERPC}/build)
 link_libraries(${LIBRARIES})
 
+
 set(SERVER_SOURCE
-        src/client_server_common.cpp
-        src/Server.cpp
-        src/Server.h
-        src/ServerThread.cpp
-        src/ServerThread.h)
+  ${SRC}/client_server_common.cpp
+  ${SRC}/Server.cpp
+  ${SRC}/Server.h
+  ${SRC}/ServerThread.cpp
+  ${SRC}/ServerThread.h)
 
 set(CLIENT_SOURCE
-        src/client_server_common.cpp
-        src/Client.cpp
-        src/Client.h)
+  ${SRC}/client_server_common.cpp
+  ${SRC}/Client.cpp
+  ${SRC}/Client.h)
 
 set(TEST_UTILS
-        tests/test_common.cpp
-        tests/test_common.h
-        tests/simple_unit_test.h)
+  ${TESTS}/test_common.cpp
+  ${TESTS}/test_common.h
+  ${TESTS}/simple_unit_test.h)
 
+
+# Finally build all tests and libraries:
 add_executable(server_test
-        ${SERVER_SOURCE}
-        ${TEST_UTILS}
-        tests/server_test.cpp)
+  ${SOURCES}
+  ${SERVER_SOURCE}
+  ${TEST_UTILS}
+  ${TESTS}/server_test.cpp)
 
 add_executable(client_test
-        ${CLIENT_SOURCE}
-        ${TEST_UTILS}
-        tests/client_test.cpp)
+  ${SOURCES}
+  ${CLIENT_SOURCE}
+  ${TEST_UTILS}
+  ${TESTS}/client_test.cpp)
 
 add_executable(server_perf_test
-        ${SERVER_SOURCE}
-        ${TEST_UTILS}
-        tests/server_test_perf.cpp)
+  ${SOURCES}
+  ${SERVER_SOURCE}
+  ${TEST_UTILS}
+  ${TESTS}/server_test_perf.cpp)
 
 add_executable(client_perf_test
-        ${CLIENT_SOURCE}
-        ${TEST_UTILS}
-        tests/client_test_perf.cpp)
+  ${SOURCES}
+  ${CLIENT_SOURCE}
+  ${TEST_UTILS}
+  ${TESTS}/client_test_perf.cpp)
 
 add_library(anchorserver STATIC
-        ${SERVER_SOURCE})
+  ${SOURCES}
+  ${SERVER_SOURCE})
 
 add_library(anchorclient STATIC
-        ${CLIENT_SOURCE})
+  ${SOURCES}
+  ${CLIENT_SOURCE})
 
