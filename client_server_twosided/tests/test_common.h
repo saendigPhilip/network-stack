@@ -35,8 +35,8 @@ struct global_test_params {
 
 extern struct global_test_params global_params;
 
-static constexpr size_t MAX_KEY_SIZE = 8192;
-static constexpr size_t MAX_VAL_SIZE = 8192;
+//static constexpr size_t MAX_KEY_SIZE = 8192;
+//static constexpr size_t MAX_VAL_SIZE = 8192;
 
 static const unsigned char key_do_not_use[16] =
         {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};

@@ -11,10 +11,7 @@
 
 uint16_t port = 31850;
 
-char test_value[MAX_VAL_SIZE];
-char incoming_test_value[MAX_VAL_SIZE];
-
-thread_local unsigned char value_buf[MAX_VAL_SIZE];
+thread_local unsigned char *value_buf;
 thread_local struct test_params *local_params;
 thread_local struct test_results *local_results;
 
@@ -193,6 +190,7 @@ void issue_requests(anchor_client::Client *client) {
 void test_thread(struct test_params *params, struct test_results *results,
         anchor_client::Client *client, std::string *server_hostname) {
 
+    value_buf = static_cast<unsigned char *>(malloc(VAL_SIZE));
     local_params = params;
     local_results = results;
     if (0 > client->connect(
