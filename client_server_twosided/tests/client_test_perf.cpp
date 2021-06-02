@@ -6,7 +6,7 @@
 #include "Client.h"
 #include "test_common.h"
 
-#define MEASURE_LATENCY 0
+#define MEASURE_LATENCY 1
 
 uint16_t port = 31850;
 
