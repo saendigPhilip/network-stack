@@ -54,25 +54,34 @@ int initialize_kv_store() {
     return 0;
 }
 
+void print_usage(const char *argv0) {
+    cout << "Usage: " << argv0 << " <ip-address>" << endl;
+    global_test_params::print_options();
+}
 
-int main(int argc, char *argv[]) {
+
+int main(int argc, const char *argv[]) {
     if (argc < 2) {
-        cerr << "Usage: " << argv[0] << " <ip-address>" << endl;
-        return -1;
+        print_usage(argv[0]);
+        return 1;
     }
 
-
     std::string ip(argv[1]);
-    int ret = -1;
+    int ret = 1;
     const uint16_t standard_udp_port = 31850;
     if (0 != anchor_server::init(ip, standard_udp_port))
         return 1;
 
-    fill_global_test_params();
+    if (0 > global_params.parse_args(argc - 2, argv + 2)) {
+        print_usage(argv[0]);
+        return 1;
+    }
+
     if (0 > initialize_kv_store()) {
         cerr << "Failed initializing KV-store. Aborting" << endl;
-        return -1;
+        return 1;
     }
+
     if (anchor_server::host_server(
             key_do_not_use, NUM_CLIENTS,
             KEY_SIZE + VAL_SIZE, false,

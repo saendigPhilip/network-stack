@@ -8,6 +8,7 @@
 
 #define MEASURE_LATENCY 1
 
+
 uint16_t port = 31850;
 
 char test_value[MAX_VAL_SIZE];
@@ -209,9 +210,9 @@ void fill_params_structs(struct test_params *params) {
     struct test_params default_params = {
             port,
             0,
-            PUT_REQUESTS_PER_CLIENT,
-            GET_REQUESTS_PER_CLIENT,
-            DELETE_REQUESTS_PER_CLIENT
+            PUTS_PER_CLIENT,
+            GETS_PER_CLIENT,
+            DELS_PER_CLIENT
     };
     for (uint8_t id = 0; id < NUM_CLIENTS; id++) {
         memcpy(static_cast<void *>(params + id), &default_params,
@@ -299,9 +300,9 @@ void perform_tests(string& server_hostname) {
     struct test_params total_params = {
             port,
             0,
-            PUT_REQUESTS_PER_CLIENT * NUM_CLIENTS,
-            GET_REQUESTS_PER_CLIENT * NUM_CLIENTS,
-            DELETE_REQUESTS_PER_CLIENT * NUM_CLIENTS
+            PUTS_PER_CLIENT * NUM_CLIENTS,
+            GETS_PER_CLIENT * NUM_CLIENTS,
+            DELS_PER_CLIENT * NUM_CLIENTS
     };
     auto params = static_cast<struct test_params *>(
             malloc(NUM_CLIENTS * sizeof(struct test_params)));
@@ -354,19 +355,26 @@ void perform_tests(string& server_hostname) {
     free(results);
 }
 
+void print_usage(const char *arg0) {
+    cout << "Usage: " << arg0 <<
+         " <client ip-address> <server ip-address>" << endl;
+    global_test_params::print_options();
+}
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
     if (argc < 3) {
-        cerr << "Usage: " << argv[0] <<
-            " <client ip-address> <server ip-address>" << endl;
-        return -1;
+        print_usage(argv[0]);
+        return 1;
     }
     string client_hostname(argv[1]);
     string server_hostname(argv[2]);
     anchor_client::Client::init(client_hostname, port);
-    fill_global_test_params();
+
+    global_params.parse_args(argc - 3, argv + 3);
+
     perform_tests(server_hostname);
     // Wait for the server to prepare:
     this_thread::sleep_for(2s);
     anchor_client::Client::terminate();
+    return 0;
 }

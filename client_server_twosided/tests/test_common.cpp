@@ -1,15 +1,34 @@
 #include <cstdint>
 #include <cstring>
-#include <cassert>
+#include <iostream>
 #include "test_common.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-size_t KEY_SIZE;
-size_t VAL_SIZE;
-size_t KV_SIZE;
-uint8_t NUM_CLIENTS;
-size_t LOOP_ITERATIONS;
+#define STRTOUL(var, str)                                       \
+    errno = 0;                                                  \
+    (var) = std::strtoul(argv[++i], nullptr, 0);                \
+    if (errno) {                                                \
+        fprintf(stderr, "Invalid %s: %s\n", (str), (argv[i]));  \
+        return -1;                                              \
+    }
+
+
+struct global_test_params global_params;
+
+
+
+ssize_t str2size_t(const char *str) {
+    errno = 0;
+    ssize_t ret = strtol(str, nullptr, 0);
+    if (errno) {
+        std::cerr << "Invalid argument: " << str << std::endl;
+        return -1;
+    }
+    return ret;
+}
+
+
 
 void value_from_key(
         void *value, size_t value_len, const void *key, size_t key_len) {
@@ -21,12 +40,51 @@ void value_from_key(
     }
 }
 
-void fill_global_test_params() {
-    struct global_test_params param = TEST_PARAMS;
-    assert(param.val_size <= MAX_VAL_SIZE);
-    KEY_SIZE = param.key_size;
-    VAL_SIZE = param.val_size;
-    KV_SIZE = param.kv_size;
-    NUM_CLIENTS = param.num_clients;
-    LOOP_ITERATIONS = param.event_loop_iterations;
+int global_test_params::parse_args(int argc, const char **argv) {
+    for (int i = 0; i < argc; i++) {
+        switch (argv[i][1]) {
+            case 'k':
+                STRTOUL(key_size, "key size");
+                break;
+            case 'v':
+                STRTOUL(val_size, "value size");
+                break;
+            case 's':
+                STRTOUL(kv_size, "KV size");
+                break;
+            case 'n':
+                STRTOUL(num_clients, "Number of clients");
+                break;
+            case 'i':
+                STRTOUL(event_loop_iterations,
+                    "Number of event loop iterations");
+                break;
+            case 'p':
+                STRTOUL(puts_per_client, "Number of puts per client");
+                break;
+            case 'g':
+                STRTOUL(gets_per_client, "Number of gets per client");
+                break;
+            case 'd':
+                STRTOUL(dels_per_client, "Number of deletes per client");
+                break;
+            default:
+                std::cerr << "Unknown commandline option: "
+                          << argv[i] << std::endl;
+                return -1;
+        }
+    }
+    return 0;
+}
+
+void global_test_params::print_options() {
+    std::cout << "\t[-k <key size>]\n"
+                 "\t[-v <value size>]\n"
+                 "\t[-s <KV size>]\n"
+                 "\t[-n <number clients>]\n"
+                 "\t[-i <number of client event loop iterations>]\n"
+                 "\t[-p <number of put operations per client>]\n"
+                 "\t[-g <number of get operations per client>]\n"
+                 "\t[-d <number of delete operations per client>]\n"
+                 << std::endl;
 }
