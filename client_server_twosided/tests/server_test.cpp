@@ -2,7 +2,6 @@
 #include <cstdlib>
 
 #include "Server.h"
-#include "simple_unit_test.h"
 #include "test_common.h"
 
 constexpr size_t TEST_KV_SIZE = 256;
@@ -22,7 +21,7 @@ long int get_index(const char *key) {
 const void *kv_get(const void *key, size_t, size_t *data_len) {
     long int index = get_index((char *) key);
     if (index >= 0 && test_kv_store[index]) {
-        *data_len = MAX_VAL_SIZE;
+        *data_len = VAL_SIZE;
         return static_cast<const void*>(test_kv_store[index]);
     }
     else 
@@ -41,7 +40,7 @@ int kv_put(const void *key, size_t, void *value, size_t value_size) {
         test_kv_store[index] = nullptr;
         return 0;
     }
-    test_kv_store[index] = static_cast<char *>(malloc(MAX_VAL_SIZE));
+    test_kv_store[index] = static_cast<char *>(malloc(VAL_SIZE));
     if (!test_kv_store[index]) {
         cerr << "Memory allocation failure" << endl;
         return -1;
@@ -73,10 +72,12 @@ int main(int argc, char *argv[]) {
     if (0 != anchor_server::init(ip, standard_udp_port))
         return 1;
 
+    global_params.key_size = sizeof(size_t);
+
     const uint8_t num_clients = 1;
     if (anchor_server::host_server(
             key_do_not_use, num_clients,
-            MAX_KEY_SIZE + MAX_VAL_SIZE, true,
+            KEY_SIZE + VAL_SIZE, true,
             kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
         return ret;

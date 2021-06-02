@@ -5,8 +5,8 @@
 #include "simple_unit_test.h"
 
 const char test_key[] = "42";
-char test_value[MAX_VAL_SIZE];
-char incoming_test_value[MAX_VAL_SIZE];
+char *test_value;
+char *incoming_test_value;
 
 void test_callback(enum anchor_client::ret_val status, const void *tag) {
     switch (status) {
@@ -37,12 +37,17 @@ int main(int argc, char *argv[]) {
     std::string server_hostname(argv[2]);
     uint16_t port = 31850;
     uint8_t id = 0;
+
+    global_params.key_size = sizeof(size_t);
+    test_value = static_cast<char *>(malloc(KEY_SIZE));
+    incoming_test_value = static_cast<char *>(malloc(VAL_SIZE));
+
     anchor_client::Client::init(client_hostname, port);
     anchor_client::Client client(id);
     if (0 > client.connect(server_hostname, port, key_do_not_use))
         return -1;
 
-    value_from_key(test_value, MAX_VAL_SIZE, test_key, sizeof(test_key));
+    value_from_key(test_value, VAL_SIZE, test_key, sizeof(test_key));
 
     BEGIN_TEST_DELIMITER("put operation");
     EXPECT_EQUAL(0, client.put((void *) test_key, sizeof(test_key),
@@ -52,9 +57,9 @@ int main(int argc, char *argv[]) {
     
     BEGIN_TEST_DELIMITER("get operation");
     EXPECT_EQUAL(0, client.get((void *) test_key, sizeof(test_key),
-            incoming_test_value, MAX_VAL_SIZE, nullptr, test_callback,
+            incoming_test_value, VAL_SIZE, nullptr, test_callback,
             test_key, 10000))
-    EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, MAX_VAL_SIZE))
+    EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, VAL_SIZE))
     END_TEST_DELIMITER();
 
     BEGIN_TEST_DELIMITER("delete operation");
