@@ -280,16 +280,18 @@ void print_summary(bool all, struct test_params *params,
                 static_cast<double>(result->time_all) /
                 static_cast<double>(suc_total));
         // TODO: Add add macro for getting package size
-        auto uplink_volume = static_cast<double>(
-                (total_puts + total_gets + total_dels) *
-                CIPHERTEXT_SIZE(KEY_SIZE) +
-                total_puts * CIPHERTEXT_SIZE(VAL_SIZE));
-        auto downlink_volume = static_cast<double>(
+        size_t uplink_volume =
+                (total_puts + total_gets + total_dels) * KEY_SIZE +
+                total_puts * VAL_SIZE;
+        size_t downlink_volume =
                 (suc_puts + suc_gets + suc_dels) * MIN_MSG_LEN
-                + suc_gets * CIPHERTEXT_SIZE(VAL_SIZE));
+                + suc_gets * VAL_SIZE;
+
         printf("Total uplink speed: %f B/s. Total downlink speed: %f B/s\n\n",
-                uplink_volume / static_cast<double>(result->time_all),
-                downlink_volume / static_cast<double>(result->time_all));
+                static_cast<double>(1'000'000'000 * uplink_volume) /
+                static_cast<double>(result->time_all),
+                static_cast<double>(1'000'000'000 * downlink_volume) /
+                static_cast<double>(result->time_all));
     }
 }
 
