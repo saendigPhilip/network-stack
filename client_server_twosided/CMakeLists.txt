@@ -145,11 +145,11 @@ add_executable(client_perf_test
   ${TEST_UTILS}
   ${TESTS}/client_test_perf.cpp)
 
-add_library(anchorserver STATIC
+add_library(anchorserver SHARED
   ${SOURCES}
   ${SERVER_SOURCE})
 
-add_library(anchorclient STATIC
+add_library(anchorclient SHARED
   ${SOURCES}
   ${CLIENT_SOURCE})
 
