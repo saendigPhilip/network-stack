@@ -9,7 +9,7 @@
 #include "rpc.h"
 #include "Server.h"
 
-static constexpr size_t SEQ_THRESHOLD = 32;
+static constexpr ssize_t SEQ_THRESHOLD = 32;
 
 class ServerThread {
 private:

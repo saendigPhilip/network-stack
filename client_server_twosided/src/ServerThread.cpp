@@ -52,9 +52,11 @@ bool ServerThread::is_seq_valid(uint64_t sequence_number) {
         this->next_seq = sequence_number & SEQ_MASK;
         return true;
     }
-    if(SEQ_FROM_SEQ_OP((sequence_number & SEQ_MASK) - this->next_seq) <
-            SEQ_THRESHOLD) {
-        this->next_seq = sequence_number & SEQ_MASK;
+    auto seq_diff = static_cast<ssize_t>(SEQ_FROM_SEQ_OP(
+        (sequence_number & SEQ_MASK) - this->next_seq));
+    if (seq_diff < SEQ_THRESHOLD && seq_diff > -SEQ_THRESHOLD) {
+        if (seq_diff > 0)
+            this->next_seq = sequence_number & SEQ_MASK;
         return true;
     }
     else {
