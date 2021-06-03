@@ -24,9 +24,19 @@ set(TESTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
 
 # User options:
+set(DEBUG "OFF" CACHE STRING "Enable debugging options (ON/OFF)") 
 set(MEASURE_LATENCY "ON" CACHE STRING "Measure latency (ON/OFF)")
 set(ENCRYPT "ON" CACHE STRING "Enable encryption (ON/OFF)")
 set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
+
+
+string(TOUPPER ${DEBUG} DEBUG)
+if (${DEBUG} STREQUAL "ON")
+  add_definitions(-g -fsanitize=address)
+  link_libraries(-fsanitize=address)
+else()
+  add_definitions(-O2)
+endif()
 
 
 string(TOUPPER ${MEASURE_LATENCY} MEASURE_LATENCY)
