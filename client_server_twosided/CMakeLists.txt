@@ -7,25 +7,11 @@ add_definitions(-Wall -Wextra -Wpedantic -Wsign-conversion -Wunused)
 add_definitions(-Wno-unused-function -Wno-deprecated-declarations)
 add_definitions(-msse4.1)
 
+# Libraries that are required:
 set(LIBRARIES erpc pthread numa dl ibverbs ssl crypto)
 
-# Option for user: Can decide between infiniband or dpdk
-set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
 
-
-# Turn on/off Latency measurement:
-set(MEASURE_LATENCY "ON" CACHE STRING "Measure latency (ON/OFF)")
-string(TOUPPER ${MEASURE_LATENCY} MEASURE_LATENCY)
-if(${MEASURE_LATENCY} STREQUAL "ON")
-  set(MEASURE_LATENCY "-DMEASURE_LATENCY=true")
-  message(STATUS "Latency measurement turned on")
-else()
-  set(MEASURE_LATENCY "-DMEASURE_LATENCY=false")
-  message(STATUS "Latency measurement turned off")
-endif()
-add_definitions(${MEASURE_LATENCY})
-
-
+# Some paths:
 # These two paths might need to be changed:
 set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC")
 set(DPDK_PATH 
@@ -33,9 +19,37 @@ set(DPDK_PATH
 
 message(STATUS "eRPC-path: ${ERPC}")
 
-
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(TESTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+
+
+# User options:
+set(MEASURE_LATENCY "ON" CACHE STRING "Measure latency (ON/OFF)")
+set(ENCRYPT "ON" CACHE STRING "Enable encryption (ON/OFF)")
+set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
+
+
+string(TOUPPER ${MEASURE_LATENCY} MEASURE_LATENCY)
+if(${MEASURE_LATENCY} STREQUAL "ON")
+  add_definitions("-DMEASURE_LATENCY=true")
+  message(STATUS "Latency measurement turned on")
+else()
+  add_definitions("-DMEASURE_LATENCY=false") 
+  message(STATUS "Latency measurement turned off")
+endif()
+
+
+string(TOUPPER ${ENCRYPT} ENCRYPT)
+if(${ENCRYPT} STREQUAL "OFF")
+  message(STATUS "Warning: Encryption turned off")
+  add_definitions("-DNO_ENCRYPTION=true")
+else()
+  message(STATUS "Encryption turned on")
+  add_definitions("-DNO_ENCRYPTION=false")
+endif()
+
+
+
 set(SOURCES)
 
 if(TRANSPORT STREQUAL "infiniband")
