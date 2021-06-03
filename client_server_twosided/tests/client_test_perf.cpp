@@ -6,12 +6,10 @@
 #include "Client.h"
 #include "test_common.h"
 
-#define MEASURE_LATENCY 1
-
-
 uint16_t port = 31850;
 
 thread_local unsigned char *value_buf;
+thread_local unsigned char *key_buf;
 thread_local struct test_params *local_params;
 thread_local struct test_results *local_results;
 
@@ -117,8 +115,11 @@ void del_callback(anchor_client::ret_val status, const void *tag) {
         evaluate_status(status);
 }
 
-inline size_t get_random_key() {
-    return static_cast<size_t>(rand()) % KV_SIZE;
+inline void get_random_key() {
+    auto *dst = (int32_t *) key_buf;
+    // We don't care about the last bytes if key size is not dividable by 4
+    for (size_t i = 0; i < KEY_SIZE / 4; i++)
+        dst[i] = rand();
 }
 
 void issue_requests(anchor_client::Client *client) {
@@ -130,29 +131,27 @@ void issue_requests(anchor_client::Client *client) {
 #endif
 
     size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
-    size_t key;
     for (size_t req = 0; ; req++) {
-        key = get_random_key();
+        get_random_key();
 #if MEASURE_LATENCY
         struct timespec *time_now =
                 times + (req % anchor_client::MAX_ACCEPTED_RESPONSES);
 #else
         struct timespec *time_now = nullptr;
 #endif
-
         // Go easy on the server:
         if (client->queue_full()) {
-            std::this_thread::sleep_for(chrono::microseconds(1));
-            client->run_event_loop_n_times(20);
+            std::this_thread::sleep_for(chrono::microseconds(CLIENT_TIMEOUT));
+            client->run_event_loop_n_times(LOOP_ITERATIONS);
         }
 
         if (puts_performed < local_params->put_requests) {
             value_from_key(
-                    (void *) value_buf, VAL_SIZE, (void *) &key, KEY_SIZE);
+                    (void *) value_buf, VAL_SIZE, (void *) key_buf, KEY_SIZE);
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
 #endif
-            if (0 > client->put((void *) &key, sizeof(size_t),
+            if (0 > client->put((void *) key_buf, KEY_SIZE,
                     (void *) value_buf, VAL_SIZE,
                     put_callback, time_now, LOOP_ITERATIONS)) {
 
@@ -164,7 +163,7 @@ void issue_requests(anchor_client::Client *client) {
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
 #endif
-            if (0 > client->get((void *) &key, sizeof(size_t),
+            if (0 > client->get((void *) key_buf, KEY_SIZE,
                     (void *) value_buf, VAL_SIZE, nullptr,
                     get_callback, time_now, LOOP_ITERATIONS)) {
                 cerr << "get() failed" << endl;
@@ -175,8 +174,8 @@ void issue_requests(anchor_client::Client *client) {
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
 #endif
-            if (0 > client->del((void *) &key,
-                    sizeof(size_t), del_callback, time_now, LOOP_ITERATIONS)) {
+            if (0 > client->del((void *) key_buf, KEY_SIZE,
+                del_callback, time_now, LOOP_ITERATIONS)) {
                 cerr << "delete() failed" << endl;
             } else
                 deletes_performed++;
@@ -187,10 +186,15 @@ void issue_requests(anchor_client::Client *client) {
     (void) client->disconnect();
 }
 
+
 void test_thread(struct test_params *params, struct test_results *results,
         anchor_client::Client *client, std::string *server_hostname) {
 
+    key_buf = static_cast<unsigned char *>(malloc(KEY_SIZE));
     value_buf = static_cast<unsigned char *>(malloc(VAL_SIZE));
+    if (!(key_buf && value_buf))
+        goto end_test_thread;
+
     local_params = params;
     local_results = results;
     if (0 > client->connect(
@@ -202,6 +206,10 @@ void test_thread(struct test_params *params, struct test_results *results,
     srand(static_cast<unsigned int>(params->id));
 
     issue_requests(client);
+
+end_test_thread:
+    free(key_buf);
+    free(value_buf);
 }
 
 void fill_params_structs(struct test_params *params) {
@@ -279,7 +287,6 @@ void print_summary(bool all, struct test_params *params,
         printf("Time per operation in total: %f\n",
                 static_cast<double>(result->time_all) /
                 static_cast<double>(suc_total));
-        // TODO: Add add macro for getting package size
         size_t uplink_volume =
                 (total_puts + total_gets + total_dels) * KEY_SIZE +
                 total_puts * VAL_SIZE;

@@ -7,12 +7,12 @@
 
 #include <cstdint>
 
-
 #define KEY_SIZE global_params.key_size
 #define VAL_SIZE global_params.val_size
 #define KV_SIZE global_params.kv_size
 #define NUM_CLIENTS global_params.num_clients
 #define LOOP_ITERATIONS global_params.event_loop_iterations
+#define CLIENT_TIMEOUT global_params.client_timeout_us
 #define PUTS_PER_CLIENT global_params.puts_per_client
 #define GETS_PER_CLIENT global_params.gets_per_client
 #define DELS_PER_CLIENT global_params.dels_per_client
@@ -24,6 +24,7 @@ struct global_test_params {
     size_t kv_size{128};
     uint8_t num_clients{4};
     size_t event_loop_iterations{128};
+    size_t client_timeout_us{1};
     size_t puts_per_client{1 << 12};
     size_t gets_per_client{1 << 12};
     size_t dels_per_client{1 << 12};

@@ -1,56 +1,88 @@
 #include <cstring>
 #include <cstdlib>
+#include <map>
+#include <vector>
 
 #include "client_server_common.h"
 #include "Server.h"
 #include "test_common.h"
 
-#define TEST_KV_AT(index) (test_kv_store + (index) * VAL_SIZE)
+#if MEASURE_LATENCY
+unsigned char *default_value;
+#else
+std::map<std::vector<unsigned char>, unsigned char *> test_kv_store;
+#endif // MEASURE_LATENCY
 
-char *test_kv_store;
+#if MEASURE_LATENCY
+const void *kv_get(const void *, size_t, size_t *data_len) {
+    *data_len = VAL_SIZE;
+    return default_value;
+}
 
-const void *kv_get(const void *key, size_t, size_t *data_len) {
-    size_t index = *(size_t *) key;
-    if (index < KV_SIZE) {
-        *data_len = VAL_SIZE;
-        return static_cast<void *>(TEST_KV_AT(index));
-    }
-    else 
+int kv_put(const void *, size_t, void *, size_t) {
+    return 0;
+}
+
+int kv_delete(const void *, size_t) {
+    return 0;
+}
+
+#else // MEASURE_LATENCY
+
+const void *kv_get(const void *key, size_t key_size, size_t *data_len) {
+    auto *key_uc = static_cast<const unsigned char *>(key);
+    auto vec = std::vector<unsigned char>();
+    vec.assign(key_uc, key_uc + key_size);
+    auto iter = test_kv_store.find(vec);
+    if (iter == test_kv_store.end())
         return nullptr;
+    else
+        return iter->second;
 }
 
 
-int kv_put(const void *key, size_t, void *value, size_t value_size) {
-    auto index = *(size_t *) key;
-    if (index < KV_SIZE) {
-        memcpy(TEST_KV_AT(index), value, value_size);
-        return 0;
+int kv_put(const void *key, size_t key_size, void *value, size_t value_size) {
+    auto *key_uc = static_cast<const unsigned char *>(key);
+    auto vec = std::vector<unsigned char>();
+    vec.assign(key_uc, key_uc + key_size);
+    auto iter = test_kv_store.find(vec);
+    unsigned char *val;
+    if (iter == test_kv_store.end()) {
+        val = static_cast<unsigned char *>(malloc(VAL_SIZE));
+        if (!val)
+            return -1;
+        test_kv_store.insert({vec, val});
     }
-    else 
-        return -1;
+    else {
+        val = iter->second;
+    }
+    memcpy(val, value, value_size);
+    return 0;
 }
 
-/* The delete operation is O(1) and can be used for simple latency tests */
-int kv_delete(const void *key, size_t) {
-    auto index = *(size_t *) key;
-    if (index < KV_SIZE) {
-        return 0;
-    }
-    else 
+int kv_delete(const void *key, size_t key_size) {
+    auto *key_uc = static_cast<const unsigned char *>(key);
+    auto vec = std::vector<unsigned char>();
+    vec.assign(key_uc, key_uc + key_size);
+    auto iter = test_kv_store.find(vec);
+    if (iter == test_kv_store.end())
         return -1;
+    test_kv_store.erase(iter);
+    free(iter->second);
+    return 0;
 }
+#endif // MEASURE_LATENCY
 
 
 /* Fills the KV-store with initial data by calling value_from_key()
  * for each entry
  */
 int initialize_kv_store() {
-    test_kv_store = static_cast<char *>(malloc(KV_SIZE * VAL_SIZE));
-    if (!test_kv_store)
+#if MEASURE_LATENCY
+    default_value = static_cast<unsigned char *>(malloc(VAL_SIZE));
+    if (!default_value)
         return -1;
-    for (size_t i = 0; i < KV_SIZE; i++) {
-        value_from_key(TEST_KV_AT(i), VAL_SIZE, (void *) &i, KEY_SIZE);
-    }
+#endif // MEASURE_LATENCY
     return 0;
 }
 
@@ -91,7 +123,16 @@ int main(int argc, const char *argv[]) {
     }
 
     anchor_server::close_connection(false);
-    free(test_kv_store);
+
+#if MEASURE_LATENCY
+    free(default_value);
+#else
+    for (auto& iter : test_kv_store) {
+        free(iter.second);
+        test_kv_store.erase(iter.first);
+    }
+#endif
+
     anchor_server::terminate();
     return 0;
 }

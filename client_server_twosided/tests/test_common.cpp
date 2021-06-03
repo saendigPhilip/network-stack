@@ -17,19 +17,6 @@
 struct global_test_params global_params;
 
 
-
-ssize_t str2size_t(const char *str) {
-    errno = 0;
-    ssize_t ret = strtol(str, nullptr, 0);
-    if (errno) {
-        std::cerr << "Invalid argument: " << str << std::endl;
-        return -1;
-    }
-    return ret;
-}
-
-
-
 void value_from_key(
         void *value, size_t value_len, const void *key, size_t key_len) {
     size_t to_copy;
@@ -59,6 +46,10 @@ int global_test_params::parse_args(int argc, const char **argv) {
                 STRTOUL(event_loop_iterations,
                     "Number of event loop iterations");
                 break;
+            case 't':
+                STRTOUL(client_timeout_us,
+                    "Client timeout in case of server overload");
+                break;
             case 'p':
                 STRTOUL(puts_per_client, "Number of puts per client");
                 break;
@@ -83,6 +74,7 @@ void global_test_params::print_options() {
                  "\t[-s <KV size>]\n"
                  "\t[-n <number clients>]\n"
                  "\t[-i <number of client event loop iterations>]\n"
+                 "\t[-t <client timeout on server overload in us>]"
                  "\t[-p <number of put operations per client>]\n"
                  "\t[-g <number of get operations per client>]\n"
                  "\t[-d <number of delete operations per client>]\n"
