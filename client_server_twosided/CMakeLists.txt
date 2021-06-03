@@ -12,10 +12,10 @@ set(LIBRARIES erpc pthread numa dl ibverbs ssl crypto)
 # Option for user: Can decide between infiniband or dpdk
 set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
 
+
 # Turn on/off Latency measurement:
 set(MEASURE_LATENCY "ON" CACHE STRING "Measure latency (ON/OFF)")
 string(TOUPPER ${MEASURE_LATENCY} MEASURE_LATENCY)
-
 if(${MEASURE_LATENCY} STREQUAL "ON")
   set(MEASURE_LATENCY "-DMEASURE_LATENCY=true")
   message(STATUS "Latency measurement turned on")
@@ -23,6 +23,7 @@ else()
   set(MEASURE_LATENCY "-DMEASURE_LATENCY=false")
   message(STATUS "Latency measurement turned off")
 endif()
+add_definitions(${MEASURE_LATENCY})
 
 
 # These two paths might need to be changed:
