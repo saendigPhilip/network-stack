@@ -32,9 +32,11 @@ set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
 
 string(TOUPPER ${DEBUG} DEBUG)
 if (${DEBUG} STREQUAL "ON")
+  message(STATUS "Debugging enabled. Compiling with address sanitizer")
   add_definitions(-g -fsanitize=address)
   link_libraries(-fsanitize=address)
 else()
+  message(STATUS "Debugging disabled")
   add_definitions(-O2)
 endif()
 
