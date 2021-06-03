@@ -4,9 +4,7 @@ project(client_server_twosided)
 set(CMAKE_CXX_STANDARD 14)
 
 add_definitions(-Wall -Wextra -Wpedantic -Wsign-conversion -Wunused)
-add_definitions(
-  -Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro 
-  -Wno-deprecated-declarations)
+add_definitions(-Wno-unused-function -Wno-deprecated-declarations)
 add_definitions(-msse4.1)
 
 set(LIBRARIES erpc pthread numa dl ibverbs ssl crypto)
