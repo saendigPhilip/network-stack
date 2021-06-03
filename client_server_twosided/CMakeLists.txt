@@ -124,7 +124,7 @@ elseif(TRANSPORT STREQUAL "dpdk")
   include_directories(SYSTEM ${DPDK_INCLUDE_DIR})
   set(LIBRARIES 
 	  ${LIBRARIES} 
-	  -L${DPDK_PATH}/lib/ -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port
+	  -L${DPDK_PATH}/lib/ -Wl,--whole-archive -ldpdk -ldl -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port
 	  -libverbs)
 
 else()
