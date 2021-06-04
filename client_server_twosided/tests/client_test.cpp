@@ -8,22 +8,22 @@ const char test_key[] = "42";
 char *test_value;
 char *incoming_test_value;
 
-void test_callback(enum anchor_client::ret_val status, const void *tag) {
+void test_callback(enum ret_val status, const void *tag) {
     switch (status) {
-        case anchor_client::ret_val::OP_SUCCESS:
+        case ret_val::OP_SUCCESS:
             cout << "Success" << endl;
             break;
-        case anchor_client::ret_val::TIMEOUT:
+        case ret_val::TIMEOUT:
             cerr << "Timeout" << endl;
             break;
-        case anchor_client::ret_val::OP_FAILED:
+        case ret_val::OP_FAILED:
             cerr << "Operation failed" << endl;
             break;
-        case anchor_client::ret_val::INVALID_RESPONSE:
+        case ret_val::INVALID_RESPONSE:
             cerr << "Invalid response" << endl;
     }
 
-    EXPECT_EQUAL(anchor_client::OP_SUCCESS, status);
+    EXPECT_EQUAL(OP_SUCCESS, status);
     EXPECT_EQUAL(test_key, tag);
 }
 
@@ -42,8 +42,8 @@ int main(int argc, char *argv[]) {
     test_value = static_cast<char *>(malloc(KEY_SIZE));
     incoming_test_value = static_cast<char *>(malloc(VAL_SIZE));
 
-    anchor_client::Client::init(client_hostname, port);
-    anchor_client::Client client(id);
+    Client::init(client_hostname, port);
+    Client client(id, KEY_SIZE, VAL_SIZE);
     if (0 > client.connect(server_hostname, port, key_do_not_use))
         return -1;
 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     
     BEGIN_TEST_DELIMITER("get operation");
     EXPECT_EQUAL(0, client.get((void *) test_key, sizeof(test_key),
-            incoming_test_value, VAL_SIZE, nullptr, test_callback,
+            incoming_test_value, nullptr, test_callback,
             test_key, 10000))
     EXPECT_EQUAL(0, memcmp(incoming_test_value, test_value, VAL_SIZE))
     END_TEST_DELIMITER();
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
     END_TEST_DELIMITER();
 
     (void ) client.disconnect();
-    anchor_client::Client::terminate();
+    Client::terminate();
     PRINT_TEST_SUMMARY();
     return 0;
 }

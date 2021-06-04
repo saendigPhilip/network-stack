@@ -2,7 +2,6 @@
 
 #include "Client.h"
 #include "client_server_common.h"
-using namespace anchor_client;
 erpc::Nexus *nexus = nullptr;
 
 
@@ -121,7 +120,6 @@ void Client::send_message(
  * @param key Server address to read from
  * @param key_len Size of address
  * @param value Value whose key we want to get
- * @param max_value_len Maximum length the returned value can have
  * @param value_len Pointer to size_t at which the length of the value is stored
  * @param callback Callback that is called if a server response is received
  * @param user_tag Arbitrary tag a user can specify to re-identify his request

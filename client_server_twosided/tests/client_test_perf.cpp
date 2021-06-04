@@ -43,17 +43,17 @@ inline uint64_t time_diff(
 }
 
 
-void evaluate_status(anchor_client::ret_val status) {
+void evaluate_status(ret_val status) {
     switch(status) {
-        case anchor_client::OP_FAILED:
+        case OP_FAILED:
             // fprintf(stderr, "Thread %u: OP failed\n", local_params->id);
             local_results->failed_operations++;
             break;
-        case anchor_client::TIMEOUT:
+        case TIMEOUT:
             // fprintf(stderr, "Thread %u: Timeout\n", local_params->id);
             local_results->timeouts++;
             break;
-        case anchor_client::INVALID_RESPONSE:
+        case INVALID_RESPONSE:
             // fprintf(stderr, "Thread %u: Invalid resp.\n", local_params->id);
             local_results->invalid_responses++;
             break;
@@ -62,7 +62,7 @@ void evaluate_status(anchor_client::ret_val status) {
     }
 }
 
-void put_callback(anchor_client::ret_val status, const void *tag) {
+void put_callback(ret_val status, const void *tag) {
 #if MEASURE_LATENCY
     struct timespec end_time;
     (void) clock_gettime(CLOCK_MONOTONIC, &end_time);
@@ -70,7 +70,7 @@ void put_callback(anchor_client::ret_val status, const void *tag) {
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
 
-    if (status == anchor_client::OP_SUCCESS) {
+    if (status == OP_SUCCESS) {
         local_results->successful_puts++;
 #if MEASURE_LATENCY
         local_results->put_time += diff;
@@ -80,7 +80,7 @@ void put_callback(anchor_client::ret_val status, const void *tag) {
         evaluate_status(status);
 }
 
-void get_callback(anchor_client::ret_val status, const void *tag) {
+void get_callback(ret_val status, const void *tag) {
 #if MEASURE_LATENCY
     struct timespec end_time;
     (void) clock_gettime(CLOCK_MONOTONIC, &end_time);
@@ -88,7 +88,7 @@ void get_callback(anchor_client::ret_val status, const void *tag) {
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
 
-    if (anchor_client::OP_SUCCESS == status) {
+    if (OP_SUCCESS == status) {
         local_results->successful_gets++;
 #if MEASURE_LATENCY
         local_results->get_time += diff;
@@ -98,14 +98,14 @@ void get_callback(anchor_client::ret_val status, const void *tag) {
         evaluate_status(status);
 }
 
-void del_callback(anchor_client::ret_val status, const void *tag) {
+void del_callback(ret_val status, const void *tag) {
 #if MEASURE_LATENCY
     struct timespec end_time;
     (void) clock_gettime(CLOCK_MONOTONIC, &end_time);
     const struct timespec *start_time = (struct timespec *) tag;
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
-    if (status == anchor_client::OP_SUCCESS) {
+    if (status == OP_SUCCESS) {
         local_results->successful_deletes++;
 #if MEASURE_LATENCY
         local_results->delete_time += diff;
@@ -122,12 +122,12 @@ inline void get_random_key() {
         dst[i] = rand();
 }
 
-void issue_requests(anchor_client::Client *client) {
+void issue_requests(Client *client) {
     /* We have all start times in an array and pass the pointers
      * to the put/get functions as a tag that is returned in the callback
      */
 #if MEASURE_LATENCY
-    struct timespec times[anchor_client::MAX_ACCEPTED_RESPONSES];
+    struct timespec times[MAX_ACCEPTED_RESPONSES];
 #endif
 
     size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
@@ -135,7 +135,7 @@ void issue_requests(anchor_client::Client *client) {
         get_random_key();
 #if MEASURE_LATENCY
         struct timespec *time_now =
-                times + (req % anchor_client::MAX_ACCEPTED_RESPONSES);
+                times + (req % MAX_ACCEPTED_RESPONSES);
 #else
         struct timespec *time_now = nullptr;
 #endif
@@ -164,7 +164,7 @@ void issue_requests(anchor_client::Client *client) {
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
 #endif
             if (0 > client->get((void *) key_buf, KEY_SIZE,
-                    (void *) value_buf, VAL_SIZE, nullptr,
+                    (void *) value_buf, nullptr,
                     get_callback, time_now, LOOP_ITERATIONS)) {
                 cerr << "get() failed" << endl;
             } else
@@ -188,7 +188,7 @@ void issue_requests(anchor_client::Client *client) {
 
 
 void test_thread(struct test_params *params, struct test_results *results,
-        anchor_client::Client *client, std::string *server_hostname) {
+        Client *client, std::string *server_hostname) {
 
     key_buf = static_cast<unsigned char *>(malloc(KEY_SIZE));
     value_buf = static_cast<unsigned char *>(malloc(VAL_SIZE));
@@ -322,10 +322,9 @@ void perform_tests(string& server_hostname) {
     fill_params_structs(params);
     memset(results, 0, results_size);
 
-    vector<anchor_client::Client *> clients;
+    vector<Client *> clients;
     for (uint8_t id = 0; id < NUM_CLIENTS; id++) {
-        clients.emplace_back(
-                new anchor_client::Client(id));
+        clients.emplace_back(new Client(id, KEY_SIZE, VAL_SIZE));
     }
 
     vector<thread *> threads;
@@ -375,13 +374,13 @@ int main(int argc, const char *argv[]) {
     }
     string client_hostname(argv[1]);
     string server_hostname(argv[2]);
-    anchor_client::Client::init(client_hostname, port);
+    Client::init(client_hostname, port);
 
     global_params.parse_args(argc - 3, argv + 3);
 
     perform_tests(server_hostname);
     // Wait for the server to prepare:
     this_thread::sleep_for(2s);
-    anchor_client::Client::terminate();
+    Client::terminate();
     return 0;
 }
