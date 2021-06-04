@@ -8,7 +8,7 @@ add_definitions(-Wno-unused-function -Wno-deprecated-declarations)
 add_definitions(-msse4.1)
 
 # Libraries that are required:
-set(LIBRARIES erpc pthread numa dl ibverbs ssl crypto)
+set(LIBRARIES pthread numa dl ibverbs ssl crypto)
 
 
 # Some paths:
@@ -68,6 +68,7 @@ if(TRANSPORT STREQUAL "infiniband")
   # Infiniband is nice and doesn't cause any problems
   message(STATUS "Compiling with infiniband")
   add_definitions(-DERPC_INFINIBAND=true)
+  link_libraries(erpc)
 
 elseif(TRANSPORT STREQUAL "dpdk") 
   message(STATUS "Compiling with DPDK")
