@@ -135,7 +135,7 @@ int Client::get(const void *key, size_t key_len,
         return -1;
 
     assert(this->session_nr >= 0);
-    assert(key_len < this->max_key_size);
+    assert(key_len <= this->max_key_size);
 
     msg_tag_t *tag = this->queue.prepare_new_request(
         RDMA_GET, user_tag, callback, value_len);
@@ -182,8 +182,8 @@ int Client::put(const void *key, size_t key_len,
         return -1;
     }
     assert(this->session_nr >= 0);
-    assert(key_len < this->max_key_size);
-    assert(value_len < this->max_val_size);
+    assert(key_len <= this->max_key_size);
+    assert(value_len <= this->max_val_size);
 
     msg_tag_t *tag = this->queue.prepare_new_request(
         RDMA_PUT, user_tag, callback);
@@ -227,7 +227,7 @@ int Client::del(const void *key, size_t key_len,
         return -1;
     }
     assert(session_nr >= 0);
-    assert(key_len < max_key_size);
+    assert(key_len <= max_key_size);
 
     msg_tag_t *tag = this->queue.prepare_new_request(
         RDMA_DELETE, user_tag, callback);
