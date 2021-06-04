@@ -150,7 +150,11 @@ set(SERVER_SOURCE
 set(CLIENT_SOURCE
   ${SRC}/client_server_common.cpp
   ${SRC}/Client.cpp
-  ${SRC}/Client.h)
+  ${SRC}/Client.h
+  ${SRC}/PendingRequestQueue.cpp
+  ${SRC}/PendingRequestQueue.h
+  ${SRC}/sent_message_tag.cpp
+  ${SRC}/sent_message_tag.h)
 
 set(TEST_UTILS
   ${TESTS}/test_common.cpp
