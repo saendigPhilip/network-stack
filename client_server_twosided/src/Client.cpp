@@ -46,8 +46,6 @@ void Client::invalidate_message_tag(
     tag->valid = false;
 }
 
-
-
 void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
 
 }
@@ -63,7 +61,6 @@ void Client::terminate() {
 }
 
 Client::Client(uint8_t id) {
-
     if (RAND_status() != 1) {
         if (RAND_poll() != 1) {
             throw std::runtime_error("Couldn't initialize RNG");
@@ -87,103 +84,6 @@ Client::~Client() {
     for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++)
         free_message_tag(accepted + i);
 }
-/**
- * Continuation function that is called when a server response arrives
- * @param client
- * @param message_tag Tag that was associated with the corresponding request
- *          Is a pointer to a struct sent_message tag
- */
-void Client::decrypt_cont_func(void *context, void *message_tag) {
-    if (!(context && message_tag))
-        return;
-    auto *client = static_cast<Client *>(context);
-
-    enum ret_val ret = ret_val::INVALID_RESPONSE;
-    auto *tag = static_cast<struct sent_message_tag *>(message_tag);
-    struct rdma_msg_header incoming_header;
-    struct rdma_dec_payload payload = { nullptr,
-            (unsigned char *) tag->value, 0 };
-    int expected_op, incoming_op;
-    size_t ciphertext_size = tag->response->get_data_size();
-    unsigned char *ciphertext = tag->response->buf;
-
-
-    if (0 > decrypt_message(&incoming_header,
-            &payload, ciphertext, ciphertext_size)) {
-        goto end_decrypt_cont_func; // invalid response
-    }
-
-    expected_op = OP_FROM_SEQ_OP(tag->header.seq_op);
-    incoming_op = OP_FROM_SEQ_OP(incoming_header.seq_op);
-    // This is most likely a message that has already been processed (timeout)
-    // If it's not, it's a replay or similar, so we don't care about it
-    if ((incoming_header.seq_op & SEQ_MASK) !=
-            (NEXT_SEQ(tag->header.seq_op) & SEQ_MASK)) {
-        // cerr << "Message with old sequence number arrived" << endl;
-        return;
-    }
-
-    if (expected_op != incoming_op) {
-        ret = ret_val::OP_FAILED;
-        goto end_decrypt_cont_func;
-    }
-    if (tag->value_len)
-        *tag->value_len = payload.value_len;
-
-    ret = ret_val::OP_SUCCESS;
-
-end_decrypt_cont_func:
-    client->message_arrived(ret, tag->header.seq_op);
-}
-
-
-void Client::message_arrived(
-        enum ret_val ret, uint64_t seq_op) {
-
-    size_t index = ACCEPTED_INDEX(seq_op);
-    /* If this is an expired answer to a request or a replay, we're done */
-    if (!(this->accepted[index].valid)) {
-        cerr << "Expired message arrived" << endl;
-        return;
-    }
-
-    /* Call the Client callback and invalidate */
-    if (this->accepted[index].callback)
-        this->accepted[index].callback(ret, this->accepted[index].user_tag);
-    invalidate_message_tag(accepted + index);
-
-    /* To make sure we're making progress, we invalidate all older requests: */
-    invalidate_old_requests(seq_op);
-}
-
-/* Iterates over the accepted struct until a request is found that Deletes all requests that have a lower sequence number than seq and invokes
- * the according client callbacks. This way, we can always guarantee that for
- * each message the client callback is invoked
- * seq_op is the latest sequence number that should be accepted
- */
-void Client::invalidate_old_requests(uint64_t seq_op) {
-    seq_op = PREV_SEQ(PREV_SEQ(seq_op));
-    uint64_t current_seq;
-    uint64_t orig_seq = SEQ_FROM_SEQ_OP(seq_op);
-    int64_t diff;
-    size_t index = ACCEPTED_INDEX(seq_op);
-    for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; DEC_INDEX(index), i++) {
-        /*
-         * Invariant:
-         * All tags "before" invalid tags are either invalid or fresh
-         */
-        if (!(accepted[index].valid))
-            break;
-        current_seq = SEQ_FROM_SEQ_OP(accepted[index].header.seq_op);
-        diff = (int64_t) (orig_seq - current_seq);
-        if (diff < 0)
-            break;
-        if (accepted[index].callback)
-            accepted[index].callback(
-                    ret_val::TIMEOUT, accepted[index].user_tag);
-        invalidate_message_tag(accepted + index);
-    }
-}
 
 
 /**
@@ -195,7 +95,7 @@ void Client::invalidate_old_requests(uint64_t seq_op) {
  * @return negative value if an error occurs. Otherwise the eRPC session number is returned
  */
 int Client::connect(std::string& server_hostname,
-        unsigned int udp_port, const unsigned char *encryption_key) {
+    unsigned int udp_port, const unsigned char *encryption_key) {
 
     std::string server_uri = server_hostname + ":" + std::to_string(udp_port);
     enc_key = encryption_key;
@@ -204,20 +104,42 @@ int Client::connect(std::string& server_hostname,
         (void) disconnect();
     }
     client_rpc = new erpc::Rpc<erpc::CTransport>(
-            nexus, this, this->erpc_id, empty_sm_handler, 0);
+        nexus, this, this->erpc_id, empty_sm_handler, 0);
 
     session_nr = client_rpc->create_session(server_uri, this->erpc_id);
     if (session_nr < 0) {
         cout << "Error: " << strerror(-session_nr) <<
-            " Could not establish session with server at " << server_uri << endl;
+             " Could not establish session with server at " << server_uri << endl;
         return session_nr;
     }
     for (size_t i = 0; !client_rpc->is_connected(session_nr); i++)
         client_rpc->run_event_loop_once();
-    
+
     return session_nr;
 }
 
+
+void Client::send_disconnect_message() {
+    struct sent_message_tag *tag = prepare_new_request();
+    fill_message_tag(tag, nullptr, nullptr);
+    tag->header = { SET_OP(current_seq_op, RDMA_ERR), 0 };
+    struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
+
+    if (0 != allocate_req_buffers(
+        tag->request, MIN_MSG_LEN, tag->response, MIN_MSG_LEN)) {
+        goto err_send_disconnect_message;
+    }
+
+    if (0 > encrypt_message(&(tag->header), &payload,
+        static_cast<unsigned char **>(&(tag->request->buf))))
+        goto err_send_disconnect_message;
+
+    this->send_message(tag, 10000);
+    return;
+
+err_send_disconnect_message:
+    invalidate_message_tag(tag);
+}
 
 /**
  * Ends a session with a server
@@ -236,8 +158,8 @@ int Client::disconnect() {
 
 
 int Client::allocate_req_buffers(
-        erpc::MsgBuffer *req, size_t req_size,
-        erpc::MsgBuffer *resp, size_t resp_size) {
+    erpc::MsgBuffer *req, size_t req_size,
+    erpc::MsgBuffer *resp, size_t resp_size) {
     try {
         *req = client_rpc->alloc_msg_buffer(req_size);
         *resp = client_rpc->alloc_msg_buffer(resp_size);
@@ -259,25 +181,19 @@ err_allocate_req_buffers:
 
 
 void Client::send_message(
-        struct sent_message_tag *tag, size_t loop_iterations) {
+    struct sent_message_tag *tag, size_t loop_iterations) {
 
     /* Skip one sequence number for the server response */
     this->current_seq_op = NEXT_SEQ(NEXT_SEQ(current_seq_op));
 
 
     client_rpc->enqueue_request(session_nr, DEFAULT_REQ_TYPE,
-            tag->request, tag->response, decrypt_cont_func, (void *)tag);
+        tag->request, tag->response, decrypt_cont_func, (void *)tag);
 
     for (size_t i = 0; i < loop_iterations; i++)
         client_rpc->run_event_loop_once();
 }
 
-bool Client::queue_full() {
-    /* If the request at the current sequence number index is valid,
-     * we know that the queue is full
-     */
-    return accepted[ACCEPTED_INDEX(this->current_seq_op)].valid;
-}
 
 struct sent_message_tag *Client::prepare_new_request() {
     size_t index = ACCEPTED_INDEX(this->current_seq_op);
@@ -290,27 +206,6 @@ struct sent_message_tag *Client::prepare_new_request() {
     return ret;
 }
 
-void Client::send_disconnect_message() {
-    struct sent_message_tag *tag = prepare_new_request();
-    fill_message_tag(tag, nullptr, nullptr);
-    tag->header = { SET_OP(current_seq_op, RDMA_ERR), 0 };
-    struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
-
-    if (0 != allocate_req_buffers(
-            tag->request, MIN_MSG_LEN, tag->response, MIN_MSG_LEN)) {
-        goto err_send_disconnect_message;
-    }
-
-    if (0 > encrypt_message(&(tag->header), &payload,
-            static_cast<unsigned char **>(&(tag->request->buf))))
-        goto err_send_disconnect_message;
-
-    this->send_message(tag, 10000);
-    return;
-
-err_send_disconnect_message:
-    invalidate_message_tag(tag);
-}
 
 /**
  * @param key Server address to read from
@@ -324,9 +219,9 @@ err_send_disconnect_message:
  * @return 0 on success, -1 on error
  */
 int Client::get(const void *key, size_t key_len,
-        void *value, size_t max_value_len, size_t *value_len,
-        status_callback callback, const void *user_tag,
-        size_t loop_iterations) {
+    void *value, size_t max_value_len, size_t *value_len,
+    status_callback callback, const void *user_tag,
+    size_t loop_iterations) {
 
     if (!key)
         return -1;
@@ -344,7 +239,7 @@ int Client::get(const void *key, size_t key_len,
     struct rdma_enc_payload enc_payload;
 
     if (0 != allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len),
-            tag->response, CIPHERTEXT_SIZE(max_value_len))) {
+        tag->response, CIPHERTEXT_SIZE(max_value_len))) {
         goto err_get;
     }
 
@@ -353,7 +248,7 @@ int Client::get(const void *key, size_t key_len,
     enc_payload = { (unsigned char *) key, nullptr, 0 };
 
     if (0 != encrypt_message(&(tag->header),
-            &enc_payload, (unsigned char **) &(tag->request->buf)))
+        &enc_payload, (unsigned char **) &(tag->request->buf)))
         goto err_get;
 
 
@@ -381,8 +276,8 @@ err_get:
  * @return 0 on success, -1 on error
  */
 int Client::put(const void *key, size_t key_len,
-        const void *value, size_t value_len, status_callback callback,
-        const void *user_tag, size_t loop_iterations) {
+    const void *value, size_t value_len, status_callback callback,
+    const void *user_tag, size_t loop_iterations) {
 
     if (!(key && value)) {
         return -1;
@@ -399,7 +294,7 @@ int Client::put(const void *key, size_t key_len,
     struct rdma_enc_payload enc_payload;
 
     if (0 > allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len + value_len),
-            tag->response, CIPHERTEXT_SIZE(0))) {
+        tag->response, CIPHERTEXT_SIZE(0))) {
         goto err_put;
     }
 
@@ -409,7 +304,7 @@ int Client::put(const void *key, size_t key_len,
     enc_payload = { (unsigned char *) key, (unsigned char *) value, value_len };
 
     if (0 > encrypt_message(&(tag->header),
-            &enc_payload, (unsigned char **) &(tag->request->buf)))
+        &enc_payload, (unsigned char **) &(tag->request->buf)))
         goto err_put;
 
     send_message(tag, loop_iterations);
@@ -433,8 +328,8 @@ err_put:
  * @return 0 on success, -1 on error
  */
 int Client::del(const void *key, size_t key_len,
-        status_callback callback, const void *user_tag,
-        size_t loop_iterations) {
+    status_callback callback, const void *user_tag,
+    size_t loop_iterations) {
 
     if (!key) {
         return -1;
@@ -451,7 +346,7 @@ int Client::del(const void *key, size_t key_len,
     struct rdma_enc_payload payload;
 
     if (0 > allocate_req_buffers(tag->request, CIPHERTEXT_SIZE(key_len),
-            tag->response, CIPHERTEXT_SIZE(0))) {
+        tag->response, CIPHERTEXT_SIZE(0))) {
         goto err_delete;
     }
 
@@ -460,7 +355,7 @@ int Client::del(const void *key, size_t key_len,
     payload ={ (unsigned char *) key, nullptr, 0 };
 
     if (0 > encrypt_message(
-            &(tag->header), &payload, (unsigned char **)&(tag->request->buf)))
+        &(tag->header), &payload, (unsigned char **)&(tag->request->buf)))
         goto err_delete;
 
     send_message(tag, loop_iterations);
@@ -478,5 +373,112 @@ void Client::run_event_loop_n_times(size_t n) {
             this->client_rpc->run_event_loop_once();
     }
 }
+
+
+/* Iterates over the accepted struct until a request is found that Deletes all requests that have a lower sequence number than seq and invokes
+ * the according client callbacks. This way, we can always guarantee that for
+ * each message the client callback is invoked
+ * seq_op is the latest sequence number that should be accepted
+ */
+void Client::invalidate_old_requests(uint64_t seq_op) {
+    seq_op = PREV_SEQ(PREV_SEQ(seq_op));
+    uint64_t current_seq;
+    uint64_t orig_seq = SEQ_FROM_SEQ_OP(seq_op);
+    int64_t diff;
+    size_t index = ACCEPTED_INDEX(seq_op);
+    for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; DEC_INDEX(index), i++) {
+        /*
+         * Invariant:
+         * All tags "before" invalid tags are either invalid or fresh
+         */
+        if (!(accepted[index].valid))
+            break;
+        current_seq = SEQ_FROM_SEQ_OP(accepted[index].header.seq_op);
+        diff = (int64_t) (orig_seq - current_seq);
+        if (diff < 0)
+            break;
+        if (accepted[index].callback)
+            accepted[index].callback(
+                ret_val::TIMEOUT, accepted[index].user_tag);
+        invalidate_message_tag(accepted + index);
+    }
+}
+
+/**
+ * Continuation function that is called when a server response arrives
+ * @param client
+ * @param message_tag Tag that was associated with the corresponding request
+ *          Is a pointer to a struct sent_message tag
+ */
+void Client::decrypt_cont_func(void *context, void *message_tag) {
+    if (!(context && message_tag))
+        return;
+    auto *client = static_cast<Client *>(context);
+
+    enum ret_val ret = ret_val::INVALID_RESPONSE;
+    auto *tag = static_cast<struct sent_message_tag *>(message_tag);
+    struct rdma_msg_header incoming_header;
+    struct rdma_dec_payload payload = { nullptr,
+                                        (unsigned char *) tag->value, 0 };
+    int expected_op, incoming_op;
+    size_t ciphertext_size = tag->response->get_data_size();
+    unsigned char *ciphertext = tag->response->buf;
+
+
+    if (0 > decrypt_message(&incoming_header,
+        &payload, ciphertext, ciphertext_size)) {
+        goto end_decrypt_cont_func; // invalid response
+    }
+
+    expected_op = OP_FROM_SEQ_OP(tag->header.seq_op);
+    incoming_op = OP_FROM_SEQ_OP(incoming_header.seq_op);
+    // This is most likely a message that has already been processed (timeout)
+    // If it's not, it's a replay or similar, so we don't care about it
+    if ((incoming_header.seq_op & SEQ_MASK) !=
+        (NEXT_SEQ(tag->header.seq_op) & SEQ_MASK)) {
+        // cerr << "Message with old sequence number arrived" << endl;
+        return;
+    }
+
+    if (expected_op != incoming_op) {
+        ret = ret_val::OP_FAILED;
+        goto end_decrypt_cont_func;
+    }
+    if (tag->value_len)
+        *tag->value_len = payload.value_len;
+
+    ret = ret_val::OP_SUCCESS;
+
+end_decrypt_cont_func:
+    client->message_arrived(ret, tag->header.seq_op);
+}
+
+void Client::message_arrived(
+    enum ret_val ret, uint64_t seq_op) {
+
+    size_t index = ACCEPTED_INDEX(seq_op);
+    /* If this is an expired answer to a request or a replay, we're done */
+    if (!(this->accepted[index].valid)) {
+        cerr << "Expired message arrived" << endl;
+        return;
+    }
+
+    /* Call the Client callback and invalidate */
+    if (this->accepted[index].callback)
+        this->accepted[index].callback(ret, this->accepted[index].user_tag);
+    invalidate_message_tag(accepted + index);
+
+    /* To make sure we're making progress, we invalidate all older requests: */
+    invalidate_old_requests(seq_op);
+}
+
+
+bool Client::queue_full() {
+    /* If the request at the current sequence number index is valid,
+     * we know that the queue is full
+     */
+    return accepted[ACCEPTED_INDEX(this->current_seq_op)].valid;
+}
+
 
 

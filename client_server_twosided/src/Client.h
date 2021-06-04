@@ -60,12 +60,16 @@ namespace anchor_client {
     public:
 
         static void init(std::string& client_hostname, uint16_t udp_port);
+        static void terminate();
+
 
         explicit Client(uint8_t id);
         ~Client();
 
         int connect(std::string& server_hostname,
                 unsigned int udp_port, const unsigned char *encryption_key);
+
+        int disconnect();
 
         int get(const void *key, size_t key_len,
                 void *value, size_t max_value_len, size_t *value_len,
@@ -81,13 +85,9 @@ namespace anchor_client {
                 size_t loop_iterations = 1000);
 
 
-        bool queue_full();
-
-        int disconnect();
-
         void run_event_loop_n_times(size_t n);
 
-        static void terminate();
+        bool queue_full();
     };
 }
 
