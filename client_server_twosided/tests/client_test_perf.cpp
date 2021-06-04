@@ -188,8 +188,9 @@ void issue_requests(Client *client) {
 
 
 void test_thread(struct test_params *params, struct test_results *results,
-        Client *client, std::string *server_hostname) {
+        std::string *server_hostname) {
 
+    Client client{params->id, KEY_SIZE, VAL_SIZE};
     key_buf = static_cast<unsigned char *>(malloc(KEY_SIZE));
     value_buf = static_cast<unsigned char *>(malloc(VAL_SIZE));
     if (!(key_buf && value_buf))
@@ -197,7 +198,7 @@ void test_thread(struct test_params *params, struct test_results *results,
 
     local_params = params;
     local_results = results;
-    if (0 > client->connect(
+    if (0 > client.connect(
             *server_hostname, params->port, key_do_not_use)) {
         cerr << "Thread " << params->id
                 << ": Failed to connect to server" << endl;
@@ -205,7 +206,7 @@ void test_thread(struct test_params *params, struct test_results *results,
     }
     srand(static_cast<unsigned int>(params->id));
 
-    issue_requests(client);
+    issue_requests(&client);
 
 end_test_thread:
     free(key_buf);
@@ -322,11 +323,6 @@ void perform_tests(string& server_hostname) {
     fill_params_structs(params);
     memset(results, 0, results_size);
 
-    vector<Client *> clients;
-    for (uint8_t id = 0; id < NUM_CLIENTS; id++) {
-        clients.emplace_back(new Client(id, KEY_SIZE, VAL_SIZE));
-    }
-
     vector<thread *> threads;
     /* Launch requester threads: */
     struct timespec total_time_begin, total_time_end;
@@ -334,9 +330,9 @@ void perform_tests(string& server_hostname) {
     uint8_t i = 0;
     for (; i < NUM_CLIENTS - 1; i++) {
         threads.emplace_back(new thread(test_thread, params + i, results + i,
-                clients[i], &server_hostname));
+                &server_hostname));
     }
-    test_thread(params + i, results + i, clients[i], &server_hostname);
+    test_thread(params + i, results + i, &server_hostname);
 
 
     /* Wait for requester threads to finish: */
@@ -353,7 +349,6 @@ void perform_tests(string& server_hostname) {
         result = results + i;
         // print_summary(false, param, result);
         add_result_to_final(&final_results, result);
-        delete clients[i];
     }
     final_results.time_all = time_diff(&total_time_begin, &total_time_end);
     print_summary(true, &total_params, &final_results);
