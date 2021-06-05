@@ -28,8 +28,10 @@ Client::Client(uint8_t id,
     max_key_size{max_key_size},
     max_val_size{max_val_size}
 {
-    this->queue.allocate_req_buffers(this->client_rpc,
-        CIPHERTEXT_SIZE(max_key_size),CIPHERTEXT_SIZE(max_val_size));
+    size_t max_req_size = CIPHERTEXT_SIZE(max_key_size + max_val_size);
+    size_t max_resp_size = CIPHERTEXT_SIZE(max_val_size);
+    this->queue.allocate_req_buffers(
+        this->client_rpc, max_req_size, max_resp_size);
 }
 
 Client::~Client() {
