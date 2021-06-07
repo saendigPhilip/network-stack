@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 add_definitions(-Wall -Wextra -Wpedantic -Wsign-conversion -Wunused)
 add_definitions(-Wno-unused-function -Wno-deprecated-declarations)
-add_definitions(-msse4.1 -fPIC)
+add_definitions(-msse4.1)
 
 # Libraries that are required:
 set(LIBRARIES pthread numa dl ibverbs ssl crypto)
@@ -124,7 +124,7 @@ elseif(TRANSPORT STREQUAL "dpdk")
   include_directories(SYSTEM ${DPDK_INCLUDE_DIR})
   set(LIBRARIES 
 	  ${LIBRARIES} 
-	  -L${DPDK_PATH}/lib/ -Wl,--whole-archive -ldpdk -ldl -Wl,--no-whole-archive -lrte_ethdev -Wl,-lrte_port
+	  -L${DPDK_PATH}/lib/ -ldpdk -ldl -lrte_ethdev -Wl,-lrte_port
 	  -libverbs)
 
 else()
