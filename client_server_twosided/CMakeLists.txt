@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 add_definitions(-Wall -Wextra -Wpedantic -Wsign-conversion -Wunused)
 add_definitions(-Wno-unused-function -Wno-deprecated-declarations)
-add_definitions(-msse4.1)
+add_definitions(-msse4.1 -fPIC)
 
 # Libraries that are required:
 set(LIBRARIES pthread numa dl ibverbs ssl crypto)
@@ -162,35 +162,44 @@ set(TEST_UTILS
 
 
 # Finally build all tests and libraries:
-add_executable(server_test
-  ${SOURCES}
-  ${SERVER_SOURCE}
-  ${TEST_UTILS}
-  ${TESTS}/server_test.cpp)
-
-add_executable(client_test
-  ${SOURCES}
-  ${CLIENT_SOURCE}
-  ${TEST_UTILS}
-  ${TESTS}/client_test.cpp)
-
-add_executable(server_perf_test
-  ${SOURCES}
-  ${SERVER_SOURCE}
-  ${TEST_UTILS}
-  ${TESTS}/server_test_perf.cpp)
-
-add_executable(client_perf_test
-  ${SOURCES}
-  ${CLIENT_SOURCE}
-  ${TEST_UTILS}
-  ${TESTS}/client_test_perf.cpp)
-
 add_library(anchorserver SHARED
   ${SOURCES}
   ${SERVER_SOURCE})
 
+
 add_library(anchorclient SHARED
   ${SOURCES}
   ${CLIENT_SOURCE})
+
+
+add_executable(server_test
+  ${TEST_UTILS}
+  ${TESTS}/server_test.cpp)
+
+target_link_libraries(server_test
+  PRIVATE anchorserver)
+
+
+add_executable(client_test
+  ${TEST_UTILS}
+  ${TESTS}/client_test.cpp)
+
+target_link_libraries(client_test
+  PRIVATE anchorclient)
+
+
+add_executable(server_perf_test
+  ${TEST_UTILS}
+  ${TESTS}/server_test_perf.cpp)
+
+target_link_libraries(server_perf_test
+  PRIVATE anchorserver)
+
+
+add_executable(client_perf_test
+  ${TEST_UTILS}
+  ${TESTS}/client_test_perf.cpp)
+
+target_link_libraries(client_perf_test
+    PRIVATE anchorclient)
 
