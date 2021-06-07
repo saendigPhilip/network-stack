@@ -1,3 +1,6 @@
 [submodule "client_server_twosided/dpdk"]
 	path = client_server_twosided/dpdk
 	url = https://github.com/DPDK/dpdk.git
+[submodule "client_server_twosided/eRPC4dpdk"]
+	path = client_server_twosided/eRPC4dpdk
+	url = https://github.com/saendigPhilip/eRPC
