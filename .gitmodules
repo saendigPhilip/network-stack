@@ -1,0 +1,3 @@
+[submodule "client_server_twosided/eRPC"]
+	path = client_server_twosided/eRPC
+	url = https://github.com/erpc-io/eRPC

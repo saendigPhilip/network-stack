@@ -27,7 +27,7 @@ PendingRequestQueue::PendingRequestQueue(uint8_t id) {
 }
 
 void PendingRequestQueue::allocate_req_buffers(
-        erpc::Rpc<erpc::IBTransport> &rpc, size_t req_size, size_t resp_size) {
+        erpc::Rpc<erpc::CTransport> &rpc, size_t req_size, size_t resp_size) {
 
     for (auto& buf : this->queue) {
         buf.valid = false;
