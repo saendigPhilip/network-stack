@@ -13,9 +13,8 @@ set(LIBRARIES pthread numa dl ibverbs ssl crypto)
 
 # Some paths:
 # These two paths might need to be changed:
-set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC")
-set(DPDK_PATH 
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC/dpdk/x86_64-native-linuxapp-gcc)
+set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/eRPC")
+set(DPDK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dpdk)
 
 message(STATUS "eRPC-path: ${ERPC}")
 
@@ -187,11 +186,11 @@ add_executable(client_perf_test
   ${TEST_UTILS}
   ${TESTS}/client_test_perf.cpp)
 
-add_library(anchorserver SHARED
-  ${SOURCES}
-  ${SERVER_SOURCE})
-
-add_library(anchorclient SHARED
-  ${SOURCES}
-  ${CLIENT_SOURCE})
+#add_library(anchorserver SHARED
+#  ${SOURCES}
+#  ${SERVER_SOURCE})
+#
+#add_library(anchorclient SHARED
+#  ${SOURCES}
+#  ${CLIENT_SOURCE})
 
