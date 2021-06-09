@@ -8,13 +8,13 @@ add_definitions(-Wno-unused-function -Wno-deprecated-declarations)
 add_definitions(-msse4.1)
 
 # Libraries that are required:
-set(LIBRARIES pthread numa dl ibverbs ssl crypto)
+set(LIBRARIES ${LIBRARIES} -pthread numa dl ibverbs ssl crypto)
 
 
 # Some paths:
 # These two paths might need to be changed:
 set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/eRPC4dpdk")
-set(DPDK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dpdk/x86_64-native-linuxapp-gcc)
+set(DPDK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dpdk_static)
 
 message(STATUS "eRPC-path: ${ERPC}")
 
@@ -119,13 +119,11 @@ elseif(TRANSPORT STREQUAL "dpdk")
    
   set(DPDK_LIB ${DPDK_PATH}/lib/libdpdk.a)
 
-  set(DPDK_INCLUDE_DIR ${DPDK_PATH}/include/)
+  set(DPDK_INCLUDE_DIR ${DPDK_PATH}/include/dpdk)
   message(STATUS "DPDK include directory = ${DPDK_INCLUDE_DIR}")
   include_directories(SYSTEM ${DPDK_INCLUDE_DIR})
   set(LIBRARIES 
-	  ${LIBRARIES} 
-	  -L${DPDK_PATH}/lib/ -ldpdk -ldl -lrte_ethdev -Wl,-lrte_port
-	  -libverbs)
+	  ${LIBRARIES} -L${DPDK_PATH}/lib -Wl,--whole-archive dpdk -Wl,--no-whole-archive dl)
 
 else()
     message(FATAL_ERROR "Invalid transport: ${TRANSPORT}")
@@ -136,7 +134,6 @@ include_directories(SYSTEM ${ERPC}/src)
 include_directories(${SRC} ${TESTS})
 
 link_directories(${ERPC}/build)
-link_libraries(${LIBRARIES})
 
 
 set(SERVER_SOURCE
@@ -166,10 +163,22 @@ add_library(anchorserver SHARED
   ${SOURCES}
   ${SERVER_SOURCE})
 
+target_compile_options(anchorserver
+  PRIVATE -fPIC)
+
+target_link_libraries(anchorserver 
+  PRIVATE ${LIBRARIES})
+
 
 add_library(anchorclient SHARED
   ${SOURCES}
   ${CLIENT_SOURCE})
+
+target_compile_options(anchorclient
+  PRIVATE -fPIC)
+
+target_link_libraries(anchorclient 
+  PRIVATE ${LIBRARIES})
 
 
 add_executable(server_test
@@ -193,7 +202,7 @@ add_executable(server_perf_test
   ${TESTS}/server_test_perf.cpp)
 
 target_link_libraries(server_perf_test
-  PRIVATE anchorserver)
+  PRIVATE anchorserver pthread)
 
 
 add_executable(client_perf_test
@@ -201,5 +210,5 @@ add_executable(client_perf_test
   ${TESTS}/client_test_perf.cpp)
 
 target_link_libraries(client_perf_test
-    PRIVATE anchorclient)
+    PRIVATE anchorclient pthread)
 
