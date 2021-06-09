@@ -23,24 +23,24 @@ Networking with twosided RDMA with eRPC and support for DPDK
    git submodule init
    git submodule update
    ```
- * For dpdk: compile dpdk. Go to dpdk and execute
+ * For dpdk: compile dpdk. Go to dpdk, optionally remove kernel and app from GNUMakefile, then:
    ```
    make install T=x86_64-native-linuxapp-gcc DESTDIR=../dpdk_static
    ```
  * Build eRPC. Go to eRPC directory.
-   * For dpdk: 
+   * For dpdk this can be skipped. If something doesn't work, try:
      ```
      cmake . -DTRANSPORT=dpdk -DPERF=on
      ```
    * For infiniband:
      ```
      cmake . -DTRANSPORT=infiniband -DROCE=on -DPERF=off
-     make
+     make -j $(nproc)
      ```
  * In the directory client_server_twosided, execute:
    ```
    mkdir build && cd build
    cmake .. -DTRANSPORT=<infiniband/dpdk>
-   make
+   make -j $(nproc)
    ```
      
