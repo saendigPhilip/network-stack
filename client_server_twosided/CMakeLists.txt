@@ -210,5 +210,13 @@ add_executable(client_perf_test
   ${TESTS}/client_test_perf.cpp)
 
 target_link_libraries(client_perf_test
-    PRIVATE anchorclient pthread)
+  PRIVATE anchorclient pthread)
+
+
+add_executable(encryption_test
+  ${TEST_UTILS}
+  ${TESTS}/encryption_test.cpp)
+
+target_link_libraries(encryption_test
+  PRIVATE anchorserver)
 
