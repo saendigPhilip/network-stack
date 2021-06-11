@@ -13,6 +13,11 @@
 #define DEC_INDEX(index) index = \
         (((index) + MAX_ACCEPTED_RESPONSES - 1) % MAX_ACCEPTED_RESPONSES)
 
+/**
+ * Constructs a queue and initializes the sequence number
+ * @param id ID for identification at the server side
+ *          (will be included in the sequence number)
+ */
 PendingRequestQueue::PendingRequestQueue(uint8_t id) {
     if (RAND_status() != 1) {
         if (RAND_poll() != 1) {
@@ -26,6 +31,12 @@ PendingRequestQueue::PendingRequestQueue(uint8_t id) {
     current_seq_op = SET_ID(current_seq_op, id);
 }
 
+/**
+ * Allocate all request buffers that are needed throughout the session
+ * @param rpc rpc-object that is needed to allocate the buffer
+ * @param req_size Maximum request size -> Buffer size for requests
+ * @param resp_size Maximum response size -> Buffer size for responses
+ */
 void PendingRequestQueue::allocate_req_buffers(
         erpc::Rpc<erpc::CTransport> &rpc, size_t req_size, size_t resp_size) {
 
@@ -36,6 +47,10 @@ void PendingRequestQueue::allocate_req_buffers(
     }
 }
 
+/**
+ * Frees all request buffers
+ * @param rpc rpc-object that was used to allocate the buffers
+ */
 void PendingRequestQueue::free_req_buffers(erpc::Rpc<erpc::CTransport>& rpc) {
     for (auto& buf : this->queue) {
         rpc.free_msg_buffer(buf.request);
@@ -58,7 +73,7 @@ msg_tag_t *PendingRequestQueue::prepare_new_request(
 
     size_t index = ACCEPTED_INDEX(this->current_seq_op);
     msg_tag_t *ret = this->queue + index;
-    if (ret->valid) {
+    if (unlikely(ret->valid)) {
         ret->invalidate(ret_val::TIMEOUT);
         this->invalidate_old_requests(ret->header.seq_op);
     }
@@ -71,11 +86,17 @@ msg_tag_t *PendingRequestQueue::prepare_new_request(
 }
 
 
+/**
+ * Needs to be called when a server response arrives.
+ * Looks up whether the according
+ * @param ret
+ * @param seq_op
+ */
 void PendingRequestQueue::message_arrived(enum ret_val ret, uint64_t seq_op) {
     size_t index = ACCEPTED_INDEX(PREV_SEQ(seq_op));
     msg_tag_t& tag = this->queue[index];
     /* If this is an expired answer to a request or a replay, we're done */
-    if (!tag.valid) {
+    if (unlikely(!tag.valid)) {
         cerr << "Expired message arrived" << endl;
         return;
     }
@@ -106,7 +127,7 @@ void PendingRequestQueue::invalidate_old_requests(uint64_t seq_op) {
 
         // Thanks to the invariant we know that when we encounter a valid tag,
         // all tags before it have to be valid as well
-        if (!(this->queue[index].valid))
+        if (likely(!(this->queue[index].valid)))
             break;
 
         uint64_t current_seq =

@@ -9,20 +9,35 @@ void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
 
 }
 
+/**
+ * Creates an eRPC Nexus object which is needed for initialization and opening
+ * connections
+ * @param client_hostname Hostname (e.g. IP-address) of the client
+ * @param udp_port Port for communication for initialization for the connection
+ */
 void Client::init(std::string &client_hostname, uint16_t udp_port) {
     std::string client_uri = client_hostname + ":" + std::to_string(udp_port);
     nexus = new erpc::Nexus(client_uri, 0, 0);
 }
 
+/**
+ * Deletes the nexus object, new connections can't be initialized after calling
+ */
 void Client::terminate() {
     delete nexus;
     nexus = nullptr;
 }
 
+/**
+ * Constructs a Client
+ * @param id Client ID for identification at server
+ * @param max_key_size Maximum Key size that should be transmitted
+ * @param max_val_size Maximum Value size that should be transmitted
+ */
 Client::Client(uint8_t id,
     size_t max_key_size, size_t max_val_size) :
-    session_nr(-1),
-    erpc_id(id),
+    session_nr{-1},
+    erpc_id{id},
     client_rpc{nexus, this, id, empty_sm_handler, 0},
     queue{id},
     max_key_size{max_key_size},
@@ -55,12 +70,12 @@ int Client::connect(std::string& server_hostname,
     enc_key = encryption_key;
 
     session_nr = client_rpc.create_session(server_uri, this->erpc_id);
-    if (session_nr < 0) {
+    if (unlikely(session_nr < 0)) {
         std::cout << "Error: " << strerror(-session_nr) <<
              " Could not establish session with server at " << server_uri << endl;
         return session_nr;
     }
-    for (size_t i = 0; !client_rpc.is_connected(session_nr); i++)
+    while(!client_rpc.is_connected(session_nr))
         client_rpc.run_event_loop_once();
 
     return session_nr;
@@ -79,8 +94,8 @@ void Client::send_disconnect_message() {
     erpc::Rpc<erpc::CTransport>::resize_msg_buffer(
         &(tag->request), MIN_MSG_LEN);
 
-    if (0 > encrypt_message(&(tag->header), &payload,
-        static_cast<unsigned char **>(&(tag->request.buf))))
+    if (unlikely(0 > encrypt_message(&(tag->header), &payload,
+        static_cast<unsigned char **>(&(tag->request.buf)))))
         goto err_send_disconnect_message;
 
     this->send_message(tag, 10000);
@@ -158,8 +173,8 @@ int Client::get(const void *key, size_t key_len,
     erpc::Rpc<erpc::CTransport>::resize_msg_buffer(
         &(tag->request), CIPHERTEXT_SIZE(key_len));
 
-    if (0 != encrypt_message(&(tag->header),
-        &enc_payload, (unsigned char **) &(tag->request.buf)))
+    if (unlikely(0 > encrypt_message(&(tag->header),
+        &enc_payload, (unsigned char **) &(tag->request.buf))))
         goto err_get;
 
     send_message(tag, loop_iterations);
@@ -208,8 +223,8 @@ int Client::put(const void *key, size_t key_len,
     erpc::Rpc<erpc::CTransport>::resize_msg_buffer(
         &(tag->request), CIPHERTEXT_SIZE(key_len + value_len));
 
-    if (0 > encrypt_message(&(tag->header),
-        &enc_payload, (unsigned char **) &(tag->request.buf)))
+    if (unlikely(0 > encrypt_message(&(tag->header),
+        &enc_payload, (unsigned char **) &(tag->request.buf))))
         goto err_put;
 
     send_message(tag, loop_iterations);
@@ -253,8 +268,8 @@ int Client::del(const void *key, size_t key_len,
     erpc::Rpc<erpc::CTransport>::resize_msg_buffer(
         &(tag->request), CIPHERTEXT_SIZE(key_len));
 
-    if (0 > encrypt_message(
-        &(tag->header), &payload, (unsigned char **)&(tag->request.buf)))
+    if (unlikely(0 > encrypt_message(
+        &(tag->header), &payload, (unsigned char **)&(tag->request.buf))))
         goto err_delete;
 
     send_message(tag, loop_iterations);
@@ -292,15 +307,14 @@ void Client::decrypt_cont_func(void *context, void *message_tag) {
     size_t ciphertext_size = tag->response.get_data_size();
     unsigned char *ciphertext = tag->response.buf;
 
-
-    if (0 > decrypt_message(&incoming_header,
-        &payload, ciphertext, ciphertext_size)) {
+    if (unlikely(0 > decrypt_message(&incoming_header,
+        &payload, ciphertext, ciphertext_size))) {
         goto end_decrypt_cont_func; // invalid response
     }
     // This is most likely a message that has already been processed (timeout)
     // If it's not, it's a replay or similar, so we drop it
-    if ((incoming_header.seq_op & (SEQ_MASK | ID_MASK)) !=
-        (NEXT_SEQ(tag->header.seq_op) & (ID_MASK | SEQ_MASK))) {
+    if (unlikely((incoming_header.seq_op & (SEQ_MASK | ID_MASK)) !=
+        (NEXT_SEQ(tag->header.seq_op) & (ID_MASK | SEQ_MASK)))) {
         // cerr << "Message with old sequence number arrived" << endl;
         return;
     }

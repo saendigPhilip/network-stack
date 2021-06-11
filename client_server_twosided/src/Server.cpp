@@ -15,6 +15,13 @@ anchor_server::delete_function kv_delete;
 
 void req_handler(erpc::ReqHandle *req_handle, void *context);
 
+
+/**
+ * Creates an eRPC Nexus object which is needed for initialization and opening
+ * connections
+ * @param hostname Hostname (e.g. IP-address) of the server
+ * @param udp_port Port for communication for initialization for the connection
+ */
 int anchor_server::init(string &hostname, uint16_t udp_port) {
     std::string server_uri = hostname + ":" + std::to_string(udp_port);
     nexus = new erpc::Nexus(server_uri, 0, 0);
@@ -26,6 +33,10 @@ int anchor_server::init(string &hostname, uint16_t udp_port) {
     return 0;
 }
 
+
+/**
+ * Deletes the nexus object, new connections can't be initialized after calling
+ */
 void anchor_server::terminate() {
     if (nexus) {
         delete nexus;
@@ -36,12 +47,9 @@ void anchor_server::terminate() {
 /**
  * Hosts a server that answers client put/get/delete requests
  *
- * @param hostname Hostname of the server
- * @param udp_port Port to listen on
  * @param encryption_key Network key to use for en-/decryption of the messages
  * @param number_threads Number of threads that are spawned at the beginning
  *          Limits the number of clients
- * @param num_bg_threads Number of eRPC background threads for handling requests
  * @param max_entry_size Size of biggest key-value-pair in the KV-store
  * @param asynchronous If true, the method terminates when the last spawned
  *          thread has terminated. Other threads may still run after termination
@@ -108,6 +116,15 @@ void anchor_server::close_connection(bool force) {
 }
 
 
+/**
+ * Internal function for sending an encrypted response to a client.
+ * Is called whenever any response is sent
+ *
+ * @param req_handle Handle that came with the request
+ * @param st ServerThread for the according client
+ * @param header struct for the header of the sent message
+ * @param payload Payload struct
+ */
 void send_encrypted_response(erpc::ReqHandle *req_handle, ServerThread *st,
         struct rdma_msg_header *header, struct rdma_enc_payload *payload) {
 
@@ -115,19 +132,19 @@ void send_encrypted_response(erpc::ReqHandle *req_handle, ServerThread *st,
     erpc::MsgBuffer *resp_buffer;
     /* The server never sends back a key, so the value length is sufficient */
     size_t ciphertext_size = CIPHERTEXT_SIZE(payload->value_len);
-    if (ciphertext_size > max_msg_size) {
+    if (unlikely(ciphertext_size > max_msg_size)) {
         cerr << "Answer too long for pre-allocated message buffer" << endl;
         return;
     }
     resp_buffer = &(req_handle->pre_resp_msgbuf);
     erpc::Rpc<erpc::CTransport>::resize_msg_buffer(resp_buffer, ciphertext_size);
     ciphertext = (unsigned char *) resp_buffer->buf;
-    if (!ciphertext) {
+    if (unlikely(!ciphertext)) {
         cerr << "Memory Allocation failure" << endl;
         return;
     }
 
-    if (0 != encrypt_message(header, payload, &ciphertext)) {
+    if (unlikely(0 != encrypt_message(header, payload, &ciphertext))) {
         cerr << "Failed to encrypt message" << endl;
         return;
     }
@@ -136,6 +153,10 @@ void send_encrypted_response(erpc::ReqHandle *req_handle, ServerThread *st,
 }
 
 
+/**
+ * Sends a response with no payload (e.g. error message, put/delete response)
+ * @param st ServerThread for the according client
+ */
 void send_empty_response(erpc::ReqHandle *req_handle, ServerThread *st,
         struct rdma_msg_header *header) {
     header->key_len = 0;
@@ -216,6 +237,9 @@ void send_response_delete(erpc::ReqHandle *req_handle, ServerThread *st,
 }
 
 
+/**
+ * Sends a response to a disconnect request
+ */
 void send_response_disconnect(erpc::ReqHandle *req_handle, ServerThread *st,
         struct rdma_msg_header *header) {
 
@@ -225,6 +249,13 @@ void send_response_disconnect(erpc::ReqHandle *req_handle, ServerThread *st,
     send_empty_response(req_handle, st, header);
 }
 
+
+/**
+ * The request handler that is invoked on every incoming request
+ * @param req_handle Request Handle needed for Message Buffers and response
+ * @param context Here: Pointer to according ServerThread that should handle the
+ *          message
+ */
 void req_handler(erpc::ReqHandle *req_handle, void *context) {
     struct rdma_msg_header header;
     uint8_t op;
@@ -245,15 +276,14 @@ void req_handler(erpc::ReqHandle *req_handle, void *context) {
 
     /* Always disconnect, if the client requests it: */
     op = OP_FROM_SEQ_OP(header.seq_op);
-    if (op == RDMA_ERR) {
+    if (unlikely(op == RDMA_ERR)) {
         send_response_disconnect(req_handle, st, &header);
         st->terminate();
         goto end_req_handler;
     }
 
     /* Check for replays by checking the sequence number: */
-    if (!st->is_seq_valid(header.seq_op)) {
-        cerr << "Invalid sequence number" << endl;
+    if (unlikely(!st->is_seq_valid(header.seq_op))) {
         goto end_req_handler;
     }
 

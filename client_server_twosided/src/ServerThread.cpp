@@ -7,6 +7,14 @@
 #include "ServerThread.h"
 
 
+/**
+ * Constructs a ServerThread and starts to work
+ * @param nexus Nexus needed for the eRPC connection
+ * @param erpc_id ID for the Client to handle
+ * @param max_msg_size Maximum Message possible request size
+ * @param asynchronous If true, spawns a new Thread for working. Otherwise
+ *      starts working in the current thread
+ */
 ServerThread::ServerThread(erpc::Nexus *nexus,
         int erpc_id, size_t max_msg_size, bool asynchronous) {
     this->client_id = erpc_id; // TODO: This is not secure. Find better solution
@@ -20,13 +28,22 @@ ServerThread::ServerThread(erpc::Nexus *nexus,
         connect_and_work(this, nexus, erpc_id, max_msg_size);
 }
 
+
+/**
+ * Connects to a client and runs the event loop until a disconnect is requested
+ * @param st ServerThread that should connect and work
+ * @param nexus Public, shared Nexus object needed for eRPC connection
+ * @param erpc_id ID for identification of the according client
+ * @param max_msg_size Maximum possible incoming request size
+ */
 void ServerThread::connect_and_work(ServerThread *st,
         erpc::Nexus *nexus, uint8_t erpc_id, size_t max_msg_size) {
+
     st->rpc_host = new erpc::Rpc<erpc::CTransport>(
             nexus, st, erpc_id, nullptr);
     st->rpc_host->set_pre_resp_msgbuf_size(max_msg_size);
 
-    while (st->stay_connected)
+    while (likely(st->stay_connected))
         st->rpc_host->run_event_loop_once();
     delete st->rpc_host;
 }
@@ -44,17 +61,18 @@ void ServerThread::enqueue_response(erpc::ReqHandle *handle,
  * */
 bool ServerThread::is_seq_valid(uint64_t sequence_number) {
     uint8_t id = ID_FROM_SEQ_OP(sequence_number);
-    if (id != this->client_id) {
+    if (unlikely(id != this->client_id)) {
         cerr << "Invalid Client ID" << endl;
         return false;
     }
-    if (this->next_seq == 0) {
+    if (unlikely(this->next_seq == 0)) {
         this->next_seq = sequence_number & SEQ_MASK;
         return true;
     }
     auto seq_diff = static_cast<ssize_t>(SEQ_FROM_SEQ_OP(
         (sequence_number & SEQ_MASK) - this->next_seq));
-    if (seq_diff < SEQ_THRESHOLD && seq_diff > -SEQ_THRESHOLD) {
+
+    if (likely(seq_diff < SEQ_THRESHOLD && seq_diff > -SEQ_THRESHOLD)) {
         if (seq_diff > 0)
             this->next_seq = sequence_number & SEQ_MASK;
         return true;
