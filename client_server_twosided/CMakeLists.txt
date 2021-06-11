@@ -13,7 +13,7 @@ set(LIBRARIES ${LIBRARIES} -pthread numa dl ibverbs ssl crypto)
 
 # Some paths:
 # These two paths might need to be changed:
-set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC")
+set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/eRPC4dpdk")
 set(DPDK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dpdk_static)
 
 message(STATUS "eRPC-path: ${ERPC}")
@@ -65,6 +65,8 @@ set(SOURCES)
 
 if(TRANSPORT STREQUAL "infiniband")
   # Infiniband is nice and doesn't cause any problems
+  # The local eRPC is only for dpdk
+  set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC")
   message(STATUS "Compiling with infiniband")
   add_definitions(-DERPC_INFINIBAND=true)
   link_libraries(erpc)
