@@ -71,14 +71,15 @@ void put_callback(ret_val status, const void *tag) {
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
 
-    if (status == OP_SUCCESS) {
+    if (status == OP_SUCCESS)
         local_results->successful_puts++;
-#if MEASURE_LATENCY
-        local_results->put_time += diff;
-#endif
-    }
     else
         evaluate_status(status);
+
+#if MEASURE_LATENCY
+    if (status == OP_SUCCESS || status == OP_FAILED)
+        local_results->put_time += diff;
+#endif
 }
 
 void get_callback(ret_val status, const void *tag) {
@@ -89,14 +90,15 @@ void get_callback(ret_val status, const void *tag) {
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
 
-    if (OP_SUCCESS == status) {
+    if (OP_SUCCESS == status)
         local_results->successful_gets++;
-#if MEASURE_LATENCY
-        local_results->get_time += diff;
-#endif
-    }
     else
         evaluate_status(status);
+
+#if MEASURE_LATENCY
+    if (status == OP_SUCCESS || status == OP_FAILED)
+        local_results->put_time += diff;
+#endif
 }
 
 void del_callback(ret_val status, const void *tag) {
@@ -106,14 +108,15 @@ void del_callback(ret_val status, const void *tag) {
     const struct timespec *start_time = (struct timespec *) tag;
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
-    if (status == OP_SUCCESS) {
+    if (status == OP_SUCCESS)
         local_results->successful_deletes++;
-#if MEASURE_LATENCY
-        local_results->delete_time += diff;
-#endif
-    }
     else
         evaluate_status(status);
+
+#if MEASURE_LATENCY
+    if (status == OP_SUCCESS || status == OP_FAILED)
+        local_results->put_time += diff;
+#endif
 }
 
 inline void get_random_key() {
