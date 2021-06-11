@@ -4,7 +4,8 @@ project(client_server_twosided)
 set(CMAKE_CXX_STANDARD 14)
 
 add_definitions(-Wall -Wextra -Wpedantic -Wsign-conversion -Wunused)
-add_definitions(-Wno-unused-function -Wno-deprecated-declarations -Wno-format)
+add_definitions(-Wno-unused-function -Wno-deprecated-declarations)
+add_definitions(-Wno-format -Wno-format-security)
 add_definitions(-msse4.1)
 
 # Libraries that are required:
