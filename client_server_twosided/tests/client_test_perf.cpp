@@ -293,7 +293,7 @@ void print_summary(bool all, struct test_params *params,
             get_time, buf, buf / 1000.0);
 
     buf = static_cast<double>(del_time) / static_cast<double>(valid_dels);
-    printf("delete():  %'zu/%'zu valid responses, %'zu of it failed\n"
+    printf("delete:  %'zu/%'zu valid responses, %'zu of it failed\n"
            "Total time: %'lu ns, time/delete: %f ns (%f us)\n\n",
             valid_dels, total_dels, result->failed_deletes,
             del_time, buf, buf / 1000.0);
