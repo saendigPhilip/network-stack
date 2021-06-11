@@ -9,7 +9,7 @@
 #include "client_server_common.h"
 #include "sent_message_tag.h"
 
-static constexpr size_t MAX_ACCEPTED_RESPONSES = 128;
+static constexpr size_t MAX_ACCEPTED_RESPONSES = 64;
 
 
 class PendingRequestQueue {
