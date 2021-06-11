@@ -97,7 +97,7 @@ void get_callback(ret_val status, const void *tag) {
 
 #if MEASURE_LATENCY
     if (status == OP_SUCCESS || status == OP_FAILED)
-        local_results->put_time += diff;
+        local_results->get_time += diff;
 #endif
 }
 
@@ -115,7 +115,7 @@ void del_callback(ret_val status, const void *tag) {
 
 #if MEASURE_LATENCY
     if (status == OP_SUCCESS || status == OP_FAILED)
-        local_results->put_time += diff;
+        local_results->delete_time += diff;
 #endif
 }
 
