@@ -143,11 +143,14 @@ int Client::get(const void *key, size_t key_len,
         RDMA_GET, user_tag, callback, value_len);
 
     int ret = -1;
-    struct rdma_enc_payload enc_payload;
 
     tag->header.key_len = key_len;
     tag->value = value;
-    enc_payload = { (unsigned char *) key, nullptr, 0 };
+    struct rdma_enc_payload enc_payload =
+        { (unsigned char *) key, nullptr, 0 };
+
+    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(
+        &(tag->request), CIPHERTEXT_SIZE(key_len));
 
     if (0 != encrypt_message(&(tag->header),
         &enc_payload, (unsigned char **) &(tag->request.buf)))
@@ -190,12 +193,14 @@ int Client::put(const void *key, size_t key_len,
     msg_tag_t *tag = this->queue.prepare_new_request(
         RDMA_PUT, user_tag, callback);
 
-    struct rdma_enc_payload enc_payload;
-
     tag->header.key_len = key_len;
     tag->value = nullptr;
     tag->user_tag = user_tag;
-    enc_payload = { (unsigned char *) key, (unsigned char *) value, value_len };
+    struct rdma_enc_payload enc_payload =
+        { (unsigned char *) key, (unsigned char *) value, value_len };
+
+    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(
+        &(tag->request), CIPHERTEXT_SIZE(key_len + value_len));
 
     if (0 > encrypt_message(&(tag->header),
         &enc_payload, (unsigned char **) &(tag->request.buf)))
@@ -234,10 +239,13 @@ int Client::del(const void *key, size_t key_len,
     msg_tag_t *tag = this->queue.prepare_new_request(
         RDMA_DELETE, user_tag, callback);
 
-    struct rdma_enc_payload payload;
     tag->header.key_len = key_len;
     tag->value = nullptr;
-    payload ={ (unsigned char *) key, nullptr, 0 };
+    struct rdma_enc_payload payload =
+        { (unsigned char *) key, nullptr, 0 };
+
+    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(
+        &(tag->request), CIPHERTEXT_SIZE(key_len));
 
     if (0 > encrypt_message(
         &(tag->header), &payload, (unsigned char **)&(tag->request.buf)))
