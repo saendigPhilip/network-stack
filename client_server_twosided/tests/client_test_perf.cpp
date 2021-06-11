@@ -274,7 +274,7 @@ void print_summary(bool all, struct test_params *params,
         printf("\n\n--------------------Summary--------------------\n\n");
         printf("Key size: %lu, Value size: %lu\n", KEY_SIZE, VAL_SIZE);
         printf("Number of Clients/Threads: %u\n"
-               "Number of client loop iterations: %zu\n\n",
+               "Number of client loop iterations: %zu\n\n\n",
                 NUM_CLIENTS, LOOP_ITERATIONS);
     }
     else 
@@ -287,20 +287,20 @@ void print_summary(bool all, struct test_params *params,
             put_time, buf, buf / 1000.0);
 
     buf = static_cast<double>(get_time) / static_cast<double>(valid_gets);
-    printf("get():     %'zu/%'zu successful, %'zu of it failed\n"
+    printf("get:     %'zu/%'zu valid responses, %'zu of it failed\n"
            "Total time: %'lu ns, time/get: %f ns (%f us)\n\n",
-            suc_gets, total_gets, result->failed_gets,
+            valid_gets, total_gets, result->failed_gets,
             get_time, buf, buf / 1000.0);
 
     buf = static_cast<double>(del_time) / static_cast<double>(valid_dels);
-    printf("delete():  %'zu/%'zu successful, %'zu of it failed\n"
+    printf("delete():  %'zu/%'zu valid responses, %'zu of it failed\n"
            "Total time: %'lu ns, time/delete: %f ns (%f us)\n\n",
-            suc_dels, total_dels, result->failed_deletes,
+            valid_dels, total_dels, result->failed_deletes,
             del_time, buf, buf / 1000.0);
 
 
     uint64_t total_time = put_time + get_time + del_time;
-    size_t valid_total = suc_puts + suc_gets + suc_dels;
+    size_t valid_total = valid_puts + valid_gets + valid_dels;
     printf("Total time: %'lu ns, time/operation: %f ns\n", total_time,
             static_cast<double>(total_time) / static_cast<double>(valid_total));
     printf("Timeouts: %'lu, Invalid responses: %'lu\n\n\n",
@@ -309,21 +309,26 @@ void print_summary(bool all, struct test_params *params,
     if (all) {
         printf("Total time needed for tests: %f s\n",
             static_cast<double>(result->time_all) / 1'000'000'000);
-        printf("Time per valid operation in total: %f\n",
+        printf("Time per valid operation in total: %f\n\n",
                 static_cast<double>(result->time_all) /
                 static_cast<double>(valid_total));
         size_t uplink_volume =
                 (total_puts + total_gets + total_dels) * KEY_SIZE +
                 total_puts * VAL_SIZE;
         size_t downlink_volume =
-                (suc_puts + suc_gets + suc_dels) * MIN_MSG_LEN
-                + suc_gets * VAL_SIZE;
+                (valid_puts + valid_gets + valid_dels) * MIN_MSG_LEN
+                + valid_gets * VAL_SIZE;
 
-        printf("Total uplink speed: %f MB/s. Total downlink speed: %f MB/s",
-                static_cast<double>(1000 * uplink_volume) /
-                static_cast<double>(result->time_all),
-                static_cast<double>(1000 * downlink_volume) /
-                static_cast<double>(result->time_all));
+        buf = static_cast<double>(1000 * uplink_volume) /
+            static_cast<double>(result->time_all);
+            printf("Total uplink speed:    %f MB/s (%f Mbit/s)\n",
+            buf, buf * 8);
+
+        buf = static_cast<double>(1000 * downlink_volume) /
+            static_cast<double>(result->time_all);
+        printf("Total downlink speed:  %f MB/s (%f Mbit/s)\n",
+            buf, buf * 8);
+
     }
     puts("\n");
 }
