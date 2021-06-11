@@ -73,8 +73,11 @@ int Client::connect(std::string& server_hostname,
  */
 void Client::send_disconnect_message() {
     msg_tag_t *tag = queue.prepare_new_request(RDMA_ERR, nullptr, nullptr);
-
+    tag->header.key_len = 0;
     struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
+
+    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(
+        &(tag->request), MIN_MSG_LEN);
 
     if (0 > encrypt_message(&(tag->header), &payload,
         static_cast<unsigned char **>(&(tag->request.buf))))
