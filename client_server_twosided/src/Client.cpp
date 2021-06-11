@@ -95,10 +95,13 @@ err_send_disconnect_message:
  * @return 0 on success, negative errno if the session can't be disconnected
  */
 int Client::disconnect() {
-    send_disconnect_message();
-    int ret = client_rpc.destroy_session(session_nr);
-    this->queue.invalidate_all_requests();
-    return ret;
+    if (this->client_rpc.is_connected(session_nr)) {
+        send_disconnect_message();
+        int ret = client_rpc.destroy_session(session_nr);
+        this->queue.invalidate_all_requests();
+        return ret;
+    }
+    return 0;
 }
 
 /**
