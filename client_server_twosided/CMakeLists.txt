@@ -13,7 +13,7 @@ set(LIBRARIES ${LIBRARIES} -pthread numa dl ibverbs ssl crypto)
 
 # Some paths:
 # These two paths might need to be changed:
-set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/eRPC4dpdk")
+set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC")
 set(DPDK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dpdk_static)
 
 message(STATUS "eRPC-path: ${ERPC}")
