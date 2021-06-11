@@ -1,3 +1,4 @@
+#include <atomic>
 #include <cstring>
 #include <cstdlib>
 #include <map>
@@ -7,13 +8,24 @@
 #include "Server.h"
 #include "test_common.h"
 
-#if MEASURE_LATENCY
+#if NO_KV_OVERHEAD
 unsigned char *default_value;
 #else
 std::map<std::vector<unsigned char>, unsigned char *> test_kv_store;
-#endif // MEASURE_LATENCY
+std::atomic_flag kv_flag{false};
 
-#if MEASURE_LATENCY
+void lock_kv() {
+    while (kv_flag.test_and_set())
+        ;
+}
+
+void unlock_kv() {
+    kv_flag.clear();
+}
+
+#endif // NO_KV_OVERHEAD
+
+#if NO_KV_OVERHEAD
 const void *kv_get(const void *, size_t, size_t *data_len) {
     *data_len = VAL_SIZE;
     return default_value;
@@ -27,17 +39,25 @@ int kv_delete(const void *, size_t) {
     return 0;
 }
 
-#else // MEASURE_LATENCY
+#else // NO_KV_OVERHEAD
 
 const void *kv_get(const void *key, size_t key_size, size_t *data_len) {
+    void *ret = nullptr;
     auto *key_uc = static_cast<const unsigned char *>(key);
     auto vec = std::vector<unsigned char>();
     vec.assign(key_uc, key_uc + key_size);
+
+    lock_kv();
     auto iter = test_kv_store.find(vec);
-    if (iter == test_kv_store.end())
-        return nullptr;
+    if (iter != test_kv_store.end()) {
+        ret = iter->second;
+        *data_len = VAL_SIZE;
+    }
     else
-        return iter->second;
+        *data_len = 0;
+    unlock_kv();
+
+    return ret;
 }
 
 
@@ -47,6 +67,8 @@ int kv_put(const void *key, size_t key_size, void *value, size_t value_size) {
     vec.assign(key_uc, key_uc + key_size);
     auto iter = test_kv_store.find(vec);
     unsigned char *val;
+
+    lock_kv();
     if (iter == test_kv_store.end()) {
         val = static_cast<unsigned char *>(malloc(VAL_SIZE));
         if (!val)
@@ -57,6 +79,7 @@ int kv_put(const void *key, size_t key_size, void *value, size_t value_size) {
         val = iter->second;
     }
     memcpy(val, value, value_size);
+    unlock_kv();
     return 0;
 }
 
@@ -64,25 +87,29 @@ int kv_delete(const void *key, size_t key_size) {
     auto *key_uc = static_cast<const unsigned char *>(key);
     auto vec = std::vector<unsigned char>();
     vec.assign(key_uc, key_uc + key_size);
+    lock_kv();
     auto iter = test_kv_store.find(vec);
     if (iter == test_kv_store.end())
         return -1;
     test_kv_store.erase(iter);
+    unlock_kv();
     free(iter->second);
     return 0;
 }
-#endif // MEASURE_LATENCY
+#endif // NO_KV_OVERHEAD
 
 
 /* Fills the KV-store with initial data by calling value_from_key()
  * for each entry
  */
 int initialize_kv_store() {
-#if MEASURE_LATENCY
+#if NO_KV_OVERHEAD
     default_value = static_cast<unsigned char *>(malloc(VAL_SIZE));
     if (!default_value)
         return -1;
-#endif // MEASURE_LATENCY
+#else
+    unlock_kv();
+#endif // NO_KV_OVERHEAD
     return 0;
 }
 
@@ -124,7 +151,7 @@ int main(int argc, const char *argv[]) {
 
     anchor_server::close_connection(false);
 
-#if MEASURE_LATENCY
+#if NO_KV_OVERHEAD
     free(default_value);
 #else
     for (auto& iter : test_kv_store) {

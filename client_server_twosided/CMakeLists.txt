@@ -25,6 +25,7 @@ set(TESTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 # User options:
 set(DEBUG "OFF" CACHE STRING "Enable debugging options (ON/OFF)") 
 set(MEASURE_LATENCY "ON" CACHE STRING "Measure latency (ON/OFF)")
+set(REAL_KV "OFF" CACHE STRING "Real KV-store at server for tests (ON/OFF)")
 set(ENCRYPT "ON" CACHE STRING "Enable encryption (ON/OFF)")
 set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
 
@@ -47,6 +48,16 @@ if(${MEASURE_LATENCY} STREQUAL "ON")
 else()
   add_definitions("-DMEASURE_LATENCY=false") 
   message(STATUS "Latency measurement turned off")
+endif()
+
+
+string(TOUPPER ${REAL_KV} REAL_KV)
+if(${REAL_KV} STREQUAL "ON")
+  add_definitions("-DNO_KV_OVERHEAD=false")
+  message(STATUS "Using std::map as a KV-store at the server")
+else()
+  add_definitions("-DNO_KV_OVERHEAD=true")
+  message(STATUS "KV-store operations are constant")
 endif()
 
 
