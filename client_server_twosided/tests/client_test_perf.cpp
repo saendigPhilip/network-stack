@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <clocale>
 #include <random>
 #include "Client.h"
 #include "test_common.h"
@@ -244,6 +245,7 @@ void add_result_to_final(
 void print_summary(bool all, struct test_params *params, 
         struct test_results *result) {
 
+    setlocale(LC_ALL, "");
     size_t total_puts = params->put_requests;
     size_t total_gets = params->get_requests;
     size_t total_dels = params->del_requests;
@@ -257,34 +259,40 @@ void print_summary(bool all, struct test_params *params,
     if (all) {
         printf("\n\n--------------------Summary--------------------\n\n");
         printf("Key size: %lu, Value size: %lu\n", KEY_SIZE, VAL_SIZE);
-        printf("KV-store entries: %lu, Number of Clients/Threads: %u\n\n",
-                KV_SIZE, NUM_CLIENTS);
+        printf("Number of Clients/Threads: %u\n"
+               "Number of client loop iterations: %zu\n\n",
+                NUM_CLIENTS, LOOP_ITERATIONS);
     }
     else 
         printf("Thread %2i: \n", params->id);
 
-    printf("put(): %zu/%zu successful, "
-           "Total time: %lu ns, time/put: %f ns\n",
-            suc_puts, total_puts, put_time,
-            static_cast<double>(put_time) / static_cast<double>(suc_puts));
-    printf("get(): %zu/%zu successful, "
-           "Total time: %lu ns, time/get: %f ns\n",
-            suc_gets, total_gets, get_time,
-            static_cast<double>(get_time) / static_cast<double>(suc_gets));
-    printf("delete(): %zu/%zu successful, "
-           "Total time: %lu ns, time/delete: %f ns\n",
-            suc_dels, total_dels, del_time,
-            static_cast<double>(del_time) / static_cast<double>(suc_dels));
+    double buf = static_cast<double>(put_time) / static_cast<double>(suc_puts);
+    printf("put():     %'zu/%'zu successful, "
+           "Total time: %'lu ns, time/put: %f ns (%f us)\n",
+            suc_puts, total_puts, put_time, buf, buf / 1000.0);
+
+    buf = static_cast<double>(get_time) / static_cast<double>(suc_gets);
+    printf("get():     %'zu/%'zu successful, "
+           "Total time: %'lu ns, time/get: %f ns (%f us)\n",
+            suc_gets, total_gets, get_time, buf, buf / 1000.0);
+
+    buf = static_cast<double>(del_time) / static_cast<double>(suc_dels);
+    printf("delete():  %'zu/%'zu successful, "
+           "Total time: %'lu ns, time/delete: %f ns (%f us)\n",
+            suc_dels, total_dels, del_time, buf, buf / 1000.0);
+
 
     uint64_t total_time = put_time + get_time + del_time;
     size_t suc_total = suc_puts + suc_gets + suc_dels;
-    printf("Total time: %lu ns, time/operation: %f ns\n", total_time,
+    printf("Total time: %'lu ns, time/operation: %f ns\n", total_time,
             static_cast<double>(total_time) / static_cast<double>(suc_total));
-    printf("Failed operations: %lu, Timeouts: %lu, Invalid responses: %lu\n\n",
+    printf("Failed operations: %'lu, Timeouts: %'lu, "
+           "Invalid responses: %'lu\n\n",
             result->failed_operations, result->timeouts,
             result->invalid_responses);
     if (all) {
-        printf("Total time needed for tests: %lu\n", result->time_all);
+        printf("Total time needed for tests: %f s\n",
+            static_cast<double>(result->time_all) / 1'000'000'000);
         printf("Time per operation in total: %f\n",
                 static_cast<double>(result->time_all) /
                 static_cast<double>(suc_total));
@@ -295,12 +303,13 @@ void print_summary(bool all, struct test_params *params,
                 (suc_puts + suc_gets + suc_dels) * MIN_MSG_LEN
                 + suc_gets * VAL_SIZE;
 
-        printf("Total uplink speed: %f B/s. Total downlink speed: %f B/s\n\n",
-                static_cast<double>(1'000'000'000 * uplink_volume) /
+        printf("Total uplink speed: %f MB/s. Total downlink speed: %f MB/s",
+                static_cast<double>(1000 * uplink_volume) /
                 static_cast<double>(result->time_all),
-                static_cast<double>(1'000'000'000 * downlink_volume) /
+                static_cast<double>(1000 * downlink_volume) /
                 static_cast<double>(result->time_all));
     }
+    puts("\n");
 }
 
 void perform_tests(string& server_hostname) {
