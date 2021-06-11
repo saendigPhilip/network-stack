@@ -24,12 +24,14 @@ struct test_params {
 
 struct test_results {
     size_t successful_puts;
+    size_t failed_puts;
     uint64_t put_time;
     size_t successful_gets;
+    size_t failed_gets;
     uint64_t get_time;
     size_t successful_deletes;
+    size_t failed_deletes;
     uint64_t delete_time;
-    size_t failed_operations;
     size_t timeouts;
     size_t invalid_responses;
     uint64_t time_all;
@@ -44,23 +46,13 @@ inline uint64_t time_diff(
 }
 
 
-void evaluate_status(ret_val status) {
-    switch(status) {
-        case OP_FAILED:
-            // fprintf(stderr, "Thread %u: OP failed\n", local_params->id);
-            local_results->failed_operations++;
-            break;
-        case TIMEOUT:
-            // fprintf(stderr, "Thread %u: Timeout\n", local_params->id);
-            local_results->timeouts++;
-            break;
-        case INVALID_RESPONSE:
-            // fprintf(stderr, "Thread %u: Invalid resp.\n", local_params->id);
-            local_results->invalid_responses++;
-            break;
-        default:
-            break;
-    }
+void evaluate_failed_op(ret_val status) {
+    if (likely(status == TIMEOUT))
+        // fprintf(stderr, "Thread %u: Timeout\n", local_params->id);
+        local_results->timeouts++;
+    else
+        // fprintf(stderr, "Thread %u: Invalid resp.\n", local_params->id);
+        local_results->invalid_responses++;
 }
 
 void put_callback(ret_val status, const void *tag) {
@@ -71,15 +63,19 @@ void put_callback(ret_val status, const void *tag) {
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
 
-    if (status == OP_SUCCESS)
-        local_results->successful_puts++;
-    else
-        evaluate_status(status);
+    if (status == OP_SUCCESS || status == OP_FAILED) {
+        if (status == OP_SUCCESS)
+            local_results->successful_puts++;
+        else
+            local_results->failed_puts++;
 
 #if MEASURE_LATENCY
-    if (status == OP_SUCCESS || status == OP_FAILED)
         local_results->put_time += diff;
 #endif
+    }
+    else {
+        evaluate_failed_op(status);
+    }
 }
 
 void get_callback(ret_val status, const void *tag) {
@@ -90,15 +86,19 @@ void get_callback(ret_val status, const void *tag) {
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
 
-    if (OP_SUCCESS == status)
-        local_results->successful_gets++;
-    else
-        evaluate_status(status);
+    if (status == OP_SUCCESS || status == OP_FAILED) {
+        if (OP_SUCCESS == status)
+            local_results->successful_gets++;
+        else
+            local_results->failed_gets++;
 
 #if MEASURE_LATENCY
-    if (status == OP_SUCCESS || status == OP_FAILED)
         local_results->get_time += diff;
 #endif
+    }
+    else {
+        evaluate_failed_op(status);
+    }
 }
 
 void del_callback(ret_val status, const void *tag) {
@@ -108,15 +108,21 @@ void del_callback(ret_val status, const void *tag) {
     const struct timespec *start_time = (struct timespec *) tag;
     uint64_t diff = time_diff(start_time, &end_time);
 #endif // MEASURE_LATENCY
-    if (status == OP_SUCCESS)
-        local_results->successful_deletes++;
-    else
-        evaluate_status(status);
+
+    if (status == OP_SUCCESS || status == OP_FAILED) {
+        if (status == OP_SUCCESS)
+            local_results->successful_deletes++;
+        else
+            local_results->failed_deletes++;
 
 #if MEASURE_LATENCY
-    if (status == OP_SUCCESS || status == OP_FAILED)
         local_results->delete_time += diff;
 #endif
+
+    }
+    else {
+        evaluate_failed_op(status);
+    }
 }
 
 inline void get_random_key() {
@@ -235,12 +241,14 @@ void fill_params_structs(struct test_params *params) {
 void add_result_to_final(
         struct test_results *final, struct test_results *result) {
     final->successful_puts += result->successful_puts;
+    final->failed_puts += result->failed_puts;
     final->put_time += result->put_time;
     final->successful_gets += result->successful_gets;
+    final->failed_gets += result->failed_gets;
     final->get_time += result->get_time;
     final->successful_deletes += result->successful_deletes;
+    final->failed_deletes += result->failed_deletes;
     final->delete_time += result->delete_time;
-    final->failed_operations += result->failed_operations;
     final->timeouts += result->timeouts;
     final->invalid_responses += result->invalid_responses;
 }
@@ -253,10 +261,13 @@ void print_summary(bool all, struct test_params *params,
     size_t total_gets = params->get_requests;
     size_t total_dels = params->del_requests;
     size_t suc_puts = result->successful_puts;
+    size_t valid_puts = suc_puts + result->failed_puts;
     uint64_t put_time = result->put_time;
     size_t suc_gets = result->successful_gets;
+    size_t valid_gets = suc_gets + result->failed_gets;
     uint64_t get_time = result->get_time;
     size_t suc_dels = result->successful_deletes;
+    size_t valid_dels = suc_dels + result->failed_deletes;
     uint64_t del_time = result->delete_time;
 
     if (all) {
@@ -269,36 +280,38 @@ void print_summary(bool all, struct test_params *params,
     else 
         printf("Thread %2i: \n", params->id);
 
-    double buf = static_cast<double>(put_time) / static_cast<double>(suc_puts);
-    printf("put():     %'zu/%'zu successful, "
-           "Total time: %'lu ns, time/put: %f ns (%f us)\n",
-            suc_puts, total_puts, put_time, buf, buf / 1000.0);
+    double buf = static_cast<double>(put_time) / static_cast<double>(valid_puts);
+    printf("put:     %'zu/%'zu valid responses, %'zu of it failed\n"
+           "Total time: %'lu ns, time/put: %f ns (%f us)\n\n",
+            valid_puts, total_puts, result->failed_puts,
+            put_time, buf, buf / 1000.0);
 
-    buf = static_cast<double>(get_time) / static_cast<double>(suc_gets);
-    printf("get():     %'zu/%'zu successful, "
-           "Total time: %'lu ns, time/get: %f ns (%f us)\n",
-            suc_gets, total_gets, get_time, buf, buf / 1000.0);
+    buf = static_cast<double>(get_time) / static_cast<double>(valid_gets);
+    printf("get():     %'zu/%'zu successful, %'zu of it failed\n"
+           "Total time: %'lu ns, time/get: %f ns (%f us)\n\n",
+            suc_gets, total_gets, result->failed_gets,
+            get_time, buf, buf / 1000.0);
 
-    buf = static_cast<double>(del_time) / static_cast<double>(suc_dels);
-    printf("delete():  %'zu/%'zu successful, "
-           "Total time: %'lu ns, time/delete: %f ns (%f us)\n",
-            suc_dels, total_dels, del_time, buf, buf / 1000.0);
+    buf = static_cast<double>(del_time) / static_cast<double>(valid_dels);
+    printf("delete():  %'zu/%'zu successful, %'zu of it failed\n"
+           "Total time: %'lu ns, time/delete: %f ns (%f us)\n\n",
+            suc_dels, total_dels, result->failed_deletes,
+            del_time, buf, buf / 1000.0);
 
 
     uint64_t total_time = put_time + get_time + del_time;
-    size_t suc_total = suc_puts + suc_gets + suc_dels;
+    size_t valid_total = suc_puts + suc_gets + suc_dels;
     printf("Total time: %'lu ns, time/operation: %f ns\n", total_time,
-            static_cast<double>(total_time) / static_cast<double>(suc_total));
-    printf("Failed operations: %'lu, Timeouts: %'lu, "
-           "Invalid responses: %'lu\n\n",
-            result->failed_operations, result->timeouts,
-            result->invalid_responses);
+            static_cast<double>(total_time) / static_cast<double>(valid_total));
+    printf("Timeouts: %'lu, Invalid responses: %'lu\n\n\n",
+            result->timeouts, result->invalid_responses);
+
     if (all) {
         printf("Total time needed for tests: %f s\n",
             static_cast<double>(result->time_all) / 1'000'000'000);
-        printf("Time per operation in total: %f\n",
+        printf("Time per valid operation in total: %f\n",
                 static_cast<double>(result->time_all) /
-                static_cast<double>(suc_total));
+                static_cast<double>(valid_total));
         size_t uplink_volume =
                 (total_puts + total_gets + total_dels) * KEY_SIZE +
                 total_puts * VAL_SIZE;
