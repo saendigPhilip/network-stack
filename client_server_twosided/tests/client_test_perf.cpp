@@ -126,10 +126,15 @@ void del_callback(ret_val status, const void *tag) {
 }
 
 inline void get_random_key() {
-    auto *dst = (int32_t *) key_buf;
-    // We don't care about the last bytes if key size is not dividable by 4
-    for (size_t i = 0; i < KEY_SIZE / 4; i++)
-        dst[i] = rand();
+    auto *dst = (uint32_t *) key_buf;
+    if (MAX_KEY) {
+        dst[0] = static_cast<uint32_t>(rand()) % MAX_KEY;
+    }
+    else {
+        // We don't care about the last bytes if key size is not dividable by 4
+        for (size_t i = 1; i < KEY_SIZE / 4; i++)
+            dst[i] = static_cast<uint32_t>(rand());
+    }
 }
 
 void issue_requests(Client *client) {
@@ -201,7 +206,7 @@ void test_thread(struct test_params *params, struct test_results *results,
         std::string *server_hostname) {
 
     Client client{params->id, KEY_SIZE, VAL_SIZE};
-    key_buf = static_cast<unsigned char *>(malloc(KEY_SIZE));
+    key_buf = static_cast<unsigned char *>(calloc(1, KEY_SIZE));
     value_buf = static_cast<unsigned char *>(malloc(VAL_SIZE));
     if (!(key_buf && value_buf))
         goto end_test_thread;

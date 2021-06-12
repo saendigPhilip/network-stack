@@ -9,7 +9,7 @@
 
 #define KEY_SIZE global_params.key_size
 #define VAL_SIZE global_params.val_size
-#define KV_SIZE global_params.kv_size
+#define MAX_KEY global_params.key_size
 #define NUM_CLIENTS global_params.num_clients
 #define LOOP_ITERATIONS global_params.event_loop_iterations
 #define CLIENT_TIMEOUT global_params.client_timeout_us
@@ -21,7 +21,7 @@
 struct global_test_params {
     size_t key_size{256};
     size_t val_size{1024};
-    size_t kv_size{128};
+    uint32_t max_key_size{0};
     uint8_t num_clients{4};
     size_t event_loop_iterations{128};
     size_t client_timeout_us{1};
@@ -35,9 +35,6 @@ struct global_test_params {
 };
 
 extern struct global_test_params global_params;
-
-//static constexpr size_t MAX_KEY_SIZE = 8192;
-//static constexpr size_t MAX_VAL_SIZE = 8192;
 
 static const unsigned char key_do_not_use[16] =
         {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};

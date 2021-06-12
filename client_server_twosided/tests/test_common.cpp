@@ -37,7 +37,7 @@ int global_test_params::parse_args(int argc, const char **argv) {
                 STRTOUL(val_size, "value size");
                 break;
             case 's':
-                STRTOUL(kv_size, "KV size");
+                STRTOUL(max_key_size, "Maximum key size");
                 break;
             case 'n':
                 STRTOUL(num_clients, "Number of clients");
@@ -71,7 +71,7 @@ int global_test_params::parse_args(int argc, const char **argv) {
 void global_test_params::print_options() {
     std::cout << "\t[-k <key size>]\n"
                  "\t[-v <value size>]\n"
-                 "\t[-s <KV size>]\n"
+                 "\t[-s <Maximum Key size>]\n"
                  "\t[-n <number clients>]\n"
                  "\t[-i <number of client event loop iterations>]\n"
                  "\t[-t <client timeout on server overload in us>]"
