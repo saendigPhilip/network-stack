@@ -84,17 +84,19 @@ int kv_put(const void *key, size_t key_size, void *value, size_t value_size) {
 }
 
 int kv_delete(const void *key, size_t key_size) {
+    int ret = -1;
     auto *key_uc = static_cast<const unsigned char *>(key);
     auto vec = std::vector<unsigned char>();
     vec.assign(key_uc, key_uc + key_size);
     lock_kv();
     auto iter = test_kv_store.find(vec);
-    if (iter == test_kv_store.end())
-        return -1;
-    test_kv_store.erase(iter);
+    if (iter != test_kv_store.end()) {
+        test_kv_store.erase(iter);
+        free(iter->second);
+        ret = 0;
+    }
     unlock_kv();
-    free(iter->second);
-    return 0;
+    return ret;
 }
 #endif // NO_KV_OVERHEAD
 
