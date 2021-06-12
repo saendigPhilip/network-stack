@@ -146,6 +146,14 @@ void issue_requests(Client *client) {
 #endif
 
     size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
+
+#if MEASURE_LATENCY
+#else
+    struct timespec begin_time;
+    struct timespec end_time;
+    (void) clock_gettime(CLOCK_MONOTONIC, &begin_time);
+#endif
+
     for (size_t req = 0; ; req++) {
         get_random_key();
 #if MEASURE_LATENCY
@@ -199,6 +207,11 @@ void issue_requests(Client *client) {
             break;
     }
     (void) client->disconnect();
+#if MEASURE_LATENCY
+#else
+    (void) clock_gettime(CLOCK_MONOTONIC, &end_time);
+    local_results->time_all = time_diff(&begin_time, &end_time);
+#endif // MEASURE_LATENCY
 }
 
 
@@ -312,7 +325,8 @@ void print_summary(bool all, struct test_params *params,
             result->timeouts, result->invalid_responses);
 
     if (all) {
-        printf("Total time needed for tests: %f s\n",
+        printf("Total time needed for tests: %'lu ns (%f s)\n",
+            result->time_all,
             static_cast<double>(result->time_all) / 1'000'000'000);
         printf("Time per valid operation in total: %f\n\n",
                 static_cast<double>(result->time_all) /
