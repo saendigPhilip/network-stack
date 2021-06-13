@@ -75,7 +75,6 @@ msg_tag_t *PendingRequestQueue::prepare_new_request(
     msg_tag_t *ret = this->queue + index;
     if (unlikely(ret->valid)) {
         ret->invalidate(ret_val::TIMEOUT);
-        this->invalidate_old_requests(ret->header.seq_op);
     }
 
     // Fill the struct with the provided values:
@@ -103,45 +102,16 @@ void PendingRequestQueue::message_arrived(enum ret_val ret, uint64_t seq_op) {
 
     /* Call the Client callback and invalidate */
     tag.invalidate(ret);
-
-    /* To make sure we're making progress, we invalidate all older requests: */
-    invalidate_old_requests(seq_op);
 }
 
 
-/* Iterates over the queue until a request is found that Deletes all requests
- * that have a lower sequence number than seq and invokes the according client
- * callbacks.
- * This way, we can always guarantee that for each message the client callback
- * is invoked
- * seq_op is the latest sequence number that should be accepted
- */
-void PendingRequestQueue::invalidate_old_requests(uint64_t seq_op) {
-    seq_op = PREV_SEQ(PREV_SEQ(seq_op));
-    uint64_t orig_seq = SEQ_FROM_SEQ_OP(seq_op);
-    int64_t diff;
-    size_t index = ACCEPTED_INDEX(seq_op);
-    for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; DEC_INDEX(index), i++) {
-        // Invariant:
-        // All tags "before" invalid tags are either invalid or fresh
-
-        // Thanks to the invariant we know that when we encounter a valid tag,
-        // all tags before it have to be valid as well
-        if (likely(!(this->queue[index].valid)))
-            break;
-
-        uint64_t current_seq =
-            SEQ_FROM_SEQ_OP(this->queue[index].header.seq_op);
-        diff = (int64_t) (orig_seq - current_seq);
-
-        // diff < 0 indicates that the sequence number of the current tag is
-        // greater than the reference tag
-        if (diff < 0)
-            break;
-
-        this->queue[index].invalidate(ret_val::TIMEOUT);
+void PendingRequestQueue::invalidate_all_requests() {
+    for (auto& buf : this->queue) {
+        if (buf.valid)
+            buf.invalidate(ret_val::TIMEOUT);
     }
 }
+
 
 bool PendingRequestQueue::queue_full() {
     // If the request at the current sequence number index is valid,

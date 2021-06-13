@@ -17,8 +17,6 @@ private:
     uint64_t current_seq_op = 0;
     msg_tag_t queue[MAX_ACCEPTED_RESPONSES];
 
-    void invalidate_old_requests(uint64_t seq_op);
-
 public:
 
     explicit PendingRequestQueue(uint8_t id);
@@ -33,9 +31,7 @@ public:
 
     void message_arrived(enum ret_val ret, uint64_t seq_op);
 
-    inline void invalidate_all_requests() {
-        invalidate_old_requests(this->current_seq_op);
-    }
+    void invalidate_all_requests();
 
     bool queue_full();
 
