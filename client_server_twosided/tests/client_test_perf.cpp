@@ -338,7 +338,7 @@ void print_summary(bool all, struct test_params *params,
                 total_puts * VAL_SIZE;
         size_t downlink_volume =
                 (valid_puts + valid_gets + valid_dels) * MIN_MSG_LEN
-                + valid_gets * VAL_SIZE;
+                + suc_gets * VAL_SIZE;
 
         buf = static_cast<double>(1000 * uplink_volume) /
             static_cast<double>(result->time_all);
