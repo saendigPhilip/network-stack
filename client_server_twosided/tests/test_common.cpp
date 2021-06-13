@@ -13,6 +13,21 @@
         return -1;                                              \
     }
 
+#define STRTOUI(var, str)                                               \
+    errno = 0;                                                          \
+    (var) = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 0)); \
+    if (errno) {                                                        \
+        fprintf(stderr, "Invalid %s: %s\n", (str), (argv[i]));          \
+        return -1;                                                      \
+    }
+
+#define STRTOUI8(var, str) \
+    errno = 0;                                                          \
+    (var) = static_cast<uint8_t>(std::strtoul(argv[++i], nullptr, 0));  \
+    if (errno) {                                                        \
+        fprintf(stderr, "Invalid %s: %s\n", (str), (argv[i]));          \
+        return -1;                                                      \
+    }
 
 struct global_test_params global_params;
 
@@ -37,10 +52,11 @@ int global_test_params::parse_args(int argc, const char **argv) {
                 STRTOUL(val_size, "value size");
                 break;
             case 's':
-                STRTOUL(max_key_size, "Maximum key size");
+                STRTOUI(max_key_size, "Maximum key size");
+                printf("Maximum key size: %u", max_key_size);
                 break;
             case 'n':
-                STRTOUL(num_clients, "Number of clients");
+                STRTOUI8(num_clients, "Number of clients");
                 break;
             case 'i':
                 STRTOUL(event_loop_iterations,
