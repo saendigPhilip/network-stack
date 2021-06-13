@@ -9,7 +9,7 @@
 
 #define KEY_SIZE global_params.key_size
 #define VAL_SIZE global_params.val_size
-#define MAX_KEY global_params.key_size
+#define MAX_KEY global_params.max_key_size
 #define NUM_CLIENTS global_params.num_clients
 #define LOOP_ITERATIONS global_params.event_loop_iterations
 #define CLIENT_TIMEOUT global_params.client_timeout_us
