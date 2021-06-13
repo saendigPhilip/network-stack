@@ -53,7 +53,6 @@ int global_test_params::parse_args(int argc, const char **argv) {
                 break;
             case 's':
                 STRTOUI(max_key_size, "Maximum key size");
-                printf("Maximum key size: %u", max_key_size);
                 break;
             case 'n':
                 STRTOUI8(num_clients, "Number of clients");

@@ -291,6 +291,8 @@ void print_summary(bool all, struct test_params *params,
     if (all) {
         printf("\n\n--------------------Summary--------------------\n\n");
         printf("Key size: %lu, Value size: %lu\n", KEY_SIZE, VAL_SIZE);
+        if (MAX_KEY)
+            printf("Maximum possible Key: %lu\n", MAX_KEY);
         printf("Number of Clients/Threads: %u\n"
                "Number of client loop iterations: %zu\n\n\n",
                 NUM_CLIENTS, LOOP_ITERATIONS);
