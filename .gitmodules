@@ -4,3 +4,6 @@
 [submodule "client_server_twosided/eRPC4dpdk"]
 	path = client_server_twosided/eRPC4dpdk
 	url = https://github.com/saendigPhilip/eRPC
+[submodule "client_server_twosided/eRPC4rdma"]
+	path = client_server_twosided/eRPC4rdma
+	url = https://github.com/saendigPhilip/eRPC.git

@@ -78,7 +78,7 @@ set(SOURCES)
 if(TRANSPORT STREQUAL "infiniband")
   # Infiniband is nice and doesn't cause any problems
   # The local eRPC is only for dpdk
-  set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/../../eRPC")
+  set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/eRPC4rdma")
   message(STATUS "Compiling with infiniband")
   add_definitions(-DERPC_INFINIBAND=true)
   link_libraries(erpc)
