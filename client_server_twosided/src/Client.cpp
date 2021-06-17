@@ -98,7 +98,7 @@ void Client::send_disconnect_message() {
         static_cast<unsigned char **>(&(tag->request.buf)))))
         goto err_send_disconnect_message;
 
-    this->send_message(tag, 10000);
+    this->send_message(tag, ITER_BEFORE_TERMINATION);
     return;
 
 err_send_disconnect_message:

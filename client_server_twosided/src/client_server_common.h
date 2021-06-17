@@ -30,6 +30,8 @@ using namespace std;
 
 static constexpr uint8_t DEFAULT_REQ_TYPE = 2;
 
+static constexpr size_t ITER_BEFORE_TERMINATION = 10000;
+
 static constexpr uint8_t RDMA_GET = 0b00;
 static constexpr uint8_t RDMA_PUT = 0b01;
 static constexpr uint8_t RDMA_DELETE = 0b10;

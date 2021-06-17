@@ -106,9 +106,13 @@ void PendingRequestQueue::message_arrived(enum ret_val ret, uint64_t seq_op) {
 
 
 void PendingRequestQueue::invalidate_all_requests() {
-    for (auto& buf : this->queue) {
-        if (buf.valid)
-            buf.invalidate(ret_val::TIMEOUT);
+    size_t index = ACCEPTED_INDEX(this->current_seq_op);
+    for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES; i++) {
+        if (this->queue[index].valid) {
+            this->queue[index].invalidate(ret_val::TIMEOUT);
+        }
+        index++;
+        index %= MAX_ACCEPTED_RESPONSES;
     }
 }
 
