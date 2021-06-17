@@ -16,6 +16,7 @@
 #define PUTS_PER_CLIENT global_params.puts_per_client
 #define GETS_PER_CLIENT global_params.gets_per_client
 #define DELS_PER_CLIENT global_params.dels_per_client
+#define PATH_CSV global_params.path_csv
 
 
 struct global_test_params {
@@ -28,6 +29,7 @@ struct global_test_params {
     size_t puts_per_client{1 << 12};
     size_t gets_per_client{1 << 12};
     size_t dels_per_client{1 << 12};
+    const char *path_csv{nullptr};
 
     int parse_args(int argc, const char *argv[]);
     static void print_options();
