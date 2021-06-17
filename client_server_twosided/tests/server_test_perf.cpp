@@ -9,7 +9,7 @@
 #include "test_common.h"
 
 #if NO_KV_OVERHEAD
-unsigned char *default_value;
+thread_local unsigned char *default_value;
 #else
 std::map<std::vector<unsigned char>, unsigned char *> test_kv_store;
 std::atomic_flag kv_flag{false};
@@ -27,6 +27,8 @@ void unlock_kv() {
 
 #if NO_KV_OVERHEAD
 const void *kv_get(const void *, size_t, size_t *data_len) {
+    if (!default_value)
+        default_value = static_cast<unsigned char *>(malloc(VAL_SIZE));
     *data_len = VAL_SIZE;
     return default_value;
 }
@@ -110,9 +112,6 @@ int kv_delete(const void *key, size_t key_size) {
  */
 int initialize_kv_store() {
 #if NO_KV_OVERHEAD
-    default_value = static_cast<unsigned char *>(malloc(VAL_SIZE));
-    if (!default_value)
-        return -1;
 #else
     unlock_kv();
 #endif // NO_KV_OVERHEAD
