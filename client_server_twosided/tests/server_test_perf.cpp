@@ -62,6 +62,7 @@ const void *kv_get(const void *key, size_t key_size, size_t *data_len) {
 
 
 int kv_put(const void *key, size_t key_size, void *value, size_t value_size) {
+    int ret = -1;
     auto *key_uc = static_cast<const unsigned char *>(key);
     auto vec = std::vector<unsigned char>();
     vec.assign(key_uc, key_uc + key_size);
@@ -72,15 +73,18 @@ int kv_put(const void *key, size_t key_size, void *value, size_t value_size) {
     if (iter == test_kv_store.end()) {
         val = static_cast<unsigned char *>(malloc(VAL_SIZE));
         if (!val)
-            return -1;
+            goto end_kv_put;
         test_kv_store.insert({vec, val});
     }
     else {
         val = iter->second;
     }
     memcpy(val, value, value_size);
+
+    ret = 0;
+end_kv_put:
     unlock_kv();
-    return 0;
+    return ret;
 }
 
 int kv_delete(const void *key, size_t key_size) {
