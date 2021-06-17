@@ -168,14 +168,13 @@ void issue_requests(Client *client) {
         }
 
         if (puts_performed < local_params->put_requests) {
-            value_from_key(
-                    (void *) value_buf, VAL_SIZE, (void *) key_buf, KEY_SIZE);
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
 #endif
             if (0 > client->put((void *) key_buf, KEY_SIZE,
                     (void *) value_buf, VAL_SIZE,
-                    put_callback, time_now, LOOP_ITERATIONS)) {
+                    put_callback, time_now,LOOP_ITERATIONS *
+                    (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024))) {
 
                 cerr << "put() failed" << endl;
             } else
@@ -187,7 +186,9 @@ void issue_requests(Client *client) {
 #endif
             if (0 > client->get((void *) key_buf, KEY_SIZE,
                     (void *) value_buf, nullptr,
-                    get_callback, time_now, LOOP_ITERATIONS)) {
+                    get_callback, time_now,
+                    LOOP_ITERATIONS *
+                        (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024))) {
                 cerr << "get() failed" << endl;
             } else
                 gets_performed++;

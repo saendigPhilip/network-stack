@@ -74,6 +74,9 @@ int global_test_params::parse_args(int argc, const char **argv) {
             case 'd':
                 STRTOUL(dels_per_client, "Number of deletes per client");
                 break;
+            case 'f':
+                global_params.path_csv = argv[++i];
+                break;
             default:
                 std::cerr << "Unknown commandline option: "
                           << argv[i] << std::endl;
@@ -93,5 +96,6 @@ void global_test_params::print_options() {
                  "\t[-p <number of put operations per client>]\n"
                  "\t[-g <number of get operations per client>]\n"
                  "\t[-d <number of delete operations per client>]\n"
+                 "\t[-f <csv filename>]\n"
                  << std::endl;
 }
