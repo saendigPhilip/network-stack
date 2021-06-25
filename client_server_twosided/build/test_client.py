@@ -47,7 +47,7 @@ def network_performance_test(size_list):
     for size in size_list:
         run_single_test(size, size, args.s, args.n,
                         0, args.g, 0,
-                        args.i, args.t,
+                        args.i * 4, args.t,
                         "network_test.csv")
 
 
