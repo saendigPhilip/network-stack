@@ -162,7 +162,7 @@ void issue_requests(Client *client) {
         struct timespec *time_now = nullptr;
 #endif
         // Go easy on the server:
-        while (client->queue_full()) {
+        if (client->queue_full()) {
             std::this_thread::sleep_for(chrono::microseconds(CLIENT_TIMEOUT));
             client->run_event_loop_n_times(LOOP_ITERATIONS);
         }
