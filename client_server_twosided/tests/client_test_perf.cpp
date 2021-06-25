@@ -1,3 +1,4 @@
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -248,7 +249,6 @@ void test_thread(struct test_params *params, struct test_results *results,
     srand(static_cast<unsigned int>(params->id));
 
     if (--countdown == 0) {
-        countdown = 1;
         std::cout << "Starting time measurement" << std::endl;
         (void) clock_gettime(CLOCK_MONOTONIC, &total_time_begin);
     }
@@ -517,11 +517,14 @@ void perform_tests(string& server_hostname) {
     /* Wait for requester threads to finish: */
     for (i = 0; i < NUM_CLIENTS - 1; i++) {
         threads[i]->join();
-        delete threads[i];
     }
 
     (void) clock_gettime(CLOCK_MONOTONIC, &total_time_end);
     std::cout << "Ended time measurement" << std::endl;
+
+    for (i = 0; i < NUM_CLIENTS - 1; i++) {
+        delete threads[i];
+    }
 
 
     struct test_results final_results;
