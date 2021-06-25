@@ -210,13 +210,13 @@ void issue_requests(Client *client) {
     size_t total_ops = local_params->put_requests + local_params->get_requests +
         local_params->del_requests;
 
-    // Don't stop until for each message a response has arrived:
-    while(
+    // Run event loop if there are requests without responses
+    if(
         local_results->failed_puts + local_results->successful_puts
     + local_results->failed_gets + local_results->successful_gets
     + local_results->failed_deletes + local_results->successful_deletes
     + local_results->timeouts + local_results->invalid_responses < total_ops) {
-        client->run_event_loop_n_times(LOOP_ITERATIONS);
+        client->run_event_loop_n_times(LOOP_ITERATIONS * 4);
     }
 
     (void) client->disconnect();
@@ -515,14 +515,14 @@ void perform_tests(string& server_hostname) {
 
 
     /* Wait for requester threads to finish: */
-    for (i = 0; i < NUM_CLIENTS - 1; i++)
+    for (i = 0; i < NUM_CLIENTS - 1; i++) {
         threads[i]->join();
+        delete threads[i];
+    }
 
     (void) clock_gettime(CLOCK_MONOTONIC, &total_time_end);
     std::cout << "Ended time measurement" << std::endl;
 
-    for (i = 0; i < NUM_CLIENTS - 1; i++)
-        delete threads[i];
 
     struct test_results final_results;
     memset(&final_results, 0, sizeof(final_results));
