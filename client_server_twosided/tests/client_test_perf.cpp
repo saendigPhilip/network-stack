@@ -47,10 +47,8 @@ inline uint64_t time_diff(
 
 void evaluate_failed_op(ret_val status) {
     if (likely(status == TIMEOUT))
-        // fprintf(stderr, "Thread %u: Timeout\n", local_params->id);
         local_results->timeouts++;
     else
-        // fprintf(stderr, "Thread %u: Invalid resp.\n", local_params->id);
         local_results->invalid_responses++;
 }
 
@@ -162,7 +160,7 @@ void issue_requests(Client *client) {
         struct timespec *time_now = nullptr;
 #endif
         // Go easy on the server:
-        if (client->queue_full()) {
+        while (client->queue_full()) {
             std::this_thread::sleep_for(chrono::microseconds(CLIENT_TIMEOUT));
             client->run_event_loop_n_times(LOOP_ITERATIONS);
         }
@@ -206,6 +204,19 @@ void issue_requests(Client *client) {
         else
             break;
     }
+
+    size_t total_ops = local_params->put_requests + local_params->get_requests +
+        local_params->del_requests;
+
+    // Don't stop until for each message a response has arrived:
+    while(
+        local_results->failed_puts + local_results->successful_puts
+    + local_results->failed_gets + local_results->successful_gets
+    + local_results->failed_deletes + local_results->successful_deletes
+    + local_results->timeouts + local_results->invalid_responses < total_ops) {
+        client->run_event_loop_n_times(LOOP_ITERATIONS);
+    }
+
     (void) client->disconnect();
 #if MEASURE_LATENCY
 #else
