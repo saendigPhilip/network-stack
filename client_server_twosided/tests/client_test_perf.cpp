@@ -6,7 +6,9 @@
 #include "Client.h"
 #include "test_common.h"
 
+std::atomic_uint8_t countdown;
 uint16_t port = 31850;
+struct timespec total_time_begin, total_time_end;
 
 thread_local unsigned char *value_buf;
 thread_local unsigned char *key_buf;
@@ -244,6 +246,15 @@ void test_thread(struct test_params *params, struct test_results *results,
         return;
     }
     srand(static_cast<unsigned int>(params->id));
+
+    if (--countdown == 0) {
+        countdown = 1;
+        std::cout << "Starting time measurement" << std::endl;
+        (void) clock_gettime(CLOCK_MONOTONIC, &total_time_begin);
+    }
+    else {
+        while (countdown > 0);
+    }
 
     issue_requests(&client);
 
@@ -494,8 +505,7 @@ void perform_tests(string& server_hostname) {
 
     vector<thread *> threads;
     /* Launch requester threads: */
-    struct timespec total_time_begin, total_time_end;
-    (void) clock_gettime(CLOCK_MONOTONIC, &total_time_begin);
+    countdown = NUM_CLIENTS;
     uint8_t i = 0;
     for (; i < NUM_CLIENTS - 1; i++) {
         threads.emplace_back(new thread(test_thread, params + i, results + i,
@@ -505,11 +515,14 @@ void perform_tests(string& server_hostname) {
 
 
     /* Wait for requester threads to finish: */
-    for (i = 0; i < NUM_CLIENTS - 1; i++) {
+    for (i = 0; i < NUM_CLIENTS - 1; i++)
         threads[i]->join();
-        delete threads[i];
-    }
+
     (void) clock_gettime(CLOCK_MONOTONIC, &total_time_end);
+    std::cout << "Ended time measurement" << std::endl;
+
+    for (i = 0; i < NUM_CLIENTS - 1; i++)
+        delete threads[i];
 
     struct test_results final_results;
     memset(&final_results, 0, sizeof(final_results));
