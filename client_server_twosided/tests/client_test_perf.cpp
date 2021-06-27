@@ -422,7 +422,7 @@ void print_summary_csv(struct test_params *params,
     }
 
 
-    size_t total_ops = total_puts + total_gets + total_gets;
+    size_t total_ops = total_puts + total_gets + total_dels;
     size_t valid_ops = valid_puts + valid_gets + valid_dels;
 
     // Threads, Maximum Key, Key Size, Value Size, Total Operations
