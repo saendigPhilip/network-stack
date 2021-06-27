@@ -59,6 +59,14 @@ def different_sizes_test(size_list):
                         "sizes_test.csv")
 
 
+def different_loops_test(loops_list):
+    for loop_num in loops_list:
+        run_single_test(args.k, args.v, args.s, args.n,
+                        args.p, args.g, args.d,
+                        loop_num, args.t,
+                        "loops_test.csv")
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("client_ip", type=str)
 parser.add_argument("server_ip", type=str)
@@ -78,6 +86,8 @@ print("Client ip: {}. Server ip: {}".format(args.client_ip, args.server_ip))
 
 server = socket.socket()
 server.connect((args.server_ip, 31849))
+
+different_loops_test([256, 512, 768, 1024])
 
 network_performance_test([256, 512, 1024, 2048, 4096])
 
