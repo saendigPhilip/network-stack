@@ -212,11 +212,12 @@ void issue_requests(Client *client) {
         local_params->del_requests;
 
     // Run event loop if there are requests without responses
-    while (
+    for (size_t i = 0; i < 4 && (
         local_results->failed_puts + local_results->successful_puts
     + local_results->failed_gets + local_results->successful_gets
     + local_results->failed_deletes + local_results->successful_deletes
-    + local_results->timeouts + local_results->invalid_responses < total_ops) {
+    + local_results->timeouts + local_results->invalid_responses < total_ops);
+    i++) {
         client->run_event_loop_n_times(LOOP_ITERATIONS);
     }
 
