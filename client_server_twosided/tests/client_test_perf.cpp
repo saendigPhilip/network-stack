@@ -174,8 +174,8 @@ void issue_requests(Client *client) {
 #endif
             if (0 > client->put((void *) key_buf, KEY_SIZE,
                     (void *) value_buf, VAL_SIZE,
-                    put_callback, time_now,LOOP_ITERATIONS *
-                    (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024))) {
+                    put_callback, time_now,LOOP_ITERATIONS /* *
+                    (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024)*/)) {
 
                 cerr << "put() failed" << endl;
             } else
@@ -188,8 +188,8 @@ void issue_requests(Client *client) {
             if (0 > client->get((void *) key_buf, KEY_SIZE,
                     (void *) value_buf, nullptr,
                     get_callback, time_now,
-                    LOOP_ITERATIONS *
-                        (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024))) {
+                    LOOP_ITERATIONS /* *
+                        (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024)*/)) {
                 cerr << "get() failed" << endl;
             } else
                 gets_performed++;
@@ -415,7 +415,7 @@ void print_summary_csv(struct test_params *params,
         fputs(
             "Threads,Maximum Key,Key Size,Value size,Total Operations,,"
             "Total Puts,Valid Puts,Ratio,Failed Puts,Put Latency(us),"
-            "Total Gets,Valid Puts,Ratio,Failed Gets,Get Latency(us),"
+            "Total Gets,Valid Gets,Ratio,Failed Gets,Get Latency(us),"
             "Total Deletes,Valid Deletes,Ratio,Failed Deletes,Delete Latency(us),,"
             "Total Time (ns),Time/Valid Op (ns),kOps/s,,"
             "Throughput Uplink (Mbit/s),Throughput Downlink (Mbit/s)\n",
