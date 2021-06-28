@@ -31,18 +31,6 @@ def run_single_test(key_size, value_size, max_key_size, threads,
     assert(server.recv(1024) == b"Ready")
 
 
-def different_threads_test(threads_list):
-    for num_threads in threads_list:
-        puts = args.p * 4 / num_threads
-        gets = args.g * 4 / num_threads
-        deletes = args.d * 4 / num_threads
-        run_single_test(args.k, args.v, args.s, num_threads,
-                        puts, gets, deletes,
-                        args.i, args.t,
-                        "threads_test.csv")
-        num_threads *= 2
-
-
 def network_performance_test(size_list):
     for size in size_list:
         run_single_test(size, size, args.s, args.n,
@@ -51,10 +39,45 @@ def network_performance_test(size_list):
                         "network_test.csv")
 
 
+def different_threads_test(threads_list):
+    for num_threads in threads_list:
+        # Run separate put, get and delete tests:
+        puts = args.p * args.n / num_threads
+        gets = args.g * args.n / num_threads
+        deletes = args.d * args.n / num_threads
+        run_single_test(args.k, args.v, args.s, num_threads,
+                        puts, 0, 0,
+                        args.i, args.t,
+                        "threads_test.csv")
+
+        run_single_test(args.k, args.v, args.s, num_threads,
+                        0, gets, 0,
+                        args.i, args.t,
+                        "threads_test.csv")
+
+        run_single_test(args.k, args.v, args.s, num_threads,
+                        0, 0, deletes,
+                        args.i, args.t,
+                        "threads_test.csv")
+
+
 def different_sizes_test(size_list):
+    # For delete, only a single test makes sense
+    # The value size doesn't play a role:
+    run_single_test(args.k, args.v, args.s, args.n,
+                    0, 0, args.d,
+                    args.i, args.t,
+                    "sizes_test.csv")
+
     for size in size_list:
+        # Run the test once for put and get:
         run_single_test(args.k, size, args.s, args.n,
-                        args.p, args.g, args.d,
+                        args.p, 0, 0,
+                        args.i, args.t,
+                        "sizes_test.csv")
+
+        run_single_test(args.k, size, args.s, args.n,
+                        0, args.g, 0,
                         args.i, args.t,
                         "sizes_test.csv")
 
@@ -62,7 +85,17 @@ def different_sizes_test(size_list):
 def different_loops_test(loops_list):
     for loop_num in loops_list:
         run_single_test(args.k, args.v, args.s, args.n,
-                        args.p, args.g, args.d,
+                        args.p, 0, 0,
+                        loop_num, args.t,
+                        "loops_test.csv")
+
+        run_single_test(args.k, args.v, args.s, args.n,
+                        0, args.g, 0,
+                        loop_num, args.t,
+                        "loops_test.csv")
+
+        run_single_test(args.k, args.v, args.s, args.n,
+                        0, 0, args.d,
                         loop_num, args.t,
                         "loops_test.csv")
 
