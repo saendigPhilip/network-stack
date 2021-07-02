@@ -146,6 +146,7 @@ void issue_requests(Client *client) {
 #endif
 
     size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
+    srand(42);
 
 #if MEASURE_LATENCY
 #else
