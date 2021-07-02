@@ -6,44 +6,38 @@ set(CMAKE_CXX_STANDARD 14)
 add_definitions(-Wall -Wextra -Wpedantic -Wsign-conversion -Wunused)
 add_definitions(-Wno-unused-function -Wno-deprecated-declarations)
 add_definitions(-Wno-format -Wno-format-security)
-add_definitions(-msse4.1)
+add_definitions(-g -msse4.1)
 
 # Libraries that are required:
-set(LIBRARIES ${LIBRARIES} -pthread numa dl ibverbs ssl crypto)
+set(LIBRARIES ${LIBRARIES} -pthread numa dl ibverbs ssl crypto erpc)
 
 
 # Some paths:
 # These two paths might need to be changed:
-set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/eRPC4dpdk")
 set(DPDK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dpdk_static)
-
-message(STATUS "eRPC-path: ${ERPC}")
 
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(TESTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
 
 # User options:
-set(DEBUG "OFF" CACHE STRING "Enable debugging options (ON/OFF)") 
-set(MEASURE_LATENCY "ON" CACHE STRING "Measure latency (ON/OFF)")
-set(REAL_KV "OFF" CACHE STRING "Real KV-store at server for tests (ON/OFF)")
-set(ENCRYPT "ON" CACHE STRING "Enable encryption (ON/OFF)")
+option(DEBUG "Enable debugging options" OFF) 
+option(MEASURE_LATENCY "Measure latency" OFF)
+option(REAL_KV "Real KV-store at server for tests" OFF)
+option(ENCRYPT "Enable encryption" ON)
 set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
 
 
-string(TOUPPER ${DEBUG} DEBUG)
-if (${DEBUG} STREQUAL "ON")
+if (DEBUG)
   message(STATUS "Debugging enabled. Compiling with address sanitizer")
-  add_definitions(-g -fsanitize=address)
+  add_definitions(-fsanitize=address -Og)
   link_libraries(-fsanitize=address)
 else()
-  message(STATUS "Debugging disabled")
-  add_definitions(-O2)
+  message(STATUS "Debugging disabled. Not compiling with address sanitizer")
 endif()
 
 
-string(TOUPPER ${MEASURE_LATENCY} MEASURE_LATENCY)
-if(${MEASURE_LATENCY} STREQUAL "ON")
+if(MEASURE_LATENCY)
   add_definitions("-DMEASURE_LATENCY=true")
   message(STATUS "Latency measurement turned on")
 else()
@@ -52,8 +46,7 @@ else()
 endif()
 
 
-string(TOUPPER ${REAL_KV} REAL_KV)
-if(${REAL_KV} STREQUAL "ON")
+if(REAL_KV)
   add_definitions("-DNO_KV_OVERHEAD=false")
   message(STATUS "Using std::map as a KV-store at the server")
 else()
@@ -62,76 +55,25 @@ else()
 endif()
 
 
-string(TOUPPER ${ENCRYPT} ENCRYPT)
-if(${ENCRYPT} STREQUAL "OFF")
-  message(STATUS "Warning: Encryption turned off")
-  add_definitions("-DNO_ENCRYPTION=true")
-else()
+if(ENCRYPT)
   message(STATUS "Encryption turned on")
   add_definitions("-DNO_ENCRYPTION=false")
+else()
+  message(STATUS "Warning: Encryption turned off")
+  add_definitions("-DNO_ENCRYPTION=true")
 endif()
 
 
 
-set(SOURCES)
-
 if(TRANSPORT STREQUAL "infiniband")
-  # Infiniband is nice and doesn't cause any problems
-  # The local eRPC is only for dpdk
   set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/eRPC4rdma")
   message(STATUS "Compiling with infiniband")
   add_definitions(-DERPC_INFINIBAND=true)
-  link_libraries(erpc)
 
 elseif(TRANSPORT STREQUAL "dpdk") 
+  set(ERPC "${CMAKE_CURRENT_SOURCE_DIR}/eRPC4dpdk")
   message(STATUS "Compiling with DPDK")
   add_definitions(-DERPC_DPDK=true)
-
-
-  # DPDK only works with an old version of eRPC
-  # In this version, we have to compile eRPC along with our code to get
-  # the best performance
-  set(SOURCES ${SOURCES}
-    ${ERPC}/src/nexus_impl/nexus.cc
-    ${ERPC}/src/nexus_impl/nexus_bg_thread.cc
-    ${ERPC}/src/nexus_impl/nexus_sm_thread.cc
-    ${ERPC}/src/rpc_impl/rpc.cc
-    ${ERPC}/src/rpc_impl/rpc_queues.cc
-    ${ERPC}/src/rpc_impl/rpc_rfr.cc
-    ${ERPC}/src/rpc_impl/rpc_cr.cc
-    ${ERPC}/src/rpc_impl/rpc_kick.cc
-    ${ERPC}/src/rpc_impl/rpc_req.cc
-    ${ERPC}/src/rpc_impl/rpc_resp.cc
-    ${ERPC}/src/rpc_impl/rpc_ev_loop.cc
-    ${ERPC}/src/rpc_impl/rpc_fault_inject.cc
-    ${ERPC}/src/rpc_impl/rpc_pkt_loss.cc
-    ${ERPC}/src/rpc_impl/rpc_rx.cc
-    ${ERPC}/src/rpc_impl/rpc_connect_handlers.cc
-    ${ERPC}/src/rpc_impl/rpc_disconnect_handlers.cc
-    ${ERPC}/src/rpc_impl/rpc_reset_handlers.cc
-    ${ERPC}/src/rpc_impl/rpc_sm_api.cc
-    ${ERPC}/src/rpc_impl/rpc_sm_helpers.cc
-    ${ERPC}/src/transport_impl/transport.cc
-    ${ERPC}/src/transport_impl/dpdk/dpdk_transport.cc
-    ${ERPC}/src/transport_impl/dpdk/dpdk_transport_datapath.cc
-    ${ERPC}/src/transport_impl/infiniband/ib_transport.cc
-    ${ERPC}/src/transport_impl/infiniband/ib_transport_datapath.cc
-    ${ERPC}/src/transport_impl/raw/raw_transport.cc
-    ${ERPC}/src/transport_impl/raw/raw_transport_datapath.cc
-    ${ERPC}/src/util/huge_alloc.cc
-    ${ERPC}/src/util/externs.cc
-    ${ERPC}/src/util/tls_registry.cc)
-
-
-  find_package(Boost)
-  if(Boost_FOUND)
-    message(STATUS "Boost include directory = ${Boost_INCLUDE_DIRS}")
-    include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
-  else()
-    message(FATAL_ERROR "Boost not found.")
-  endif()
-   
-  set(DPDK_LIB ${DPDK_PATH}/lib/libdpdk.a)
 
   set(DPDK_INCLUDE_DIR ${DPDK_PATH}/include/dpdk)
   message(STATUS "DPDK include directory = ${DPDK_INCLUDE_DIR}")
@@ -142,6 +84,8 @@ elseif(TRANSPORT STREQUAL "dpdk")
 else()
     message(FATAL_ERROR "Invalid transport: ${TRANSPORT}")
 endif()
+
+message(STATUS "eRPC-path: ${ERPC}")
 
 
 include_directories(SYSTEM ${ERPC}/src)
@@ -174,7 +118,6 @@ set(TEST_UTILS
 
 # Finally build all tests and libraries:
 add_library(anchorserver SHARED
-  ${SOURCES}
   ${SERVER_SOURCE})
 
 target_compile_options(anchorserver
@@ -185,7 +128,6 @@ target_link_libraries(anchorserver
 
 
 add_library(anchorclient SHARED
-  ${SOURCES}
   ${CLIENT_SOURCE})
 
 target_compile_options(anchorclient
