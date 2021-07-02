@@ -27,10 +27,11 @@ Networking with twosided RDMA with eRPC and support for DPDK
    ```
    make install T=x86_64-native-linuxapp-gcc DESTDIR=../dpdk_static
    ```
- * Prepare eRPC. For dpdk and rdma, different versions of eRPC are used.
-   * For dpdk go to eRPC4dpdk and simply execute:
+ * Build eRPC. For dpdk and rdma, different versions of eRPC are used.
+   * For dpdk go to eRPC4dpdk and execute:
      ```
-     cmake . -DTRANSPORT=dpdk -DPERF=on
+     cmake . -DTRANSPORT=dpdk -DPERF=off
+     make -j $(nproc)
      ```
    * For RDMA (with infiniband and RoCE) go to eRPC4rdma and execute:
      ```
