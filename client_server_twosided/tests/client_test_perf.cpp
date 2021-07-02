@@ -126,6 +126,9 @@ void del_callback(ret_val status, const void *tag) {
 }
 
 inline void get_random_key() {
+#if NO_KV_OVERHEAD
+
+#else
     auto *dst = (uint32_t *) key_buf;
     if (MAX_KEY) {
         dst[0] = static_cast<uint32_t>(rand()) % MAX_KEY;
@@ -135,6 +138,7 @@ inline void get_random_key() {
         for (size_t i = 1; i < KEY_SIZE / 4; i++)
             dst[i] = static_cast<uint32_t>(rand());
     }
+#endif // NO_KV_OVERHEAD
 }
 
 void issue_requests(Client *client) {
@@ -146,7 +150,6 @@ void issue_requests(Client *client) {
 #endif
 
     size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
-    srand(42);
 
 #if MEASURE_LATENCY
 #else
