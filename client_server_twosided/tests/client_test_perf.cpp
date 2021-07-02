@@ -212,7 +212,7 @@ void issue_requests(Client *client) {
         local_params->del_requests;
 
     // Run event loop if there are requests without responses
-    for (size_t i = 0; i < 4 && (
+    for (size_t i = 0; i < 8 && (
         local_results->failed_puts + local_results->successful_puts
     + local_results->failed_gets + local_results->successful_gets
     + local_results->failed_deletes + local_results->successful_deletes
@@ -233,31 +233,31 @@ void issue_requests(Client *client) {
 void test_thread(struct test_params *params, struct test_results *results,
         std::string *server_hostname) {
 
-    Client client{params->id, KEY_SIZE, VAL_SIZE};
     key_buf = static_cast<unsigned char *>(calloc(1, KEY_SIZE));
     value_buf = static_cast<unsigned char *>(malloc(VAL_SIZE));
-    if (!(key_buf && value_buf))
-        goto end_test_thread;
+    {
+        Client client{params->id, KEY_SIZE, VAL_SIZE};
+        if (!(key_buf && value_buf))
+            goto end_test_thread;
 
-    local_params = params;
-    local_results = results;
-    if (0 > client.connect(
+        local_params = params;
+        local_results = results;
+        if (0 > client.connect(
             *server_hostname, params->port, key_do_not_use)) {
-        cerr << "Thread " << params->id
-                << ": Failed to connect to server" << endl;
-        return;
-    }
-    srand(static_cast<unsigned int>(params->id));
+            cerr << "Thread " << params->id
+                 << ": Failed to connect to server" << endl;
+            return;
+        }
+        srand(static_cast<unsigned int>(params->id));
 
-    if (--countdown == 0) {
-        std::cout << "Starting time measurement" << std::endl;
-        (void) clock_gettime(CLOCK_MONOTONIC, &total_time_begin);
-    }
-    else {
-        while (countdown > 0);
-    }
+        if (--countdown == 0) {
+            (void) clock_gettime(CLOCK_MONOTONIC, &total_time_begin);
+        } else {
+            while (countdown > 0);
+        }
 
-    issue_requests(&client);
+        issue_requests(&client);
+    }
 
 end_test_thread:
     free(key_buf);
