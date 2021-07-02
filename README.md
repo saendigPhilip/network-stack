@@ -35,7 +35,7 @@ Networking with twosided RDMA with eRPC and support for DPDK
      ```
    * For RDMA (with infiniband and RoCE) go to eRPC4rdma and execute:
      ```
-     cmake . -DTRANSPORT=infiniband -DROCE=on -DPERF=off
+     cmake . -DTRANSPORT=infiniband -DROCE=on -DPERF=on
      make -j $(nproc)
      ```
  * In the directory client_server_twosided, execute:
