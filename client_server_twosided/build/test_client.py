@@ -35,16 +35,16 @@ def network_performance_test(size_list):
     for size in size_list:
         run_single_test(size, size, args.s, args.n,
                         0, args.g, 0,
-                        args.i * 4, args.t,
+                        args.i, args.t,
                         "network_test.csv")
 
 
 def different_threads_test(threads_list):
     for num_threads in threads_list:
         # Run separate put, get and delete tests:
-        puts = args.p * args.n / num_threads
-        gets = args.g * args.n / num_threads
-        deletes = args.d * args.n / num_threads
+        puts = args.p * args.n // num_threads
+        gets = args.g * args.n // num_threads
+        deletes = args.d * args.n // num_threads
         run_single_test(args.k, args.v, args.s, num_threads,
                         puts, 0, 0,
                         args.i, args.t,
