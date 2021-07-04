@@ -34,23 +34,23 @@ void Client::terminate() {
  * @param max_key_size Maximum Key size that should be transmitted
  * @param max_val_size Maximum Value size that should be transmitted
  */
-Client::Client(uint8_t id,
+Client::Client(uint8_t erpc_id, uint8_t client_id,
     size_t max_key_size, size_t max_val_size) :
-    session_nr{-1},
-    erpc_id{id},
-    client_rpc{nexus, this, id, empty_sm_handler, 0},
-    queue{id},
-    max_key_size{max_key_size},
-    max_val_size{max_val_size}
+    sessionNr{-1},
+    erpcId{erpc_id},
+    clientRpc{nexus, this, erpc_id, empty_sm_handler, 0},
+    queue{client_id},
+    maxKeySize{max_key_size},
+    maxValSize{max_val_size}
 {
     size_t max_req_size = CIPHERTEXT_SIZE(max_key_size + max_val_size);
     size_t max_resp_size = CIPHERTEXT_SIZE(max_val_size);
     this->queue.allocate_req_buffers(
-        this->client_rpc, max_req_size, max_resp_size);
+        this->clientRpc, max_req_size, max_resp_size);
 }
 
 Client::~Client() {
-    this->queue.free_req_buffers(this->client_rpc);
+    this->queue.free_req_buffers(this->clientRpc);
     (void) disconnect();
 }
 
@@ -69,16 +69,16 @@ int Client::connect(std::string& server_hostname,
     std::string server_uri = server_hostname + ":" + std::to_string(udp_port);
     enc_key = encryption_key;
 
-    session_nr = client_rpc.create_session(server_uri, this->erpc_id);
-    if (unlikely(session_nr < 0)) {
-        std::cout << "Error: " << strerror(-session_nr) <<
-             " Could not establish session with server at " << server_uri << endl;
-        return session_nr;
+    sessionNr = clientRpc.create_session(server_uri, this->erpcId);
+    if (unlikely(sessionNr < 0)) {
+        std::cout << "Error: " << strerror(-sessionNr) <<
+                  " Could not establish session with server at " << server_uri << endl;
+        return sessionNr;
     }
-    while(!client_rpc.is_connected(session_nr))
-        client_rpc.run_event_loop_once();
+    while(!clientRpc.is_connected(sessionNr))
+        clientRpc.run_event_loop_once();
 
-    return session_nr;
+    return sessionNr;
 }
 
 
@@ -110,9 +110,9 @@ err_send_disconnect_message:
  * @return 0 on success, negative errno if the session can't be disconnected
  */
 int Client::disconnect() {
-    if (this->client_rpc.is_connected(session_nr)) {
+    if (this->clientRpc.is_connected(sessionNr)) {
         send_disconnect_message();
-        int ret = client_rpc.destroy_session(session_nr);
+        int ret = clientRpc.destroy_session(sessionNr);
         this->queue.invalidate_all_requests();
         return ret;
     }
@@ -131,11 +131,11 @@ void Client::send_message(
 
     this->queue.inc_seq();
 
-    client_rpc.enqueue_request(session_nr, DEFAULT_REQ_TYPE,
+    clientRpc.enqueue_request(sessionNr, DEFAULT_REQ_TYPE,
         &(tag->request), &(tag->response), decrypt_cont_func, (void *)tag);
 
     for (size_t i = 0; i < loop_iterations; i++)
-        client_rpc.run_event_loop_once();
+        clientRpc.run_event_loop_once();
 }
 
 
@@ -157,8 +157,8 @@ int Client::get(const void *key, size_t key_len,
     if (!key)
         return -1;
 
-    assert(this->session_nr >= 0);
-    assert(key_len <= this->max_key_size);
+    assert(this->sessionNr >= 0);
+    assert(key_len <= this->maxKeySize);
 
     msg_tag_t *tag = this->queue.prepare_new_request(
         RDMA_GET, user_tag, callback, value_len);
@@ -207,9 +207,9 @@ int Client::put(const void *key, size_t key_len,
     if (!(key && value)) {
         return -1;
     }
-    assert(this->session_nr >= 0);
-    assert(key_len <= this->max_key_size);
-    assert(value_len <= this->max_val_size);
+    assert(this->sessionNr >= 0);
+    assert(key_len <= this->maxKeySize);
+    assert(value_len <= this->maxValSize);
 
     msg_tag_t *tag = this->queue.prepare_new_request(
         RDMA_PUT, user_tag, callback);
@@ -254,8 +254,8 @@ int Client::del(const void *key, size_t key_len,
     if (!key) {
         return -1;
     }
-    assert(session_nr >= 0);
-    assert(key_len <= max_key_size);
+    assert(sessionNr >= 0);
+    assert(key_len <= maxKeySize);
 
     msg_tag_t *tag = this->queue.prepare_new_request(
         RDMA_DELETE, user_tag, callback);
@@ -283,7 +283,7 @@ err_delete:
 
 void Client::run_event_loop_n_times(size_t n) {
     for (size_t i = 0; i < n; i++)
-        this->client_rpc.run_event_loop_once();
+        this->clientRpc.run_event_loop_once();
 }
 
 

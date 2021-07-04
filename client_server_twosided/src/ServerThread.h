@@ -9,22 +9,25 @@
 #include "rpc.h"
 #include "Server.h"
 
-static constexpr ssize_t SEQ_THRESHOLD = 64;
-
 class ServerThread {
 private:
     erpc::Rpc<erpc::CTransport> *rpc_host;
-    uint64_t next_seq;
-    uint8_t client_id;
+
+    /// Contains the next expected sequence number for each client
+    /// Client with ID i is at index i
+    std::vector<uint64_t> next_seq_numbers;
+
     bool stay_connected;
+
     std::thread running_thread;
 
     static void connect_and_work(ServerThread *st, erpc::Nexus *nexus,
             uint8_t erpc_id, size_t max_msg_size);
 
 public:
-    ServerThread(erpc::Nexus *nexus, int erpc_id, size_t max_msg_size,
-            bool asynchronous = true);
+    ServerThread(erpc::Nexus *nexus,
+        int erpc_id, size_t number_clients,
+        size_t max_msg_size, bool asynchronous = true);
 
     bool is_seq_valid(uint64_t sequence_number);
 

@@ -147,7 +147,7 @@ int main(int argc, const char *argv[]) {
     }
 
     if (anchor_server::host_server(
-            key_do_not_use, NUM_CLIENTS,
+            key_do_not_use, NUM_THREADS, NUM_CLIENTS,
             KEY_SIZE + VAL_SIZE, false,
             kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;

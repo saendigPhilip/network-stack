@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
 
     const uint8_t num_clients = 1;
     if (anchor_server::host_server(
-            key_do_not_use, num_clients,
+            key_do_not_use, num_clients, num_clients,
             KEY_SIZE + VAL_SIZE, true,
             kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;

@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     incoming_test_value = static_cast<char *>(malloc(VAL_SIZE));
 
     Client::init(client_hostname, port);
-    Client client(id, KEY_SIZE, VAL_SIZE);
+    Client client(id, id, KEY_SIZE, VAL_SIZE);
     if (0 > client.connect(server_hostname, port, key_do_not_use))
         return -1;
 

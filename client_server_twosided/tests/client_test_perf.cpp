@@ -18,7 +18,8 @@ thread_local struct test_results *local_results;
 
 struct test_params {
     uint16_t port;
-    uint8_t id;
+    uint8_t client_id;
+    uint8_t erpc_id;
     size_t put_requests;
     size_t get_requests;
     size_t del_requests;
@@ -166,12 +167,6 @@ void issue_requests(Client *client) {
 #else
         struct timespec *time_now = nullptr;
 #endif
-        // Go easy on the server:
-        if (client->queue_full()) {
-            std::this_thread::sleep_for(chrono::microseconds(CLIENT_TIMEOUT));
-            client->run_event_loop_n_times(LOOP_ITERATIONS);
-        }
-
         if (puts_performed < local_params->put_requests) {
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
@@ -240,7 +235,7 @@ void test_thread(struct test_params *params, struct test_results *results,
     key_buf = static_cast<unsigned char *>(calloc(1, KEY_SIZE));
     value_buf = static_cast<unsigned char *>(malloc(VAL_SIZE));
     {
-        Client client{params->id, KEY_SIZE, VAL_SIZE};
+        Client client{params->erpc_id, params->client_id, KEY_SIZE, VAL_SIZE};
         if (!(key_buf && value_buf))
             goto end_test_thread;
 
@@ -248,11 +243,10 @@ void test_thread(struct test_params *params, struct test_results *results,
         local_results = results;
         if (0 > client.connect(
             *server_hostname, params->port, key_do_not_use)) {
-            cerr << "Thread " << params->id
+            cerr << "Thread " << params->erpc_id
                  << ": Failed to connect to server" << endl;
             return;
         }
-        srand(static_cast<unsigned int>(params->id));
 
         if (--countdown == 0) {
             (void) clock_gettime(CLOCK_MONOTONIC, &total_time_begin);
@@ -272,6 +266,7 @@ void fill_params_structs(struct test_params *params) {
     struct test_params default_params = {
             port,
             0,
+            0,
             PUTS_PER_CLIENT,
             GETS_PER_CLIENT,
             DELS_PER_CLIENT
@@ -279,7 +274,8 @@ void fill_params_structs(struct test_params *params) {
     for (uint8_t id = 0; id < NUM_CLIENTS; id++) {
         memcpy(static_cast<void *>(params + id), &default_params,
             sizeof(struct test_params));
-        params[id].id = id;
+        params[id].erpc_id = id % NUM_THREADS;
+        params[id].client_id = id / NUM_THREADS;
     }
 }
 
@@ -325,7 +321,8 @@ void print_summary(bool all, struct test_params *params,
             NUM_CLIENTS, LOOP_ITERATIONS);
     }
     else
-        printf("Thread %2i: \n", params->id);
+        printf("Thread (%2i, %2i): \n",
+            params->erpc_id, params->client_id);
 
     double buf = static_cast<double>(put_time) / static_cast<double>(valid_puts);
     printf("put:     %'zu/%'zu valid responses, %'zu of it failed\n"
@@ -492,6 +489,7 @@ void perform_tests(string& server_hostname) {
 
     struct test_params total_params = {
             port,
+            0,
             0,
             PUTS_PER_CLIENT * NUM_CLIENTS,
             GETS_PER_CLIENT * NUM_CLIENTS,

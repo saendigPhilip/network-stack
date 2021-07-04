@@ -13,7 +13,7 @@ namespace anchor_server {
 
     int host_server(
             const unsigned char *encryption_key,
-            uint8_t number_threads,
+            uint8_t number_threads, size_t number_clients,
             size_t max_entry_size, bool asynchronous,
             get_function get, put_function put, delete_function del);
 

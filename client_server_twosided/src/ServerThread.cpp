@@ -16,11 +16,11 @@
  *      starts working in the current thread
  */
 ServerThread::ServerThread(erpc::Nexus *nexus,
-        int erpc_id, size_t max_msg_size, bool asynchronous) {
-    this->client_id = erpc_id; // TODO: This is not secure. Find better solution
-    this->next_seq = 0;
-    this->stay_connected = true;
-
+        int erpc_id, size_t number_clients,
+        size_t max_msg_size, bool asynchronous) :
+        next_seq_numbers{number_clients, 0ul},
+        stay_connected{true}
+{
     if (asynchronous)
         this->running_thread = std::thread(
                 connect_and_work, this, nexus, erpc_id, max_msg_size);
@@ -63,25 +63,24 @@ void ServerThread::enqueue_response(erpc::ReqHandle *handle,
  * */
 bool ServerThread::is_seq_valid(uint64_t sequence_number) {
     uint8_t id = ID_FROM_SEQ_OP(sequence_number);
-    if (unlikely(id != this->client_id)) {
-        cerr << "Invalid Client ID" << endl;
+    if (id >= this->next_seq_numbers.size()) {
+        std::cerr << "Invalid Client ID: " << id << std::endl;
         return false;
     }
-    if (unlikely(this->next_seq == 0)) {
-        this->next_seq = sequence_number & SEQ_MASK;
-        return true;
-    }
-    auto seq_diff = static_cast<ssize_t>(SEQ_FROM_SEQ_OP(
-        (sequence_number & SEQ_MASK) - this->next_seq));
 
-    if (likely(seq_diff < SEQ_THRESHOLD && seq_diff > -SEQ_THRESHOLD)) {
-        if (seq_diff > 0)
-            this->next_seq = sequence_number & SEQ_MASK;
+    uint64_t expected_seq = this->next_seq_numbers[id];
+
+    sequence_number &= (SEQ_MASK | ID_MASK);
+    if (unlikely(expected_seq == 0)) {
+        this->next_seq_numbers[id] = sequence_number;
         return true;
     }
-    else {
+
+    if (likely(expected_seq == sequence_number)) {
+        return true;
+    } else {
         fprintf(stderr, "Expected: %lx, Got: %lx\n",
-                this->next_seq, sequence_number & SEQ_MASK);
+            expected_seq, sequence_number);
         return false;
     }
 }
@@ -92,8 +91,9 @@ bool ServerThread::is_seq_valid(uint64_t sequence_number) {
  * Should only be called with already checked sequence numbers
  */
 uint64_t ServerThread::get_next_seq(uint64_t sequence_number, uint8_t operation) {
+    sequence_number &= (SEQ_MASK | ID_MASK);
     uint64_t ret = NEXT_SEQ(sequence_number);
-    this->next_seq = NEXT_SEQ(ret & SEQ_MASK);
+    this->next_seq_numbers[ID_FROM_SEQ_OP(sequence_number)] = NEXT_SEQ(ret);
     return SET_OP(ret, operation);
 }
 

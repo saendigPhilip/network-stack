@@ -49,7 +49,7 @@ void anchor_server::terminate() {
  *
  * @param encryption_key Network key to use for en-/decryption of the messages
  * @param number_threads Number of threads that are spawned at the beginning
- *          Limits the number of clients
+ * @param number_clients Number of clients that are accepted in total
  * @param max_entry_size Size of biggest key-value-pair in the KV-store
  * @param asynchronous If true, the method terminates when the last spawned
  *          thread has terminated. Other threads may still run after termination
@@ -62,9 +62,13 @@ void anchor_server::terminate() {
  */
 int anchor_server::host_server(
         const unsigned char *encryption_key,
-        uint8_t number_threads,
+        uint8_t number_threads, size_t number_clients,
         size_t max_entry_size, bool asynchronous,
         get_function get, put_function put, delete_function del) {
+
+    assert(number_threads > 0);
+    assert(number_clients > 0);
+    assert(number_clients >= number_threads);
 
     max_msg_size = CIPHERTEXT_SIZE(max_entry_size);
     if (max_msg_size > erpc::Rpc<erpc::CTransport>::kMaxMsgSize) {
@@ -88,13 +92,25 @@ int anchor_server::host_server(
     kv_put = put;
     kv_delete = del;
 
+    size_t clients_per_thread = (number_clients / number_threads) + 1;
+    size_t additional_clients = number_clients % number_threads;
+
     if (!asynchronous)
         number_threads--;
     for (uint8_t id = 0; id < number_threads; id++) {
-        threads->push_back(new ServerThread(nexus, id, max_msg_size));
+        if (id == additional_clients)
+            --clients_per_thread;
+
+        threads->push_back(
+            new ServerThread(nexus, id, number_clients, max_msg_size));
     }
-    if (!asynchronous)
-        ServerThread thread(nexus, number_threads, max_msg_size, false);
+    if (!asynchronous) {
+        if (number_threads == additional_clients)
+            --clients_per_thread;
+
+        ServerThread thread(
+            nexus, number_threads, clients_per_thread, max_msg_size, false);
+    }
 
     return 0;
 }

@@ -54,16 +54,15 @@ int global_test_params::parse_args(int argc, const char **argv) {
             case 's':
                 STRTOUI(max_key_size, "Maximum key size");
                 break;
+            case 't':
+                STRTOUL(num_threads, "Number of server threads");
+                break;
             case 'n':
                 STRTOUI8(num_clients, "Number of clients");
                 break;
             case 'i':
                 STRTOUL(event_loop_iterations,
                     "Number of event loop iterations");
-                break;
-            case 't':
-                STRTOUL(client_timeout_us,
-                    "Client timeout in case of server overload");
                 break;
             case 'p':
                 STRTOUL(puts_per_client, "Number of puts per client");
@@ -90,9 +89,9 @@ void global_test_params::print_options() {
     std::cout << "\t[-k <key size>]\n"
                  "\t[-v <value size>]\n"
                  "\t[-s <Maximum Key size>]\n"
+                 "\t[-t <number of server threads>]\n"
                  "\t[-n <number clients>]\n"
                  "\t[-i <number of client event loop iterations>]\n"
-                 "\t[-t <client timeout on server overload in us>]"
                  "\t[-p <number of put operations per client>]\n"
                  "\t[-g <number of get operations per client>]\n"
                  "\t[-d <number of delete operations per client>]\n"

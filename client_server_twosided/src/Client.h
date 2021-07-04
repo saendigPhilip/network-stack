@@ -13,14 +13,14 @@ class Client {
 private:
 
     /* eRPC session number */
-    int session_nr;
-    uint8_t erpc_id;
+    int sessionNr;
+    uint8_t erpcId;
     /* This is always the next sequence number that the Client sends */
-    erpc::Rpc<erpc::CTransport> client_rpc;
+    erpc::Rpc<erpc::CTransport> clientRpc;
     PendingRequestQueue queue;
 
-    size_t max_key_size;
-    size_t max_val_size;
+    size_t maxKeySize;
+    size_t maxValSize;
 
     void send_message(msg_tag_t *tag, size_t loop_iterations);
 
@@ -34,7 +34,8 @@ public:
     static void terminate();
 
 
-    Client(uint8_t id, size_t max_key_size, size_t max_val_size);
+    Client(uint8_t erpc_id, uint8_t client_id,
+        size_t max_key_size, size_t max_val_size);
     ~Client();
 
     int connect(std::string& server_hostname,
