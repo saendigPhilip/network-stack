@@ -87,7 +87,8 @@ int Client::connect(std::string& server_hostname,
  * thread and eRPC object for this client
  */
 void Client::send_disconnect_message() {
-    msg_tag_t *tag = queue.prepare_new_request(RDMA_ERR, nullptr, nullptr);
+    msg_tag_t *tag = queue.prepare_new_request(
+        this->clientRpc, RDMA_ERR, nullptr, nullptr);
     tag->header.key_len = 0;
     struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
 
@@ -160,7 +161,7 @@ int Client::get(const void *key, size_t key_len,
     assert(this->sessionNr >= 0);
     assert(key_len <= this->maxKeySize);
 
-    msg_tag_t *tag = this->queue.prepare_new_request(
+    msg_tag_t *tag = this->queue.prepare_new_request(this->clientRpc,
         RDMA_GET, user_tag, callback, value_len);
 
     int ret = -1;
@@ -211,7 +212,7 @@ int Client::put(const void *key, size_t key_len,
     assert(key_len <= this->maxKeySize);
     assert(value_len <= this->maxValSize);
 
-    msg_tag_t *tag = this->queue.prepare_new_request(
+    msg_tag_t *tag = this->queue.prepare_new_request(this->clientRpc,
         RDMA_PUT, user_tag, callback);
 
     tag->header.key_len = key_len;
@@ -257,7 +258,7 @@ int Client::del(const void *key, size_t key_len,
     assert(sessionNr >= 0);
     assert(key_len <= maxKeySize);
 
-    msg_tag_t *tag = this->queue.prepare_new_request(
+    msg_tag_t *tag = this->queue.prepare_new_request(this->clientRpc,
         RDMA_DELETE, user_tag, callback);
 
     tag->header.key_len = key_len;
