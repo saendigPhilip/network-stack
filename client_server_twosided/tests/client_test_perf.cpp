@@ -166,9 +166,7 @@ void issue_requests(Client *client) {
 #else
         struct timespec *time_now = nullptr;
 #endif
-        // Go easy on the server:
-        if (client->queue_full()) {
-            std::this_thread::sleep_for(chrono::microseconds(CLIENT_TIMEOUT));
+        while (client->queue_full()) {
             client->run_event_loop_n_times(LOOP_ITERATIONS);
         }
 
@@ -216,7 +214,7 @@ void issue_requests(Client *client) {
         local_params->del_requests;
 
     // Run event loop if there are requests without responses
-    for (size_t i = 0; i < 8 && (
+    for (size_t i = 0; i < 16 && (
         local_results->failed_puts + local_results->successful_puts
     + local_results->failed_gets + local_results->successful_gets
     + local_results->failed_deletes + local_results->successful_deletes

@@ -30,7 +30,11 @@ using namespace std;
 
 static constexpr uint8_t DEFAULT_REQ_TYPE = 2;
 
-static constexpr size_t ITER_BEFORE_TERMINATION = 10000;
+#ifdef SCONE
+static constexpr size_t ITER_BEFORE_TERMINATION = 10;
+#else
+static constexpr size_t ITER_BEFORE_TERMINATION = 100;
+#endif
 
 static constexpr uint8_t RDMA_GET = 0b00;
 static constexpr uint8_t RDMA_PUT = 0b01;
