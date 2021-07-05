@@ -18,8 +18,8 @@ thread_local struct test_results *local_results;
 
 struct test_params {
     uint16_t port;
-    uint8_t client_id;
     uint8_t erpc_id;
+    uint8_t client_id;
     size_t put_requests;
     size_t get_requests;
     size_t del_requests;
@@ -498,13 +498,11 @@ void perform_tests(string& server_hostname) {
     auto params = static_cast<struct test_params *>(
             malloc(NUM_CLIENTS * sizeof(struct test_params)));
 
-    size_t results_size = NUM_CLIENTS * sizeof(struct test_results);
     auto results = static_cast<struct test_results *>(
-            malloc(results_size));
+            calloc(NUM_CLIENTS, sizeof(struct test_results)));
 
     assert(params != nullptr && results != nullptr);
     fill_params_structs(params);
-    memset(results, 0, results_size);
 
     vector<thread *> threads;
     /* Launch requester threads: */

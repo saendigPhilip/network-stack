@@ -13,6 +13,8 @@ class ServerThread {
 private:
     erpc::Rpc<erpc::CTransport> *rpc_host;
 
+    size_t connected_clients;
+
     /// Contains the next expected sequence number for each client
     /// Client with ID i is at index i
     std::vector<uint64_t> next_seq_numbers;

@@ -18,6 +18,7 @@
 ServerThread::ServerThread(erpc::Nexus *nexus,
         int erpc_id, size_t number_clients,
         size_t max_msg_size, bool asynchronous) :
+        connected_clients{number_clients},
         next_seq_numbers{number_clients, 0ul},
         stay_connected{true}
 {
@@ -102,5 +103,7 @@ void ServerThread::join() {
 }
 
 void ServerThread::terminate() {
-    this->stay_connected = false;
+    --connected_clients;
+    if (connected_clients <= 0)
+        this->stay_connected = false;
 }
