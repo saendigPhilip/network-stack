@@ -102,7 +102,7 @@ int anchor_server::host_server(
             --clients_per_thread;
 
         threads->push_back(
-            new ServerThread(nexus, id, number_clients, max_msg_size));
+            new ServerThread(nexus, id, clients_per_thread, max_msg_size));
     }
     if (!asynchronous) {
         if (number_threads == additional_clients)
