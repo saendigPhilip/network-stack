@@ -166,10 +166,6 @@ void issue_requests(Client *client) {
 #else
         struct timespec *time_now = nullptr;
 #endif
-        while (client->queue_full()) {
-            client->run_event_loop_n_times(LOOP_ITERATIONS);
-        }
-
         if (puts_performed < local_params->put_requests) {
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);

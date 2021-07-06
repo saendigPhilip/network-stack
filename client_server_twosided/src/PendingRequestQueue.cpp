@@ -69,12 +69,13 @@ void PendingRequestQueue::free_req_buffers(erpc::Rpc<erpc::CTransport>& rpc) {
  * @return A pointer to a message tag that was filled as described before
  */
 msg_tag_t *PendingRequestQueue::prepare_new_request(
+    erpc::Rpc<erpc::CTransport>& client_rpc,
     uint8_t op, const void *user_tag, status_callback cb, size_t *value_size) {
 
     size_t index = ACCEPTED_INDEX(this->current_seq_op);
     msg_tag_t *ret = this->queue + index;
-    if (unlikely(ret->valid)) {
-        ret->invalidate(ret_val::TIMEOUT);
+    while (unlikely(ret->valid)) {
+        client_rpc.run_event_loop_once();
     }
 
     // Fill the struct with the provided values:

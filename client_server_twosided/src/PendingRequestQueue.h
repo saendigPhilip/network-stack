@@ -29,7 +29,9 @@ public:
 
     void free_req_buffers(erpc::Rpc<erpc::CTransport>& rpc);
 
-    msg_tag_t *prepare_new_request(uint8_t op, const void *user_tag,
+    msg_tag_t *prepare_new_request(
+        erpc::Rpc<erpc::CTransport>& client_rpc,
+        uint8_t op, const void *user_tag,
         status_callback cb, size_t *value_size=nullptr);
 
     void message_arrived(enum ret_val ret, uint64_t seq_op);
