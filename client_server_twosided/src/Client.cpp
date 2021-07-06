@@ -50,8 +50,8 @@ Client::Client(uint8_t id,
 }
 
 Client::~Client() {
-    this->queue.free_req_buffers(this->client_rpc);
     (void) disconnect();
+    this->queue.free_req_buffers(this->client_rpc);
 }
 
 
@@ -110,14 +110,15 @@ err_send_disconnect_message:
  * Ends a session with a server
  * @return 0 on success, negative errno if the session can't be disconnected
  */
-int Client::disconnect() {
+void Client::disconnect() {
     if (this->client_rpc.is_connected(session_nr)) {
         send_disconnect_message();
-        int ret = client_rpc.destroy_session(session_nr);
+        for (int i = 0; i < 8 && client_rpc.destroy_session(session_nr); i++) {
+            this->client_rpc.run_event_loop_once();
+        }
+
         this->queue.invalidate_all_requests();
-        return ret;
     }
-    return 0;
 }
 
 /**

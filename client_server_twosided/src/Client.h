@@ -40,7 +40,7 @@ public:
     int connect(std::string& server_hostname,
             unsigned int udp_port, const unsigned char *encryption_key);
 
-    int disconnect();
+    void disconnect();
 
     int get(const void *key, size_t key_len,
             void *value, size_t *value_len,
