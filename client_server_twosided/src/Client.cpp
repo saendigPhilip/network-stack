@@ -333,7 +333,7 @@ void Client::decrypt_cont_func(void *context, void *message_tag) {
     ret = ret_val::OP_SUCCESS;
 
 end_decrypt_cont_func:
-    client->queue.message_arrived(ret, tag->header.seq_op);
+    client->queue.message_arrived(ret, incoming_header.seq_op);
 }
 
 
