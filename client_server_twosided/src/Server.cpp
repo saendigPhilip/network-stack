@@ -139,10 +139,6 @@ void send_encrypted_response(erpc::ReqHandle *req_handle, ServerThread *st,
     resp_buffer = &(req_handle->pre_resp_msgbuf);
     erpc::Rpc<erpc::CTransport>::resize_msg_buffer(resp_buffer, ciphertext_size);
     ciphertext = (unsigned char *) resp_buffer->buf;
-    if (unlikely(!ciphertext)) {
-        cerr << "Memory Allocation failure" << endl;
-        return;
-    }
 
     if (unlikely(0 != encrypt_message(header, payload, &ciphertext))) {
         cerr << "Failed to encrypt message" << endl;
