@@ -93,6 +93,10 @@ msg_tag_t *PendingRequestQueue::prepare_new_request(
  * @param seq_op
  */
 void PendingRequestQueue::message_arrived(enum ret_val ret, uint64_t seq_op) {
+    // In case of a disconnect response or something similar:
+    if (ret == ret_val::INVALID_RESPONSE)
+        return;
+
     size_t index = ACCEPTED_INDEX(PREV_SEQ(seq_op));
     msg_tag_t& tag = this->queue[index];
     /* If this is an expired answer to a request or a replay, we're done */
