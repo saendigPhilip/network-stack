@@ -2,10 +2,17 @@
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <cstring>
+#include <common.h>
 
 #include "client_server_common.h"
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+
+unsigned char iv[IV_LEN];
+
+inline void next_iv() {
+    ((uint64_t *) iv)[0] += 1;
+}
 
 const unsigned char *enc_key = nullptr;
 
@@ -98,10 +105,17 @@ int encrypt_message(
         goto end_encrypt;
     }
 
-    if (1 != RAND_bytes(ciphertext_pos, IV_LEN)) {
-        cerr << "encrypt_message: Could not generate IV" << endl;
-        goto end_encrypt;
+    // Initially generate a true random IV
+    if (unlikely(((uint64_t *) iv)[0] == 0)) {
+        if (1 != RAND_bytes(iv, IV_LEN)) {
+            cerr << "encrypt_message: Could not generate IV" << endl;
+            goto end_encrypt;
+        }
     }
+    // Then, increment the IV to save the overhead of RAND_bytes
+    // especially for SCONE
+    next_iv();
+    memcpy(ciphertext_pos, iv, IV_LEN);
 
     /* Initialize Encryption, set position of IV: */
     if (1 != EVP_EncryptInit_ex(aes_ctx,
