@@ -8,7 +8,6 @@
 #include "client_server_common.h"
 #include "PendingRequestQueue.h"
 
-
 class Client {
 private:
 
@@ -28,6 +27,8 @@ private:
 
     void send_disconnect_message();
 
+    friend void disconnect_callback(enum ret_val, const void *);
+
 public:
 
     static void init(std::string& client_hostname, uint16_t udp_port);
@@ -39,6 +40,8 @@ public:
 
     int connect(std::string& server_hostname,
             unsigned int udp_port, const unsigned char *encryption_key);
+
+    void prepare_disconnect();
 
     void disconnect();
 

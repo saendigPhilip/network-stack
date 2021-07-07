@@ -4,6 +4,12 @@
 #include "client_server_common.h"
 erpc::Nexus *nexus = nullptr;
 
+thread_local bool connected;
+
+
+void disconnect_callback(enum ret_val, const void *) {
+    connected = false;
+}
 
 void empty_sm_handler(int, erpc::SmEventType, erpc::SmErrType, void *) {
 
@@ -78,6 +84,7 @@ int Client::connect(std::string& server_hostname,
     while(!client_rpc.is_connected(session_nr))
         client_rpc.run_event_loop_once();
 
+    connected = true;
     return session_nr;
 }
 
@@ -106,6 +113,13 @@ err_send_disconnect_message:
     tag->valid = false;
 }
 
+void Client::prepare_disconnect() {
+    for (size_t i = 0; i < MAX_ACCEPTED_RESPONSES && connected; i++) {
+        send_disconnect_message();
+    }
+}
+
+
 /**
  * Ends a session with a server
  * @return 0 on success, negative errno if the session can't be disconnected
@@ -113,10 +127,7 @@ err_send_disconnect_message:
 void Client::disconnect() {
     if (this->client_rpc.is_connected(session_nr)) {
         send_disconnect_message();
-        for (int i = 0; i < 8 && client_rpc.destroy_session(session_nr); i++) {
-            this->client_rpc.run_event_loop_once();
-        }
-
+        (void) client_rpc.destroy_session(session_nr);
         this->queue.invalidate_all_requests();
     }
 }
