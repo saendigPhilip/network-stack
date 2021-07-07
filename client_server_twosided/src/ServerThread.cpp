@@ -71,11 +71,11 @@ bool ServerThread::is_seq_valid(uint64_t sequence_number) {
         this->next_seq = sequence_number & SEQ_MASK;
         return true;
     }
-    auto seq_diff = static_cast<ssize_t>(SEQ_FROM_SEQ_OP(
-        (sequence_number & SEQ_MASK) - this->next_seq));
+    auto seq_diff = std::abs(static_cast<ssize_t>(SEQ_FROM_SEQ_OP(
+        sequence_number & SEQ_MASK) - SEQ_FROM_SEQ_OP(this->next_seq)));
 
-    if (likely(seq_diff < SEQ_THRESHOLD && seq_diff > -SEQ_THRESHOLD)) {
-        if (seq_diff > 0)
+    if (likely(seq_diff < (SEQ_THRESHOLD * 2))) {
+        if (likely(seq_diff > 0))
             this->next_seq = sequence_number & SEQ_MASK;
         return true;
     }
