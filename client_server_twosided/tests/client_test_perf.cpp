@@ -209,6 +209,7 @@ void issue_requests(Client *client) {
     size_t total_ops = local_params->put_requests + local_params->get_requests +
         local_params->del_requests;
 
+    client->prepare_disconnect();
     // Run event loop if there are requests without responses
     for (size_t i = 0; i < 100'000 && (
         local_results->failed_puts + local_results->successful_puts

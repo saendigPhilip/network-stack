@@ -95,7 +95,7 @@ int Client::connect(std::string& server_hostname,
  */
 void Client::send_disconnect_message() {
     msg_tag_t *tag = queue.prepare_new_request(
-        this->client_rpc, RDMA_ERR, nullptr, nullptr);
+        this->client_rpc, RDMA_ERR, nullptr, disconnect_callback);
     tag->header.key_len = 0;
     struct rdma_enc_payload payload = { nullptr, nullptr, 0 };
 
