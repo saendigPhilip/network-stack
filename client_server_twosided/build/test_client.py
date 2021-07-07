@@ -8,7 +8,7 @@ import time
 
 def run_single_test(key_size, value_size, max_key_size, threads,
                     puts, gets, deletes,
-                    iterations, timeout,
+                    iterations,
                     csv_path):
 
     server.send("{},{},{}"
@@ -18,11 +18,11 @@ def run_single_test(key_size, value_size, max_key_size, threads,
     time.sleep(2)
 
     command = "./client_perf_test"
-    params = " {} {} -k {} -v {} -s {} -n {} -p {} -g {} -d {} -i {} -t {} -f {}"\
+    params = " {} {} -k {} -v {} -s {} -n {} -p {} -g {} -d {} -i {} -f {}"\
         .format(args.client_ip, args.server_ip,
                 key_size, value_size, max_key_size, threads,
                 puts, gets, deletes,
-                iterations, timeout,
+                iterations,
                 csv_path)
 
     print("Executing " + command + params)
@@ -35,7 +35,7 @@ def network_performance_test(size_list):
     for size in size_list:
         run_single_test(size, size, args.s, args.n,
                         0, args.g, 0,
-                        args.i, args.t,
+                        args.i,
                         "network_test.csv")
 
 
@@ -47,17 +47,17 @@ def different_threads_test(threads_list):
         deletes = args.d * args.n // num_threads
         run_single_test(args.k, args.v, args.s, num_threads,
                         puts, 0, 0,
-                        args.i, args.t,
+                        args.i,
                         "threads_test.csv")
 
         run_single_test(args.k, args.v, args.s, num_threads,
                         0, gets, 0,
-                        args.i, args.t,
+                        args.i,
                         "threads_test.csv")
 
         run_single_test(args.k, args.v, args.s, num_threads,
                         0, 0, deletes,
-                        args.i, args.t,
+                        args.i,
                         "threads_test.csv")
 
 
@@ -66,38 +66,20 @@ def different_sizes_test(size_list):
     # The value size doesn't play a role:
     run_single_test(args.k, args.v, args.s, args.n,
                     0, 0, args.d,
-                    args.i, args.t,
+                    args.i,
                     "sizes_test.csv")
 
     for size in size_list:
         # Run the test once for put and get:
         run_single_test(args.k, size, args.s, args.n,
                         args.p, 0, 0,
-                        args.i, args.t,
+                        args.i,
                         "sizes_test.csv")
 
         run_single_test(args.k, size, args.s, args.n,
                         0, args.g, 0,
-                        args.i, args.t,
+                        args.i,
                         "sizes_test.csv")
-
-
-def different_loops_test(loops_list):
-    for loop_num in loops_list:
-        run_single_test(args.k, args.v, args.s, args.n,
-                        args.p, 0, 0,
-                        loop_num, args.t,
-                        "loops_test.csv")
-
-        run_single_test(args.k, args.v, args.s, args.n,
-                        0, args.g, 0,
-                        loop_num, args.t,
-                        "loops_test.csv")
-
-        run_single_test(args.k, args.v, args.s, args.n,
-                        0, 0, args.d,
-                        loop_num, args.t,
-                        "loops_test.csv")
 
 
 parser = argparse.ArgumentParser()
@@ -107,7 +89,6 @@ parser.add_argument("-k", type=int, help="key size")
 parser.add_argument("-v", type=int, help="value size")
 parser.add_argument("-s", type=int, help="maximum key size")
 parser.add_argument("-n", type=int, help="number of threads/clients")
-parser.add_argument("-t", type=int, help="client timeout on server overload in us")
 parser.add_argument("-i", type=int, help="client event loop iterations")
 parser.add_argument("-p", type=int, help="number of put operations per client")
 parser.add_argument("-g", type=int, help="number of get operations per client")
@@ -119,8 +100,6 @@ print("Client ip: {}. Server ip: {}".format(args.client_ip, args.server_ip))
 
 server = socket.socket()
 server.connect((args.server_ip, 31849))
-
-different_loops_test([256, 512, 768, 1024])
 
 network_performance_test([256, 512, 1024, 2048, 4096])
 

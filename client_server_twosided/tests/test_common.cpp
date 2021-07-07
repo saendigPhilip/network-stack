@@ -61,10 +61,6 @@ int global_test_params::parse_args(int argc, const char **argv) {
                 STRTOUL(event_loop_iterations,
                     "Number of event loop iterations");
                 break;
-            case 't':
-                STRTOUL(client_timeout_us,
-                    "Client timeout in case of server overload");
-                break;
             case 'p':
                 STRTOUL(puts_per_client, "Number of puts per client");
                 break;
