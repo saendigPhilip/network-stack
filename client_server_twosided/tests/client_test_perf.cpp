@@ -210,7 +210,7 @@ void issue_requests(Client *client) {
         local_params->del_requests;
 
     // Run event loop if there are requests without responses
-    for (size_t i = 0; i < 16 && (
+    for (size_t i = 0; i < 100'000 && (
         local_results->failed_puts + local_results->successful_puts
     + local_results->failed_gets + local_results->successful_gets
     + local_results->failed_deletes + local_results->successful_deletes
