@@ -43,18 +43,20 @@ def different_threads_test(threads_list):
     for num_threads in threads_list:
         # Run separate put, get and delete tests:
         puts = args.p * args.n // num_threads
-        gets = args.g * args.n // num_threads
-        deletes = args.d * args.n // num_threads
         run_single_test(args.k, args.v, args.s, num_threads,
                         puts, 0, 0,
                         args.i,
                         "threads_test.csv")
 
+    for num_threads in threads_list:
+        gets = args.g * args.n // num_threads
         run_single_test(args.k, args.v, args.s, num_threads,
                         0, gets, 0,
                         args.i,
                         "threads_test.csv")
 
+    for num_threads in threads_list:
+        deletes = args.d * args.n // num_threads
         run_single_test(args.k, args.v, args.s, num_threads,
                         0, 0, deletes,
                         args.i,
@@ -62,12 +64,6 @@ def different_threads_test(threads_list):
 
 
 def different_sizes_test(size_list):
-    # For delete, only a single test makes sense
-    # The value size doesn't play a role:
-    run_single_test(args.k, args.v, args.s, args.n,
-                    0, 0, args.d,
-                    args.i,
-                    "sizes_test.csv")
 
     for size in size_list:
         # Run the test once for put and get:
@@ -76,10 +72,18 @@ def different_sizes_test(size_list):
                         args.i,
                         "sizes_test.csv")
 
+    for size in size_list:
         run_single_test(args.k, size, args.s, args.n,
                         0, args.g, 0,
                         args.i,
                         "sizes_test.csv")
+
+    # For delete, only a single test makes sense
+    # The value size doesn't play a role:
+    run_single_test(args.k, args.v, args.s, args.n,
+                    0, 0, args.d,
+                    args.i,
+                    "sizes_test.csv")
 
 
 parser = argparse.ArgumentParser()
