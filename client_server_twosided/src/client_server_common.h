@@ -31,9 +31,9 @@ using namespace std;
 static constexpr uint8_t DEFAULT_REQ_TYPE = 2;
 
 #ifdef SCONE
-static constexpr size_t ITER_BEFORE_TERMINATION = 10;
+static constexpr size_t MAX_PENDING_REQUESTS = 1024;
 #else
-static constexpr size_t ITER_BEFORE_TERMINATION = 100;
+static constexpr size_t MAX_PENDING_REQUESTS = 1024;
 #endif
 
 static constexpr uint8_t RDMA_GET = 0b00;

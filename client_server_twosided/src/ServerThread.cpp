@@ -45,7 +45,7 @@ void ServerThread::connect_and_work(ServerThread *st,
 
     while (likely(st->stay_connected))
         st->rpc_host->run_event_loop_once();
-    for (size_t i = 0; i < ITER_BEFORE_TERMINATION; i++)
+    for (size_t i = 0; i < MAX_PENDING_REQUESTS; i++)
         st->rpc_host->run_event_loop_once();
     delete st->rpc_host;
 }

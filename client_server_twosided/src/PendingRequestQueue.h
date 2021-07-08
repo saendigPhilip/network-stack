@@ -9,11 +9,7 @@
 #include "client_server_common.h"
 #include "sent_message_tag.h"
 
-#ifdef SCONE
-static constexpr size_t MAX_ACCEPTED_RESPONSES = 16;
-#else
-static constexpr size_t MAX_ACCEPTED_RESPONSES = 1024;
-#endif // SCONE
+static constexpr size_t MAX_ACCEPTED_RESPONSES = MAX_PENDING_REQUESTS;
 
 class PendingRequestQueue {
 private:
