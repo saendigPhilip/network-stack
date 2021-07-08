@@ -74,7 +74,7 @@ msg_tag_t *PendingRequestQueue::prepare_new_request(
 
     size_t index = ACCEPTED_INDEX(this->current_seq_op);
     msg_tag_t *ret = this->queue + index;
-    while (unlikely(ret->valid)) {
+    while (likely(ret->valid)) {
         client_rpc.run_event_loop_once();
     }
 
@@ -97,7 +97,7 @@ void PendingRequestQueue::message_arrived(enum ret_val ret, uint64_t seq_op) {
     msg_tag_t& tag = this->queue[index];
     /* If this is an expired answer to a request or a replay, we're done */
     if (unlikely(!tag.valid)) {
-        cerr << "Expired message arrived" << endl;
+        // cerr << "Expired message arrived" << endl;
         return;
     }
 
