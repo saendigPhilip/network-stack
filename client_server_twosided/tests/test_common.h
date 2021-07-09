@@ -12,9 +12,9 @@
 #define MAX_KEY global_params.max_key_size
 #define NUM_CLIENTS global_params.num_clients
 #define LOOP_ITERATIONS global_params.event_loop_iterations
-#define PUTS_PER_CLIENT global_params.puts_per_client
-#define GETS_PER_CLIENT global_params.gets_per_client
-#define DELS_PER_CLIENT global_params.dels_per_client
+#define TOTAL_PUTS global_params.total_puts
+#define TOTAL_GETS global_params.total_gets
+#define TOTAL_DELS global_params.total_dels
 #define PATH_CSV global_params.path_csv
 
 
@@ -24,9 +24,9 @@ struct global_test_params {
     uint32_t max_key_size{0};
     uint8_t num_clients{1};
     size_t event_loop_iterations{1};
-    size_t puts_per_client{1 << 12};
-    size_t gets_per_client{1 << 12};
-    size_t dels_per_client{1 << 12};
+    size_t total_puts{1 << 12};
+    size_t total_gets{1 << 12};
+    size_t total_dels{1 << 12};
     const char *path_csv{nullptr};
 
     int parse_args(int argc, const char *argv[]);

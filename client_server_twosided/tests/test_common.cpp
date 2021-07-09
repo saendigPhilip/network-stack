@@ -62,13 +62,13 @@ int global_test_params::parse_args(int argc, const char **argv) {
                     "Number of event loop iterations");
                 break;
             case 'p':
-                STRTOUL(puts_per_client, "Number of puts per client");
+                STRTOUL(total_puts, "Number of puts per client");
                 break;
             case 'g':
-                STRTOUL(gets_per_client, "Number of gets per client");
+                STRTOUL(total_gets, "Number of gets per client");
                 break;
             case 'd':
-                STRTOUL(dels_per_client, "Number of deletes per client");
+                STRTOUL(total_dels, "Number of deletes per client");
                 break;
             case 'f':
                 global_params.path_csv = argv[++i];
@@ -88,10 +88,9 @@ void global_test_params::print_options() {
                  "\t[-s <Maximum Key size>]\n"
                  "\t[-n <number clients>]\n"
                  "\t[-i <number of client event loop iterations>]\n"
-                 "\t[-t <client timeout on server overload in us>]"
-                 "\t[-p <number of put operations per client>]\n"
-                 "\t[-g <number of get operations per client>]\n"
-                 "\t[-d <number of delete operations per client>]\n"
+                 "\t[-p <total number of put operations>]\n"
+                 "\t[-g <total number of get operations>]\n"
+                 "\t[-d <total number of delete operations>]\n"
                  "\t[-f <csv filename>]\n"
                  << std::endl;
 }

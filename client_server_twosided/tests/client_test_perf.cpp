@@ -1,26 +1,22 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
-//#include <ctime>
 #include <random>
 #include "Client.h"
 #include "test_common.h"
 
 std::atomic_uint8_t countdown;
+std::atomic_size_t global_puts{0}, global_gets{0}, global_dels{0};
 uint16_t port = 31850;
 struct timespec total_time_begin, total_time_end;
 
 thread_local unsigned char *value_buf;
 thread_local unsigned char *key_buf;
-thread_local struct test_params *local_params;
 thread_local struct test_results *local_results;
 
 struct test_params {
     uint16_t port;
     uint8_t id;
-    size_t put_requests;
-    size_t get_requests;
-    size_t del_requests;
 };
 
 struct test_results {
@@ -165,7 +161,7 @@ void issue_requests(Client *client) {
 #else
         struct timespec *time_now = nullptr;
 #endif
-        if (puts_performed < local_params->put_requests) {
+        if (++global_puts <= TOTAL_PUTS) {
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
 #endif
@@ -178,7 +174,7 @@ void issue_requests(Client *client) {
             } else
                 puts_performed++;
         }
-        else if (gets_performed < local_params->get_requests) {
+        else if (++global_gets <= TOTAL_GETS) {
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
 #endif
@@ -191,7 +187,7 @@ void issue_requests(Client *client) {
             } else
                 gets_performed++;
         }
-        else if (deletes_performed < local_params->del_requests) {
+        else if (++global_dels < TOTAL_DELS) {
 #if MEASURE_LATENCY
             (void) clock_gettime(CLOCK_MONOTONIC, time_now);
 #endif
@@ -205,8 +201,7 @@ void issue_requests(Client *client) {
             break;
     }
 
-    size_t total_ops = local_params->put_requests + local_params->get_requests +
-        local_params->del_requests;
+    size_t total_ops = global_puts + global_gets + global_dels;
 
     client->prepare_disconnect();
     // Run event loop if there are requests without responses
@@ -238,7 +233,6 @@ void test_thread(struct test_params *params, struct test_results *results,
         if (!(key_buf && value_buf))
             goto end_test_thread;
 
-        local_params = params;
         local_results = results;
         if (0 > client.connect(
             *server_hostname, params->port, key_do_not_use)) {
@@ -264,11 +258,8 @@ end_test_thread:
 
 void fill_params_structs(struct test_params *params) {
     struct test_params default_params = {
-            port,
-            0,
-            PUTS_PER_CLIENT,
-            GETS_PER_CLIENT,
-            DELS_PER_CLIENT
+        port,
+        0
     };
     for (uint8_t id = 0; id < NUM_CLIENTS; id++) {
         memcpy(static_cast<void *>(params + id), &default_params,
@@ -296,9 +287,6 @@ void add_result_to_final(
 void print_summary(bool all, struct test_params *params,
     struct test_results *result) {
 
-    size_t total_puts = params->put_requests;
-    size_t total_gets = params->get_requests;
-    size_t total_dels = params->del_requests;
     size_t suc_puts = result->successful_puts;
     size_t valid_puts = suc_puts + result->failed_puts;
     uint64_t put_time = result->put_time;
@@ -324,19 +312,19 @@ void print_summary(bool all, struct test_params *params,
     double buf = static_cast<double>(put_time) / static_cast<double>(valid_puts);
     printf("put:     %'zu/%'zu valid responses, %'zu of it failed\n"
            "Total time: %'lu ns, time/put: %f ns (%f us)\n\n",
-        valid_puts, total_puts, result->failed_puts,
+        valid_puts, TOTAL_PUTS, result->failed_puts,
         put_time, buf, buf / 1000.0);
 
     buf = static_cast<double>(get_time) / static_cast<double>(valid_gets);
     printf("get:     %'zu/%'zu valid responses, %'zu of it failed\n"
            "Total time: %'lu ns, time/get: %f ns (%f us)\n\n",
-        valid_gets, total_gets, result->failed_gets,
+        valid_gets, TOTAL_GETS, result->failed_gets,
         get_time, buf, buf / 1000.0);
 
     buf = static_cast<double>(del_time) / static_cast<double>(valid_dels);
     printf("delete:  %'zu/%'zu valid responses, %'zu of it failed\n"
            "Total time: %'lu ns, time/delete: %f ns (%f us)\n\n",
-        valid_dels, total_dels, result->failed_deletes,
+        valid_dels, TOTAL_DELS, result->failed_deletes,
         del_time, buf, buf / 1000.0);
 
 
@@ -344,6 +332,9 @@ void print_summary(bool all, struct test_params *params,
     size_t valid_total = valid_puts + valid_gets + valid_dels;
     printf("Total time: %'lu ns, time/operation: %f ns\n", total_time,
         static_cast<double>(total_time) / static_cast<double>(valid_total));
+    printf("Operations per second: %f\n",
+        static_cast<double>(1'000'000 * valid_total) /
+        static_cast<double>(result->time_all));
     printf("Timeouts: %'lu, Invalid responses: %'lu\n\n\n",
         result->timeouts, result->invalid_responses);
 
@@ -351,12 +342,12 @@ void print_summary(bool all, struct test_params *params,
         printf("Total time needed for tests: %'lu ns (%f s)\n",
             result->time_all,
             static_cast<double>(result->time_all) / 1'000'000'000);
-        printf("Time per valid operation in total: %f\n\n",
+        printf("Time per valid operation in total: %f ns\n\n",
             static_cast<double>(result->time_all) /
             static_cast<double>(valid_total));
         size_t uplink_volume =
-            (total_puts + total_gets + total_dels) * KEY_SIZE +
-            total_puts * VAL_SIZE;
+            (TOTAL_PUTS + TOTAL_GETS + TOTAL_DELS) * KEY_SIZE +
+            TOTAL_PUTS * VAL_SIZE;
         size_t downlink_volume =
             (valid_puts + valid_gets + valid_dels) * MIN_MSG_LEN
             + suc_gets * VAL_SIZE;
@@ -396,9 +387,6 @@ void print_summary_csv(struct test_params *params,
         print_summary(true, params, result);
     }
 
-    size_t total_puts = params->put_requests;
-    size_t total_gets = params->get_requests;
-    size_t total_dels = params->del_requests;
     size_t suc_puts = result->successful_puts;
     size_t valid_puts = suc_puts + result->failed_puts;
     uint64_t put_time = result->put_time;
@@ -421,7 +409,7 @@ void print_summary_csv(struct test_params *params,
     }
 
 
-    size_t total_ops = total_puts + total_gets + total_dels;
+    size_t total_ops = TOTAL_PUTS + TOTAL_GETS + TOTAL_DELS;
     size_t valid_ops = valid_puts + valid_gets + valid_dels;
 
     // Threads, Maximum Key, Key Size, Value Size, Total Operations
@@ -429,28 +417,28 @@ void print_summary_csv(struct test_params *params,
         NUM_CLIENTS, MAX_KEY, KEY_SIZE, VAL_SIZE, total_ops);
 
     double ratio =
-        static_cast<double>(valid_puts) / static_cast<double>(total_puts);
+        static_cast<double>(valid_puts) / static_cast<double>(TOTAL_PUTS);
     double latency =
         static_cast<double>(put_time) / static_cast<double>(valid_puts);
     // Total Puts, Valid Puts, Ratio, Failed Puts, Put Latency
     fprintf(csv, "%zu,%zu,%f,%zu,%f,",
-        total_puts, valid_puts, ratio, result->failed_puts, latency);
+        TOTAL_PUTS, valid_puts, ratio, result->failed_puts, latency);
 
     ratio =
-        static_cast<double>(valid_gets) / static_cast<double>(total_gets);
+        static_cast<double>(valid_gets) / static_cast<double>(TOTAL_GETS);
     latency =
         static_cast<double>(get_time) / static_cast<double>(valid_gets);
     // Total Gets, Valid Gets, Ratio, Failed Gets, Get Latency
     fprintf(csv, "%zu,%zu,%f,%zu,%f,",
-        total_gets, valid_gets, ratio, result->failed_gets, latency);
+        TOTAL_GETS, valid_gets, ratio, result->failed_gets, latency);
 
     ratio =
-        static_cast<double>(valid_dels) / static_cast<double>(total_dels);
+        static_cast<double>(valid_dels) / static_cast<double>(TOTAL_DELS);
     latency =
         static_cast<double>(del_time) / static_cast<double>(valid_dels);
     // Total Dels, Valid Dels, Ratio, Failed Dels, Del Latency
     fprintf(csv, "%zu,%zu,%f,%zu,%f,,",
-        total_dels, valid_dels, ratio, result->failed_deletes, latency);
+        TOTAL_DELS, valid_dels, ratio, result->failed_deletes, latency);
 
 
     // Total Time, Time/Valid Op, kOps/s
@@ -462,8 +450,8 @@ void print_summary_csv(struct test_params *params,
 
 
     size_t uplink_volume =
-        (total_puts + total_gets + total_dels) * KEY_SIZE +
-        total_puts * VAL_SIZE;
+        (TOTAL_PUTS + TOTAL_GETS + TOTAL_DELS) * KEY_SIZE +
+        TOTAL_PUTS * VAL_SIZE;
     size_t downlink_volume =
         (valid_puts + valid_gets + valid_dels) * MIN_MSG_LEN
         + suc_gets * VAL_SIZE;
@@ -485,11 +473,8 @@ void print_summary_csv(struct test_params *params,
 void perform_tests(string& server_hostname) {
 
     struct test_params total_params = {
-            port,
-            0,
-            PUTS_PER_CLIENT * NUM_CLIENTS,
-            GETS_PER_CLIENT * NUM_CLIENTS,
-            DELS_PER_CLIENT * NUM_CLIENTS
+        port,
+        0
     };
     auto params = static_cast<struct test_params *>(
             malloc(NUM_CLIENTS * sizeof(struct test_params)));
