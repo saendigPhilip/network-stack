@@ -47,4 +47,13 @@ static const unsigned char key_do_not_use[16] =
 void value_from_key(
         void *value, size_t value_len, const void *key, size_t key_len);
 
+
+inline uint64_t time_diff(
+    const struct timespec *start, const struct timespec *end){
+    auto diff_sec = static_cast<uint64_t>(end->tv_sec - start->tv_sec);
+    return diff_sec * 1'000'000'000ull + static_cast<uint64_t>(end->tv_nsec)
+           - static_cast<uint64_t>(start->tv_nsec);
+}
+
+
 #endif //TWOSIDED_COMMUNICATION_TEST_COMMON_H

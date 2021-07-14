@@ -23,6 +23,7 @@ set(TESTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 # User options:
 option(DEBUG "Enable debugging options" OFF) 
 option(MEASURE_LATENCY "Measure latency" OFF)
+option(MEASURE_THROUGHPUT "Server-side throughput measurement" OFF)
 option(REAL_KV "Real KV-store at server for tests" OFF)
 option(ENCRYPT "Enable encryption" ON)
 set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
@@ -43,6 +44,14 @@ if(MEASURE_LATENCY)
 else()
   add_definitions("-DMEASURE_LATENCY=false") 
   message(STATUS "Latency measurement turned off")
+endif()
+
+if(MEASURE_THROUGHPUT)
+  add_definitions("-DMEASURE_THROUGHPUT=true")
+  message(STATUS "Throughput measurement turned on")
+else()
+  add_definitions("-DMEASURE_THROUGHPUT=false")
+  message(STATUS "Throughput measurement turned off")
 endif()
 
 

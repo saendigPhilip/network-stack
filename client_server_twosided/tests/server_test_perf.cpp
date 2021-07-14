@@ -25,6 +25,11 @@ void unlock_kv() {
 
 #endif // NO_KV_OVERHEAD
 
+#if MEASURE_THROUGHPUT
+thread_local size_t request_count = 0;
+thread_local struct timespec start;
+#endif // MEASURE_THROUGHPUT
+
 #if NO_KV_OVERHEAD
 const void *kv_get(const void *, size_t, size_t *data_len) {
     if (!default_value)
@@ -34,10 +39,23 @@ const void *kv_get(const void *, size_t, size_t *data_len) {
 }
 
 int kv_put(const void *, size_t, void *, size_t) {
+#if MEASURE_THROUGHPUT
+    if (request_count++ == 0)
+        clock_gettime(CLOCK_MONOTONIC, &start);
+#endif // MEASURE_THROUGHPUT
     return 0;
 }
 
 int kv_delete(const void *, size_t) {
+#if MEASURE_THROUGHPUT
+    struct timespec end;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    uint64_t total_time = time_diff(&start, &end);
+    printf("Total requests: %zu, Total time: %lu ns, Throughput: %f Gbit/s\n",
+        request_count, total_time,
+        static_cast<double>(8 * request_count * (KEY_SIZE + VAL_SIZE)) /
+        static_cast<double>(total_time));
+#endif // MEASURE_THROUGHPUT
     return 0;
 }
 
@@ -129,6 +147,8 @@ int main(int argc, const char *argv[]) {
         print_usage(argv[0]);
         return 1;
     }
+
+    struct timespec start, end;
 
     std::string ip(argv[1]);
     int ret = 1;
