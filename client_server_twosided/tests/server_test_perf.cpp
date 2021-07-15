@@ -190,7 +190,7 @@ int main(int argc, const char *argv[]) {
         results.push_back(throughput);
 
         // Stop if there are no requests anymore
-        running = request_count > 0 && requests_interval == 0;
+        running = request_count == 0 || requests_interval > 0;
     }
 
     // Take the average of the data from the third until the third last
