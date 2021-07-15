@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <map>
 #include <vector>
+#include <unistd.h>
 
 #include "client_server_common.h"
 #include "Server.h"
@@ -26,7 +27,7 @@ void unlock_kv() {
 #endif // NO_KV_OVERHEAD
 
 #if MEASURE_THROUGHPUT
-thread_local size_t request_count = 0;
+std::atomic_size_t request_count{0};
 thread_local struct timespec start;
 #endif // MEASURE_THROUGHPUT
 
@@ -40,22 +41,12 @@ const void *kv_get(const void *, size_t, size_t *data_len) {
 
 int kv_put(const void *, size_t, void *, size_t) {
 #if MEASURE_THROUGHPUT
-    if (request_count++ == 0)
-        clock_gettime(CLOCK_MONOTONIC, &start);
+    ++request_count;
 #endif // MEASURE_THROUGHPUT
     return 0;
 }
 
 int kv_delete(const void *, size_t) {
-#if MEASURE_THROUGHPUT
-    struct timespec end;
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    uint64_t total_time = time_diff(&start, &end);
-    printf("Total requests: %zu, Total time: %lu ns, Throughput: %f Gbit/s\n",
-        request_count, total_time,
-        static_cast<double>(8 * request_count * (KEY_SIZE + VAL_SIZE)) /
-        static_cast<double>(total_time));
-#endif // MEASURE_THROUGHPUT
     return 0;
 }
 
@@ -148,7 +139,7 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    struct timespec start, end;
+    struct timespec times[2];
 
     std::string ip(argv[1]);
     int ret = 1;
@@ -168,11 +159,52 @@ int main(int argc, const char *argv[]) {
 
     if (anchor_server::host_server(
             key_do_not_use, NUM_CLIENTS,
-            KEY_SIZE + VAL_SIZE, false,
+            KEY_SIZE + VAL_SIZE,
+#if MEASURE_THROUGHPUT
+            true,
+#else
+            false,
+#endif
             kv_get, kv_put, kv_delete)) {
         cerr << "Failed to host server" << endl;
         return ret;
     }
+
+#if MEASURE_THROUGHPUT
+    std::vector<double> results;
+    results.reserve(128);
+    bool running = true;
+    size_t requests_interval = 0;
+    clock_gettime(CLOCK_MONOTONIC, times + 1);
+    for (int i = 0; running; i ^= 1) {
+        sleep(1);
+        requests_interval = request_count - requests_interval;
+        clock_gettime(CLOCK_MONOTONIC, times + i);
+        uint64_t interval_time = time_diff(times + (i ^ 1), times + i);
+        double throughput =
+            static_cast<double>(8 * request_count * (KEY_SIZE + VAL_SIZE)) /
+            static_cast<double>(interval_time);
+
+        printf("Requests: %zu, Time: %lu ns, Throughput: %f Gbit/s\n",
+            requests_interval, interval_time, throughput);
+        results.push_back(throughput);
+
+        // Stop if there are no requests anymore
+        running = request_count > 0 && requests_interval == 0;
+    }
+
+    // Take the average of the data from the third until the third last
+    // Throughput measurement
+    double total_throughput = 0.0;
+    for (size_t i = 2; i < results.size() - 2; i++) {
+        total_throughput += results[i];
+    }
+    size_t result_count = results.size() - 4;
+    total_throughput /= static_cast<double>(result_count);
+    printf("Final result (taken from %zu data points): %f Gbit/s\n\n",
+        result_count, total_throughput);
+
+#endif
 
     anchor_server::close_connection(false);
 
