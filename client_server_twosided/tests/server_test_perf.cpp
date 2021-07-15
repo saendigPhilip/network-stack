@@ -179,18 +179,20 @@ int main(int argc, const char *argv[]) {
     for (int i = 0; running; i ^= 1) {
         sleep(1);
         requests_interval = request_count - requests_interval;
-        clock_gettime(CLOCK_MONOTONIC, times + i);
-        uint64_t interval_time = time_diff(times + (i ^ 1), times + i);
-        double throughput =
-            static_cast<double>(8 * request_count * (KEY_SIZE + VAL_SIZE)) /
-            static_cast<double>(interval_time);
+        if (requests_interval > 0) {
+            clock_gettime(CLOCK_MONOTONIC, times + i);
+            uint64_t interval_time = time_diff(times + (i ^ 1), times + i);
+            double throughput =
+                static_cast<double>(8 * request_count * (KEY_SIZE + VAL_SIZE)) /
+                static_cast<double>(interval_time);
 
-        printf("Requests: %zu, Time: %lu ns, Throughput: %f Gbit/s\n",
-            requests_interval, interval_time, throughput);
-        results.push_back(throughput);
+            printf("Requests: %zu, Time: %lu ns, Throughput: %f Gbit/s\n",
+                requests_interval, interval_time, throughput);
+            results.push_back(throughput);
 
-        // Stop if there are no requests anymore
-        running = request_count == 0 || requests_interval > 0;
+            // Stop if there are no requests anymore
+            running = request_count == 0 || requests_interval > 0;
+        }
     }
 
     // Take the average of the data from the third until the third last
