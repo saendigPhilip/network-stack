@@ -183,7 +183,8 @@ int main(int argc, const char *argv[]) {
             clock_gettime(CLOCK_MONOTONIC, times + i);
             uint64_t interval_time = time_diff(times + (i ^ 1), times + i);
             double throughput =
-                static_cast<double>(8 * request_count * (KEY_SIZE + VAL_SIZE)) /
+                static_cast<double>(8 * requests_interval
+                * (KEY_SIZE + VAL_SIZE)) /
                 static_cast<double>(interval_time);
 
             printf("Requests: %zu, Time: %lu ns, Throughput: %f Gbit/s\n",
