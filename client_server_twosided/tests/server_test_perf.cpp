@@ -174,17 +174,18 @@ int main(int argc, const char *argv[]) {
     std::vector<double> results;
     results.reserve(128);
     bool running = true;
-    size_t requests_interval = 0;
+    size_t requests_old = 0;
     clock_gettime(CLOCK_MONOTONIC, times + 1);
     for (int i = 0; running; i ^= 1) {
         sleep(1);
-        requests_interval = request_count - requests_interval;
-        if (requests_interval > 0) {
+        size_t requests_interval = request_count - requests_old;
+        requests_old += requests_interval;
+        if (requests_old > 0) {
             clock_gettime(CLOCK_MONOTONIC, times + i);
             uint64_t interval_time = time_diff(times + (i ^ 1), times + i);
             double throughput =
                 static_cast<double>(8 * requests_interval
-                * (KEY_SIZE + VAL_SIZE)) /
+                                    * (KEY_SIZE + VAL_SIZE)) /
                 static_cast<double>(interval_time);
 
             printf("Requests: %zu, Time: %lu ns, Throughput: %f Gbit/s\n",
