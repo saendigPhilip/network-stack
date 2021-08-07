@@ -177,7 +177,7 @@ int main(int argc, const char *argv[]) {
     size_t requests_old = 0;
     clock_gettime(CLOCK_MONOTONIC, times + 1);
     for (int i = 0; running; i ^= 1) {
-        sleep(1);
+        sleep(10);
         size_t requests_interval = request_count - requests_old;
         requests_old += requests_interval;
         if (requests_old > 0) {

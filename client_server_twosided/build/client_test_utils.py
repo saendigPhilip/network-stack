@@ -86,32 +86,36 @@ def different_sizes_test(size_list):
                     "sizes_test.csv")
 
 
+def close_connection():
+    server.send(b"END")
+    server.close()
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("client_ip", type=str)
 parser.add_argument("server_ip", type=str)
-parser.add_argument("-k", type=int, help="key size")
-parser.add_argument("-v", type=int, help="value size")
-parser.add_argument("-s", type=int, help="maximum key size")
-parser.add_argument("-n", type=int, help="number of threads/clients")
-parser.add_argument("-i", type=int, help="client event loop iterations")
-parser.add_argument("-p", type=int, help="number of put operations per client")
-parser.add_argument("-g", type=int, help="number of get operations per client")
-parser.add_argument("-d", type=int, help="number of delete operations per client")
+
+if __name__ == "__main__":
+    parser.add_argument("-k", type=int, help="key size")
+    parser.add_argument("-v", type=int, help="value size")
+    parser.add_argument("-s", type=int, help="maximum key size")
+    parser.add_argument("-n", type=int, help="number of threads/clients")
+    parser.add_argument("-i", type=int, help="client event loop iterations")
+    parser.add_argument("-p", type=int, help="number of put operations per client")
+    parser.add_argument("-g", type=int, help="number of get operations per client")
+    parser.add_argument("-d", type=int, help="number of delete operations per client")
 
 args = parser.parse_args()
-print("Key size: {}, Value size: {}".format(args.k, args.v))
-print("Client ip: {}. Server ip: {}".format(args.client_ip, args.server_ip))
 
 server = socket.socket()
 server.connect((args.server_ip, 31849))
 
-network_performance_test([256, 512, 1024, 2048, 4096])
+if __name__ == "__main__":
+    network_performance_test([256, 512, 1024, 2048, 4096])
 
-different_threads_test([1, 2, 4, 8])
+    different_threads_test([1, 2, 4, 8])
 
-different_sizes_test([256, 512, 1024, 2048, 4096])
+    different_sizes_test([256, 512, 1024, 2048, 4096])
 
-server.send(b"END")
-
-server.close()
-exit(0)
+    close_connection()
+    exit(0)

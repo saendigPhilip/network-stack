@@ -137,14 +137,13 @@ void issue_requests(Client *client) {
     struct timespec times[MAX_ACCEPTED_RESPONSES];
 #endif
 
+    size_t orig_total_puts = TOTAL_PUTS;
+
     size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
 
-#if MEASURE_LATENCY
-#else
     struct timespec begin_time;
     struct timespec end_time;
     (void) clock_gettime(CLOCK_MONOTONIC, &begin_time);
-#endif
 
     for (size_t req = 0; ; req++) {
         get_random_key();
@@ -190,8 +189,13 @@ void issue_requests(Client *client) {
             } else
                 deletes_performed++;
         }
-        else
-            break;
+        else {
+            clock_gettime(CLOCK_MONOTONIC, &end_time);
+            if (time_diff(&begin_time, &end_time) < MIN_TIME)
+                TOTAL_PUTS += orig_total_puts;
+            else
+                break;
+        }
     }
 
     size_t total_ops = global_puts + global_gets + global_dels;

@@ -30,8 +30,8 @@ using namespace std;
 
 static constexpr uint8_t DEFAULT_REQ_TYPE = 2;
 
-#ifdef SCONE
-static constexpr size_t MAX_PENDING_REQUESTS = 1024;
+#ifdef MEASURE_LATENCY
+static constexpr size_t MAX_PENDING_REQUESTS = 1;
 #else
 static constexpr size_t MAX_PENDING_REQUESTS = 1024;
 #endif

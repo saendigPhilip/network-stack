@@ -70,6 +70,10 @@ int global_test_params::parse_args(int argc, const char **argv) {
             case 'd':
                 STRTOUL(total_dels, "Number of deletes per client");
                 break;
+            case 't':
+                STRTOUL(minimum_time, "Minimum test time in ms");
+                minimum_time *= 1'000'000;
+                break;
             case 'f':
                 global_params.path_csv = argv[++i];
                 break;

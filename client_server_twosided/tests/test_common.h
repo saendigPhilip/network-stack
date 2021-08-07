@@ -15,6 +15,7 @@
 #define TOTAL_PUTS global_params.total_puts
 #define TOTAL_GETS global_params.total_gets
 #define TOTAL_DELS global_params.total_dels
+#define MIN_TIME global_params.minimum_time
 #define PATH_CSV global_params.path_csv
 
 
@@ -27,6 +28,7 @@ struct global_test_params {
     size_t total_puts{1 << 12};
     size_t total_gets{1 << 12};
     size_t total_dels{1 << 12};
+    size_t minimum_time{0};
     const char *path_csv{nullptr};
 
     int parse_args(int argc, const char *argv[]);
