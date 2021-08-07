@@ -9,7 +9,7 @@ import time
 def run_single_test(key_size, value_size, max_key_size, threads,
                     puts, gets, deletes,
                     iterations,
-                    csv_path):
+                    csv_path, min_time):
 
     server.send("{},{},{}"
                 .format(key_size, value_size, threads).encode())
@@ -18,12 +18,12 @@ def run_single_test(key_size, value_size, max_key_size, threads,
     time.sleep(2)
 
     command = "./client_perf_test"
-    params = " {} {} -k {} -v {} -s {} -n {} -p {} -g {} -d {} -i {} -f {}"\
+    params = " {} {} -k {} -v {} -s {} -n {} -p {} -g {} -d {} -i {} -f {} -t {}"\
         .format(args.client_ip, args.server_ip,
                 key_size, value_size, max_key_size, threads,
                 puts, gets, deletes,
                 iterations,
-                csv_path)
+                csv_path, min_time)
 
     print("Executing " + command + params)
     os.system(command + params)

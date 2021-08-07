@@ -19,7 +19,7 @@ for size in [64, 256, 1024, 2048, 4096]:
     run_single_test(key_size=size, value_size=size, max_key_size=0, threads=kThreads,
                     puts=0, gets=ops, deletes=0,
                     iterations=1,
-                    csv_path="throughput_5050.csv")
+                    csv_path="throughput_5050.csv", min_time=time_ms)
 
 print("\n\n--------------------"
       "Finished testing throughput with r/w ratio of 50/50. "
@@ -30,7 +30,7 @@ for size in [64, 256, 1024, 2048, 4096]:
     run_single_test(key_size=0, value_size=size, max_key_size=0, threads=kThreads,
                     puts=ops, gets=0, deletes=0,
                     iterations=1,
-                    csv_path="throughput_comp_iperf.csv")
+                    csv_path="throughput_comp_iperf.csv", min_time=time_ms)
 
 print("\n\n--------------------"
       "Finished testing throughput for comparison with iperf"
