@@ -139,7 +139,6 @@ void issue_requests(Client *client) {
 
     size_t orig_total_puts = TOTAL_PUTS;
 
-    size_t gets_performed = 0, puts_performed = 0, deletes_performed = 0;
 
     struct timespec begin_time;
     struct timespec end_time;
@@ -159,12 +158,12 @@ void issue_requests(Client *client) {
 #endif
             if (0 > client->put((void *) key_buf, KEY_SIZE,
                     (void *) value_buf, VAL_SIZE,
-                    put_callback, time_now,LOOP_ITERATIONS /* *
+                    put_callback, time_now, LOOP_ITERATIONS /* *
                     (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024)*/)) {
 
                 cerr << "put() failed" << endl;
             } else
-                puts_performed++;
+                TOTAL_PUTS++;
         }
         else if (++global_gets <= TOTAL_GETS) {
 #if MEASURE_LATENCY
@@ -177,7 +176,7 @@ void issue_requests(Client *client) {
                         (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024)*/)) {
                 cerr << "get() failed" << endl;
             } else
-                gets_performed++;
+                TOTAL_GETS++;
         }
         else if (++global_dels < TOTAL_DELS) {
 #if MEASURE_LATENCY
@@ -187,7 +186,7 @@ void issue_requests(Client *client) {
                 del_callback, time_now, LOOP_ITERATIONS)) {
                 cerr << "delete() failed" << endl;
             } else
-                deletes_performed++;
+                TOTAL_DELS++;
         }
         else {
             clock_gettime(CLOCK_MONOTONIC, &end_time);
