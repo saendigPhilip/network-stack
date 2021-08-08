@@ -30,7 +30,7 @@ using namespace std;
 
 static constexpr uint8_t DEFAULT_REQ_TYPE = 2;
 
-#ifdef MEASURE_LATENCY
+#if MEASURE_LATENCY
 static constexpr size_t MAX_PENDING_REQUESTS = 1;
 #else
 static constexpr size_t MAX_PENDING_REQUESTS = 1024;

@@ -2,8 +2,8 @@
 
 from client_test_utils import run_single_test, close_connection
 
-ops = 1000000
-time_ms = 30000
+ops = 10000000
+time_ms = 80000
 kThreads = 6
 
 print("--------------------"
@@ -12,6 +12,17 @@ print("--------------------"
       "--------------------\n")
 
 print("--------------------"
+      "Testing throughput with r/w ratio of 50/50 with multiple threads"
+      "--------------------\n")
+
+for thread in [1, 2, 4, 8]:
+    run_single_test(key_size=512, value_size=512, max_key_size=0, threads=thread,
+                    puts=0, gets=ops, deletes=0,
+                    iterations=1,
+                    csv_path="throughput_5050.csv", min_time=time_ms)
+
+print("\n\n--------------------"
+      "Finished Testing throughput with r/w ratio of 50/50 with multiple threads. "
       "Testing throughput with r/w ratio of 50/50"
       "--------------------\n")
 
