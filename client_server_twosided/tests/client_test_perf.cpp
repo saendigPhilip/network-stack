@@ -137,8 +137,9 @@ void issue_requests(Client *client) {
     struct timespec times[MAX_ACCEPTED_RESPONSES];
 #endif
 
-    size_t orig_total_puts = TOTAL_PUTS;
-
+    size_t puts_inc = TOTAL_PUTS;
+    size_t gets_inc = TOTAL_GETS;
+    size_t dels_inc = TOTAL_DELS;
 
     struct timespec begin_time;
     struct timespec end_time;
@@ -162,8 +163,7 @@ void issue_requests(Client *client) {
                     (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024)*/)) {
 
                 cerr << "put() failed" << endl;
-            } else
-                TOTAL_PUTS++;
+            }
         }
         else if (++global_gets <= TOTAL_GETS) {
 #if MEASURE_LATENCY
@@ -175,8 +175,7 @@ void issue_requests(Client *client) {
                     LOOP_ITERATIONS /* *
                         (VAL_SIZE < 2048 ? 1 : VAL_SIZE / 1024)*/)) {
                 cerr << "get() failed" << endl;
-            } else
-                TOTAL_GETS++;
+            }
         }
         else if (++global_dels < TOTAL_DELS) {
 #if MEASURE_LATENCY
@@ -185,13 +184,15 @@ void issue_requests(Client *client) {
             if (0 > client->del((void *) key_buf, KEY_SIZE,
                 del_callback, time_now, LOOP_ITERATIONS)) {
                 cerr << "delete() failed" << endl;
-            } else
-                TOTAL_DELS++;
+            }
         }
         else {
             clock_gettime(CLOCK_MONOTONIC, &end_time);
-            if (time_diff(&begin_time, &end_time) < MIN_TIME)
-                TOTAL_PUTS += orig_total_puts;
+            if (time_diff(&begin_time, &end_time) < MIN_TIME) {
+                TOTAL_PUTS += puts_inc;
+                TOTAL_GETS += gets_inc;
+                TOTAL_DELS += dels_inc;
+            }
             else
                 break;
         }

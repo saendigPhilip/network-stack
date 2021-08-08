@@ -62,13 +62,13 @@ int global_test_params::parse_args(int argc, const char **argv) {
                     "Number of event loop iterations");
                 break;
             case 'p':
-                STRTOUL(total_puts, "Number of puts per client");
+                STRTOUL(total_puts, "Minimum Number of puts per client");
                 break;
             case 'g':
-                STRTOUL(total_gets, "Number of gets per client");
+                STRTOUL(total_gets, "Minimum Number of gets per client");
                 break;
             case 'd':
-                STRTOUL(total_dels, "Number of deletes per client");
+                STRTOUL(total_dels, "Minimum Number of deletes per client");
                 break;
             case 't':
                 STRTOUL(minimum_time, "Minimum test time in ms");

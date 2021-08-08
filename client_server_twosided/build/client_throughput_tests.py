@@ -2,7 +2,7 @@
 
 from client_test_utils import run_single_test, close_connection
 
-ops = 100000
+ops = 1000000
 time_ms = 30000
 kThreads = 6
 
