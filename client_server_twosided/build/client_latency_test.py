@@ -20,21 +20,21 @@ for size in [64, 256, 1024, 2048, 4096]:
                     iterations=1,
                     csv_path="latency_single.csv", min_time=time_ms)
 
+# print("--------------------"
+#       "Finished testing latency single-threaded. "
+#       "Testing latency with different number of threads"
+#       "--------------------")
+# 
+# 
+# for thread in [1, 4, 7, 8]:
+#     run_single_test(key_size=512, value_size=512, max_key_size=0, threads=thread,
+#                     puts=0, gets=ops, deletes=0,
+#                     iterations=1,
+#                     csv_path="latency_multi.csv", min_time=time_ms)
+
+
 print("--------------------"
-      "Finished testing latency single-threaded. "
-      "Testing latency with different number of threads"
-      "--------------------")
-
-
-for thread in [1, 4, 7, 8]:
-    run_single_test(key_size=512, value_size=512, max_key_size=0, threads=thread,
-                    puts=0, gets=ops, deletes=0,
-                    iterations=1,
-                    csv_path="latency_multi.csv", min_time=time_ms)
-
-
-print("--------------------"
-      "Finished testing latency multi-threaded"
+      "Finished testing latency" #  multi-threaded"
       "--------------------")
 
 close_connection()

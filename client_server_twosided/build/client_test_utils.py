@@ -11,12 +11,14 @@ def run_single_test(key_size, value_size, max_key_size, threads,
                     iterations,
                     csv_path, min_time):
 
-    if not args.scone:
+    if args.scone:
+        time.sleep(4)
+    else:
         server.send("{},{},{}"
                     .format(key_size, value_size, threads).encode())
         assert(server.recv(1024) == b"Server Running")
+        time.sleep(2)
 
-    time.sleep(2)
 
     command = "./client_perf_test"
     params = " {} {} -k {} -v {} -s {} -n {} -p {} -g {} -d {} -i {} -f {} -t {}"\
@@ -89,8 +91,9 @@ def different_sizes_test(size_list):
 
 
 def close_connection():
-    server.send(b"END")
-    server.close()
+    if not args.scone:
+        server.send(b"END")
+        server.close()
 
 
 parser = argparse.ArgumentParser()

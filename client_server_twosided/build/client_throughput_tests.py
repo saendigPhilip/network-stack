@@ -1,10 +1,10 @@
 #!/usr/bin/python3
 
-from client_test_utils import run_single_test, close_connection
+from client_test_utils import run_single_test, close_connection, args
 
 ops = 10000000
 time_ms = 80000
-kThreads = 6
+kThreads = 4
 
 print("--------------------"
       "Testing throughput. "
@@ -15,7 +15,11 @@ print("--------------------"
       "Testing throughput with r/w ratio of 50/50 with multiple threads"
       "--------------------\n")
 
-for thread in [1, 2, 4, 8]:
+threads = [1, 2, 4, 8]
+if args.scone:
+    threads[3] = 6
+
+for thread in threads:
     run_single_test(key_size=512, value_size=512, max_key_size=0, threads=thread,
                     puts=0, gets=ops, deletes=0,
                     iterations=1,
