@@ -15,11 +15,8 @@ print("--------------------"
       "Testing throughput with r/w ratio of 50/50 with multiple threads"
       "--------------------\n")
 
-threads = [1, 2, 4, 8]
-if args.scone:
-    threads[3] = 6
 
-for thread in threads:
+for thread in [1, 2, 4, 6]:
     run_single_test(key_size=512, value_size=512, max_key_size=0, threads=thread,
                     puts=0, gets=ops, deletes=0,
                     iterations=1,
