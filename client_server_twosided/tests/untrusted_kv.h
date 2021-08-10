@@ -1,4 +1,4 @@
-
+#include <unistd.h>
 
 const void *kv_get(const void *key, size_t key_size, size_t *data_len);
 

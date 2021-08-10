@@ -185,3 +185,13 @@ add_executable(encryption_test
 target_link_libraries(encryption_test
   PRIVATE anchorserver)
 
+if(REAL_KV)
+  add_executable(kv_bench
+    ${TEST_UTILS}
+    ${SRC}/client_server_common.cpp
+    ${TESTS}/untrusted_kv.cpp
+    ${TESTS}/generate_traces.cpp
+    ${TESTS}/kv_bench.cpp
+    ${TESTS}/kv_bench_main.cpp)
+endif()
+
