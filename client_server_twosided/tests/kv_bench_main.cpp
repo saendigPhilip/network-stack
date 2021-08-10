@@ -4,6 +4,7 @@
 #include <iostream>
 #include <memory>
 #include <thread>
+#include "client_server_common.h"
 #include "kv_bench.h"
 #include "untrusted_kv.h"
 #include "test_common.h"
@@ -61,6 +62,7 @@ int main(int argc, const char *argv[]) {
     }
 
     initialize_kv_store();
+    enc_key = (unsigned char *) "0123456789ABCDEF";
 
     if (workload_scan() != 0) {
             perror("workload scan failed");
