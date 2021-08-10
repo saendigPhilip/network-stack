@@ -7,7 +7,7 @@
 
 std::atomic_uint8_t countdown;
 std::atomic_size_t global_puts{0}, global_gets{0}, global_dels{0};
-uint16_t port = 31850;
+uint16_t port = 31851;
 struct timespec total_time_begin, total_time_end;
 
 thread_local unsigned char *value_buf;
