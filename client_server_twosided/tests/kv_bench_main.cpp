@@ -29,7 +29,7 @@ void test_thread() {
         while(countdown > 0);
     }
 
-    for (size_t i = executed_ops; executed_ops < total_ops; i = executed_ops++) {
+    for (size_t i = executed_ops; i < total_ops; i = executed_ops++) {
         // if (i % 100 == 0) {
         //      printf("%ld\n", i);
         // }
@@ -61,6 +61,7 @@ int main(int argc, const char *argv[]) {
         exit(1);
     }
 
+    printf("Value size: %zu\n", VAL_SIZE);
     initialize_kv_store();
     enc_key = (unsigned char *) "0123456789ABCDEF";
 
