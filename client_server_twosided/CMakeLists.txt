@@ -58,6 +58,8 @@ endif()
 if(REAL_KV)
   add_definitions("-DNO_KV_OVERHEAD=false")
   message(STATUS "Using std::map as a KV-store at the server")
+  set(TEST_UTILS_KV ${TEST_UTILS_KV} 
+    ${TESTS}/untrusted_kv.cpp ${TESTS}/kv_bench.cpp ${TESTS}/generate_traces.cpp)
 else()
   add_definitions("-DNO_KV_OVERHEAD=true")
   message(STATUS "KV-store operations are constant")
@@ -120,6 +122,7 @@ set(CLIENT_SOURCE
   ${SRC}/sent_message_tag.h)
 
 set(TEST_UTILS
+  ${TEST_UTILS}
   ${TESTS}/test_common.cpp
   ${TESTS}/test_common.h
   ${TESTS}/simple_unit_test.h)
@@ -145,25 +148,27 @@ target_compile_options(anchorclient
 target_link_libraries(anchorclient 
   PRIVATE ${LIBRARIES})
 
-
-add_executable(server_test
-  ${TEST_UTILS}
-  ${TESTS}/server_test.cpp)
-
-target_link_libraries(server_test
-  PRIVATE anchorserver)
-
-
-add_executable(client_test
-  ${TEST_UTILS}
-  ${TESTS}/client_test.cpp)
-
-target_link_libraries(client_test
-  PRIVATE anchorclient)
+if (NOT REAL_KV)
+  add_executable(server_test
+    ${TEST_UTILS}
+    ${TESTS}/server_test.cpp)
+  
+  target_link_libraries(server_test
+    PRIVATE anchorserver)
+  
+  
+  add_executable(client_test
+    ${TEST_UTILS}
+    ${TESTS}/client_test.cpp)
+  
+  target_link_libraries(client_test
+    PRIVATE anchorclient)
+endif()
 
 
 add_executable(server_perf_test
   ${TEST_UTILS}
+  ${TEST_UTILS_KV}
   ${TESTS}/server_test_perf.cpp)
 
 target_link_libraries(server_perf_test
@@ -188,10 +193,10 @@ target_link_libraries(encryption_test
 if(REAL_KV)
   add_executable(kv_bench
     ${TEST_UTILS}
+    ${TEST_UTILS_KV}
     ${SRC}/client_server_common.cpp
-    ${TESTS}/untrusted_kv.cpp
-    ${TESTS}/generate_traces.cpp
-    ${TESTS}/kv_bench.cpp
     ${TESTS}/kv_bench_main.cpp)
+
+  target_link_libraries(kv_bench PRIVATE pthread ssl crypto)
 endif()
 
