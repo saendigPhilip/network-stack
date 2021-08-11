@@ -526,10 +526,13 @@ void print_summary_csv(struct test_params *params,
 
 
 void perform_tests(string& server_hostname) {
+#if NO_KV_OVERHEAD
+#else
     if (0 != workload_scan()) {
         puts("Failed to scan workload");
         return;
     }
+#endif // NO_KV_OVERHEAD
 
 
     struct test_params total_params = {
@@ -585,7 +588,11 @@ void perform_tests(string& server_hostname) {
     print_summary(true, &total_params, &final_results);
     free(params);
     free(results);
+
+#if NO_KV_OVERHEAD
+#else
     release_workload();
+#endif // NO_KV_OVERHEAD
 }
 
 void print_usage(const char *arg0) {
