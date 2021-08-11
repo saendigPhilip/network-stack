@@ -37,7 +37,8 @@ set(TESTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 # User options:
 set(DEBUG "OFF" CACHE STRING "Enable debugging options (ON/OFF)")
 set(MEASURE_LATENCY "ON" CACHE STRING "Measure latency (ON/OFF)")
-set(REAL_KV "OFF" CACHE STRING "Real KV-store at server for tests (ON/OFF)")
+option(MEASURE_THROUGHPUT "Measure Throughput (ON/OFF)" OFF)
+option(REAL_KV "Real KV-store at server for tests (ON/OFF)" "OFF")
 set(ENCRYPT "ON" CACHE STRING "Enable encryption (ON/OFF)")
 set(TRANSPORT "dpdk" CACHE STRING "Datapath transport (infiniband/dpdk)")
 
@@ -62,11 +63,20 @@ else()
   message(STATUS "Latency measurement turned off")
 endif()
 
+if(MEASURE_THROUGHPUT)
+  add_definitions("-DMEASURE_THROUGHPUT=true")
+  message(STATUS "Throughput measurement turned on")
+else()
+  add_definitions("-DMEASURE_THROUGHPUT=false")
+  message(STATUS "Throughput measurement turned off")
+endif()
 
-string(TOUPPER ${REAL_KV} REAL_KV)
-if(${REAL_KV} STREQUAL "ON")
+
+if(REAL_KV)
   add_definitions("-DNO_KV_OVERHEAD=false")
   message(STATUS "Using std::map as a KV-store at the server")
+  set(TEST_UTILS_KV ${TEST_UTILS_KV}
+    ${TESTS}/untrusted_kv.cpp ${TESTS}/kv_bench.cpp ${TESTS}/generate_traces.cpp)
 else()
   add_definitions("-DNO_KV_OVERHEAD=true")
   message(STATUS "KV-store operations are constant")
@@ -247,24 +257,27 @@ target_link_libraries(anchorclient
   PRIVATE ${LIBRARIES})
 
 
-add_executable(server_test
-  ${TEST_UTILS}
-  ${TESTS}/server_test.cpp)
-
-target_link_libraries(server_test
-  PRIVATE anchorserver)
-
-
-add_executable(client_test
-  ${TEST_UTILS}
-  ${TESTS}/client_test.cpp)
-
-target_link_libraries(client_test
-  PRIVATE anchorclient)
+if (NOT REAL_KV)
+  add_executable(server_test
+    ${TEST_UTILS}
+    ${TESTS}/server_test.cpp)
+  
+  target_link_libraries(server_test
+    PRIVATE anchorserver)
+  
+  
+  add_executable(client_test
+    ${TEST_UTILS}
+    ${TESTS}/client_test.cpp)
+  
+  target_link_libraries(client_test
+    PRIVATE anchorclient)
+endif()
 
 
 add_executable(server_perf_test
   ${TEST_UTILS}
+  ${TEST_UTILS_KV}
   ${TESTS}/server_test_perf.cpp)
 
 target_link_libraries(server_perf_test
@@ -273,6 +286,7 @@ target_link_libraries(server_perf_test
 
 add_executable(client_perf_test
   ${TEST_UTILS}
+  ${TEST_UTILS_KV}
   ${TESTS}/client_test_perf.cpp)
 
 target_link_libraries(client_perf_test
@@ -285,4 +299,16 @@ add_executable(encryption_test
 
 target_link_libraries(encryption_test
   PRIVATE anchorserver)
+
+
+if(REAL_KV)
+  add_executable(kv_bench
+    ${TEST_UTILS}
+    ${TEST_UTILS_KV}
+    ${SRC}/client_server_common.cpp
+    ${TESTS}/kv_bench_main.cpp)
+
+  target_link_libraries(kv_bench PRIVATE pthread ssl crypto)
+endif()
+
 
