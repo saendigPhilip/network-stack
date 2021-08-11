@@ -241,10 +241,9 @@ void issue_requests(Client *client) {
         // }
         uint64_t key = wl_params.keys[i];
         anchor_tr_::Trace_cmd::operation op = wl_params.op[i];
-        size_t len;
         switch (op) {
             case anchor_tr_::Trace_cmd::Get:
-                if (0 > client->get((void *) key, KEY_SIZE,
+                if (0 > client->get((void *) &key, KEY_SIZE,
                     (void *) value_buf, nullptr,
                     get_callback, nullptr,
                     LOOP_ITERATIONS)) {
@@ -252,7 +251,7 @@ void issue_requests(Client *client) {
                 }
                 break;
             case anchor_tr_::Trace_cmd::Put:
-                if (0 > client->put((void *) key, KEY_SIZE,
+                if (0 > client->put((void *) &key, KEY_SIZE,
                     (void *) value_buf, VAL_SIZE,
                     put_callback, nullptr, LOOP_ITERATIONS)) {
                     cerr << "put() failed" << endl;
