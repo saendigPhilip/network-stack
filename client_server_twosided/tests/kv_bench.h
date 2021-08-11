@@ -2,7 +2,7 @@
 #include "generate_traces.h"
 
 static constexpr size_t wl_size = 10000000;
-constexpr size_t total_ops{wl_size / 2};
+constexpr size_t total_ops{wl_size / 5};
 static constexpr size_t key_size = sizeof(uint64_t);
 
 
