@@ -11,8 +11,6 @@ static int zipf_exp = 99;
 static int key_number = 100000;
 constexpr int read_ratio{50};
 
-thread_local unsigned char *value_buf;
-thread_local unsigned char *key_buf;
 struct workload_params wl_params = { 0 };
 
 /*
