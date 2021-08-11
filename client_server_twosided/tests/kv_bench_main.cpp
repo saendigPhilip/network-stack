@@ -10,7 +10,6 @@
 #include "test_common.h"
 
 std::atomic_size_t executed_ops{0};
-constexpr size_t total_ops{wl_size / 5};
 constexpr size_t kTHREADS{4};
 std::atomic_size_t countdown{kTHREADS};
 

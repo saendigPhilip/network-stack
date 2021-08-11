@@ -1,13 +1,20 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
-#include <random>
 #include "Client.h"
 #include "test_common.h"
 
-std::atomic_uint8_t countdown;
+#if NO_KV_OVERHEAD
 std::atomic_size_t global_puts{0}, global_gets{0}, global_dels{0};
-uint16_t port = 31851;
+
+#else
+#include "kv_bench.h"
+
+std::atomic_size_t executed_ops{0};
+#endif // NO_KV_OVERHEAD
+
+std::atomic_uint8_t countdown;
+uint16_t port = 31850;
 struct timespec total_time_begin, total_time_end;
 
 thread_local unsigned char *value_buf;
@@ -129,6 +136,7 @@ inline void get_random_key() {
 #endif // NO_KV_OVERHEAD
 }
 
+#if NO_KV_OVERHEAD
 void issue_requests(Client *client) {
     /* We have all start times in an array and pass the pointers
      * to the put/get functions as a tag that is returned in the callback
@@ -218,6 +226,59 @@ void issue_requests(Client *client) {
     local_results->time_all = time_diff(&begin_time, &end_time);
 #endif // MEASURE_LATENCY
 }
+
+#else // NO_KV_OVERHEAD
+
+
+void issue_requests(Client *client) {
+    /* We have all start times in an array and pass the pointers
+     * to the put/get functions as a tag that is returned in the callback
+     */
+
+    for (size_t i = executed_ops; i < total_ops; i = executed_ops++) {
+        // if (i % 100 == 0) {
+        //      printf("%ld\n", i);
+        // }
+        uint64_t key = wl_params.keys[i];
+        anchor_tr_::Trace_cmd::operation op = wl_params.op[i];
+        size_t len;
+        switch (op) {
+            case anchor_tr_::Trace_cmd::Get:
+                if (0 > client->get((void *) key, KEY_SIZE,
+                    (void *) value_buf, nullptr,
+                    get_callback, nullptr,
+                    LOOP_ITERATIONS)) {
+                    cerr << "get() failed" << endl;
+                }
+                break;
+            case anchor_tr_::Trace_cmd::Put:
+                if (0 > client->put((void *) key, KEY_SIZE,
+                    (void *) value_buf, VAL_SIZE,
+                    put_callback, nullptr, LOOP_ITERATIONS)) {
+                    cerr << "put() failed" << endl;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    client->prepare_disconnect();
+    // Run event loop if there are requests without responses
+    for (size_t i = 0; i < 100'000 && (
+        local_results->failed_puts + local_results->successful_puts
+    + local_results->failed_gets + local_results->successful_gets
+    + local_results->failed_deletes + local_results->successful_deletes
+    + local_results->timeouts + local_results->invalid_responses < total_ops);
+    i++) {
+        client->run_event_loop_n_times(LOOP_ITERATIONS);
+    }
+
+    (void) client->disconnect();
+}
+
+
+#endif // NO_KV_OVERHEAD
 
 
 void test_thread(struct test_params *params, struct test_results *results,
@@ -466,6 +527,11 @@ void print_summary_csv(struct test_params *params,
 
 
 void perform_tests(string& server_hostname) {
+    if (0 != workload_scan()) {
+        puts("Failed to scan workload");
+        return;
+    }
+
 
     struct test_params total_params = {
         port,
@@ -520,6 +586,7 @@ void perform_tests(string& server_hostname) {
     print_summary(true, &total_params, &final_results);
     free(params);
     free(results);
+    release_workload();
 }
 
 void print_usage(const char *arg0) {

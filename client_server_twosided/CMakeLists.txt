@@ -177,6 +177,7 @@ target_link_libraries(server_perf_test
 
 add_executable(client_perf_test
   ${TEST_UTILS}
+  ${TEST_UTILS_KV}
   ${TESTS}/client_test_perf.cpp)
 
 target_link_libraries(client_perf_test
