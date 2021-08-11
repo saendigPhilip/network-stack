@@ -507,9 +507,7 @@ void print_summary_csv(struct test_params *params,
     size_t uplink_volume =
         (TOTAL_PUTS + TOTAL_GETS + TOTAL_DELS) * KEY_SIZE +
         TOTAL_PUTS * VAL_SIZE;
-    size_t downlink_volume =
-        (valid_puts + valid_gets + valid_dels) * MIN_MSG_LEN
-        + suc_gets * VAL_SIZE;
+    size_t downlink_volume = suc_gets * VAL_SIZE;
 
     double uplink_speed = static_cast<double>(8000 * uplink_volume) /
         static_cast<double>(result->time_all);
