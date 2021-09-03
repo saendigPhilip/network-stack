@@ -2,23 +2,35 @@
 
 from client_test_utils import run_single_test, close_connection
 
-ops = 100000
-time_ms = 30000
+# Minimum time for the tests to run (should be > 60s)
+time_ms = 80000
 
-print("--------------------"
-      "Testing latency. "
-      "Make sure, the client was compiled with -DMEASURE_LATENCY=on -DMEASURE_THROUGHPUT=off"
-      "--------------------\n")
+# Number of operations after which the client checks if the Minimum time has passed
+ops = 10000000
+
+# Number of server/client threads
+kThreads = 4
+
+# Sizes for which the tests are performed
+test_sizes = [64, 128, 256, 512, 1024, 2048, 4096]
+
+# Name of the output file
+csv_path = "latency.csv"
+
+# print("--------------------"
+#       "Testing latency. "
+#       "Make sure, the client was compiled with -DMEASURE_LATENCY=on -DMEASURE_THROUGHPUT=off"
+#       "--------------------\n")
 
 print("\n\n--------------------"
-      "Testing latency single-threaded"
-      "--------------------\n")
+      "Testing latency with {} threads"
+      "--------------------\n".format(kThreads))
 
-for size in [64, 256, 1024, 2048, 4096]:
-    run_single_test(size, size, max_key_size=0, threads=1,
-                    puts=0, gets=ops, deletes=0,
+for size in test_sizes:
+    run_single_test(key_size=0, value_size=size, max_key_size=0, threads=kThreads,
+                    puts=ops, gets=0, deletes=0,
                     iterations=1,
-                    csv_path="latency_single.csv", min_time=time_ms)
+                    csv_path=csv_path, min_time=time_ms)
 
 # print("--------------------"
 #       "Finished testing latency single-threaded. "

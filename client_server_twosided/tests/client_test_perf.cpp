@@ -474,7 +474,7 @@ void print_summary_csv(struct test_params *params,
     double ratio =
         static_cast<double>(valid_puts) / static_cast<double>(TOTAL_PUTS);
     double latency =
-        static_cast<double>(put_time) / static_cast<double>(valid_puts);
+        static_cast<double>(put_time) / static_cast<double>(valid_puts * 1000);
     // Total Puts, Valid Puts, Ratio, Failed Puts, Put Latency
     fprintf(csv, "%zu,%zu,%f,%zu,%f,",
         TOTAL_PUTS, valid_puts, ratio, result->failed_puts, latency);
@@ -482,7 +482,7 @@ void print_summary_csv(struct test_params *params,
     ratio =
         static_cast<double>(valid_gets) / static_cast<double>(TOTAL_GETS);
     latency =
-        static_cast<double>(get_time) / static_cast<double>(valid_gets);
+        static_cast<double>(get_time) / static_cast<double>(valid_gets * 1000);
     // Total Gets, Valid Gets, Ratio, Failed Gets, Get Latency
     fprintf(csv, "%zu,%zu,%f,%zu,%f,",
         TOTAL_GETS, valid_gets, ratio, result->failed_gets, latency);
@@ -490,7 +490,7 @@ void print_summary_csv(struct test_params *params,
     ratio =
         static_cast<double>(valid_dels) / static_cast<double>(TOTAL_DELS);
     latency =
-        static_cast<double>(del_time) / static_cast<double>(valid_dels);
+        static_cast<double>(del_time) / static_cast<double>(valid_dels * 1000);
     // Total Dels, Valid Dels, Ratio, Failed Dels, Del Latency
     fprintf(csv, "%zu,%zu,%f,%zu,%f,,",
         TOTAL_DELS, valid_dels, ratio, result->failed_deletes, latency);

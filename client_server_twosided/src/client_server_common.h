@@ -30,11 +30,7 @@ using namespace std;
 
 static constexpr uint8_t DEFAULT_REQ_TYPE = 2;
 
-#if MEASURE_LATENCY
-static constexpr size_t MAX_PENDING_REQUESTS = 1;
-#else
 static constexpr size_t MAX_PENDING_REQUESTS = 1024;
-#endif
 
 static constexpr uint8_t RDMA_GET = 0b00;
 static constexpr uint8_t RDMA_PUT = 0b01;
